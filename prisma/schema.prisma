@@ -1,0 +1,71 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String?
+  lastName  String?
+  role      Role     @default(USER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  shifts    Shift[]
+  payrolls  Payroll[]
+
+  @@map("users")
+}
+
+model Shift {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startTime   DateTime
+  endTime     DateTime?
+  hoursWorked Float?
+  rate        Float
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  payroll Payroll?
+
+  @@map("shifts")
+}
+
+model Payroll {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shiftId   String   @unique
+  shift     Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  totalPay  Float
+  periodStart DateTime
+  periodEnd   DateTime
+  status    PayrollStatus @default(PENDING)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("payrolls")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum PayrollStatus {
+  PENDING
+  PROCESSED
+  PAID
+}
