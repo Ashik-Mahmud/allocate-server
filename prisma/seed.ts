@@ -2,6 +2,11 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { CryptoUtils } from '../src/modules/auth/utils/crypto';
+import * as dotenv from 'dotenv';
+import path from 'path';
+
+// Explicitly point to the .env file to be safe
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg(new Pool({ connectionString: process.env.DATABASE_URL })),
