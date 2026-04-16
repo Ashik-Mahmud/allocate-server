@@ -30,8 +30,8 @@ async function bootstrap() {
 
   // Swagger
   const config = new DocumentBuilder()
-    .setTitle('Shift Payroll Calculator API')
-    .setDescription('API for managing shifts and payroll calculations')
+    .setTitle('Allowcate ')
+    .setDescription('API for managing a Smart Resource-Sharing Hub for Co-working Spaces or Shared Offices API')
     .setVersion('1.0')
     .addTag('shifts')
     .addTag('payroll')

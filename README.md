@@ -1,4 +1,4 @@
-# Shift Payroll Calculator
+# Allowcate a Smart Resource-Sharing Hub for Co-working Spaces or Shared Offices
 
 A modern, enterprise-grade backend API for managing employee shifts and payroll calculations built with NestJS, Prisma, and PostgreSQL.
 
