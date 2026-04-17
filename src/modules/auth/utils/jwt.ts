@@ -1,4 +1,4 @@
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
 import { env } from '../../../shared/config/env';
 
 export interface JWTPayload {
@@ -20,7 +20,6 @@ export class JWTUtils {
 
     const accessOptions = { expiresIn: env.JWT_ACCESS_EXPIRES_IN };
     const refreshOptions = { expiresIn: env.JWT_REFRESH_EXPIRES_IN };
-
     const accessToken = jwt.sign(accessPayload, env.JWT_SECRET as string, accessOptions as any);
 
     const refreshToken = jwt.sign(refreshPayload, env.JWT_SECRET as string, refreshOptions as any);

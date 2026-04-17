@@ -43,7 +43,7 @@ async function main() {
        email: 'user@example.com',
        password: userPassword,
        name: 'John Doe',
-       role: 'CLIENT ',
+       role: 'CLIENT',
        id: '2',
        createdAt: new Date(),
        updatedAt: new Date(),

@@ -19,11 +19,9 @@ export class AuthService {
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
     }
-
   
     // Hash password
     const hashedPassword = await CryptoUtils.hashPassword(dto.password);
-  console.log(hashedPassword, 'hashedPassword')
 
     // Create user
     const user = await this.prisma.user.create({
@@ -39,6 +37,7 @@ export class AuthService {
       },
     })
 
+  
     // Generate tokens
     const tokens = JWTUtils.generateTokens({
       userId: user.id,
@@ -46,6 +45,7 @@ export class AuthService {
       role: user.role,
     });
 
+    console.log(tokens, 'tokens')
     return { ...tokens, user };
   }
 
