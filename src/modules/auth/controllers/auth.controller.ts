@@ -40,6 +40,7 @@ export class AuthController {
     return ResponseUtil.success(result, res);
   }
 
+  // Refresh token
   @Post('refresh-token')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Refresh access token' })
@@ -50,6 +51,7 @@ export class AuthController {
     return ResponseUtil.success(result, res);
   }
 
+  // Forgot password
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   @ApiResponse({ status: 200, description: 'Password reset link sent successfully' })

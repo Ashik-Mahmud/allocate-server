@@ -1,7 +1,7 @@
 import { Injectable, NestMiddleware, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import { JWTUtils, JWTPayload } from '../utils/jwt';
-import { PrismaService } from '../../../prisma/prisma.service';
+import { PrismaService } from 'src/modules/prisma/prisma.service';
 
 declare global {
   namespace Express {
