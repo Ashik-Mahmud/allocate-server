@@ -28,10 +28,10 @@ export class AuthGuard implements CanActivate {
       // Verify user still exists and is active
       const user = await this.prisma.user.findUnique({
         where: { id: payload.userId },
-        select: { id: true, email: true, role: true, isActive: true },
+        select: { id: true, email: true, role: true, deletedAt: true },
       });
 
-      if (!user || !user.isActive) {
+      if (!user || !user.deletedAt) {
         throw new UnauthorizedException('User not found or inactive');
       }
 

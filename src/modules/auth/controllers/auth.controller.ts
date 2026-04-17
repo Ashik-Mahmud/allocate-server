@@ -1,21 +1,22 @@
 import { Controller, Post, Body, Get, UseGuards, Req, Res, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiProperty, ApiBody, ApiOkResponse } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { AuthService } from '../services/auth.service';
 import { RegisterDto, LoginDto, RefreshTokenDto, ChangePasswordDto } from '../dto/AuthDTO';
 import { AuthGuard } from '../guards/auth.guard';
 import { ResponseUtil } from '../../../utils/responses';
+import { AUTH_SUCCESS_MESSAGES } from '../constant/auth.constant';
+import { ResponseMessage } from 'src/shared/decorators/response_message.decorator';
+import {ZodResponse} from "nestjs-zod"
 
-@ApiTags('auth')
+@ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Post('register')
-  @ApiOperation({ summary: 'Register a new user' })
-  @ApiResponse({ status: 201, description: 'User registered successfully' })
-  @ApiResponse({ status: 409, description: 'User already exists' })
-  async register(@Body() dto: RegisterDto, @Res() res: Response) {
+  @ResponseMessage(AUTH_SUCCESS_MESSAGES.register)
+  async register(@Body() dto: RegisterDto, res: Response) {
     const result = await this.authService.register(dto);
     return ResponseUtil.success(result, res);
   }

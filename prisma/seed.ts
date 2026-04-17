@@ -20,12 +20,17 @@ async function main() {
     where: { email: 'admin@example.com' },
     update: {},
     create: {
+      name: 'Admin User',
       email: 'admin@example.com',
       password: hashedPassword,
-      firstName: 'Admin',
-      lastName: 'User',
       role: 'ADMIN',
-    },
+      id: '1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      last_login: new Date(),
+      personal_credits: 0,
+      
+    } as any,
   });
 
   // Create sample user
@@ -34,13 +39,17 @@ async function main() {
   const user = await prisma.user.upsert({
     where: { email: 'user@example.com' },
     update: {},
-    create: {
-      email: 'user@example.com',
-      password: userPassword,
-      firstName: 'John',
-      lastName: 'Doe',
-      role: 'USER',
-    },
+     create: {
+       email: 'user@example.com',
+       password: userPassword,
+       name: 'John Doe',
+       role: 'CLIENT ',
+       id: '2',
+       createdAt: new Date(),
+       updatedAt: new Date(),
+       last_login: new Date(),
+       personal_credits: 0
+     } as any
   });
 
   console.log('Seed data created:', { admin, user });

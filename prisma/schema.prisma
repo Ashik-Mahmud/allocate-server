@@ -10,62 +10,69 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  firstName String?
-  lastName  String?
-  role      Role     @default(USER)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  shifts    Shift[]
-  payrolls  Payroll[]
+  id               String         @id @default(cuid())
+  email            String         @unique
+  password         String
+  name             String
+  photo            String?
+  personal_credits Int?
+  role             Role           @default(CLIENT)
+  last_login       DateTime?
+  deletedAt        DateTime?
+  createdAt        DateTime?      @default(now())
+  updatedAt        DateTime?      @updatedAt
+  org_id           String
+  organization     Organizations? @relation(fields: [org_id], references: [id], onDelete: Cascade)
 
   @@map("users")
 }
 
-model Shift {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  startTime   DateTime
-  endTime     DateTime?
-  hoursWorked Float?
-  rate        Float
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model Organizations {
+  id          String    @id @default(cuid())
+  name        String
+  org_type    String?
+  tagline     String?
+  photo       String?
+  plan_type   PlanType  @default(FREE)
+  credit_pool Int       @default(0)
+  is_active   Boolean   @default(true)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  users       User[]
 
-  payroll Payroll?
-
-  @@map("shifts")
+  @@map("organizations")
 }
 
-model Payroll {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  shiftId   String   @unique
-  shift     Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
-  totalPay  Float
-  periodStart DateTime
-  periodEnd   DateTime
-  status    PayrollStatus @default(PENDING)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model Resources {
+  id           String    @id @default(cuid())
+  org_id       String
+  name         String
+  type         String
+  metadata     Json
+  is_available Boolean
+  is_active    Boolean
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  @@map("payrolls")
+  @@map("resources")
 }
 
 enum Role {
-  USER
+  STAFF
   ADMIN
+  CLIENT
 }
 
 enum PayrollStatus {
   PENDING
   PROCESSED
   PAID
+}
+
+enum PlanType {
+  FREE
+  PRO
+  ENTERPRISE
 }

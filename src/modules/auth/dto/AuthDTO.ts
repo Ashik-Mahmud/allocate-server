@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { passwordSchema, emailSchema } from '../../../utils/validators';
+import { createZodDto } from 'nestjs-zod';
 
 export const LoginSchema = z.object({
   email: emailSchema,
@@ -9,8 +10,10 @@ export const LoginSchema = z.object({
 export const RegisterSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
+  name: z.string().min(1, 'Name is required'),
+  // optional fields
+  //photo: z.string().optional(),
+
 });
 
 export const RefreshTokenSchema = z.object({
@@ -22,7 +25,8 @@ export const ChangePasswordSchema = z.object({
   newPassword: passwordSchema,
 });
 
-export type LoginDto = z.infer<typeof LoginSchema>;
-export type RegisterDto = z.infer<typeof RegisterSchema>;
-export type RefreshTokenDto = z.infer<typeof RefreshTokenSchema>;
-export type ChangePasswordDto = z.infer<typeof ChangePasswordSchema>;
+
+export class RegisterDto extends createZodDto(RegisterSchema) {} 
+export class LoginDto extends createZodDto(RegisterSchema) {}
+export class RefreshTokenDto extends createZodDto(RefreshTokenSchema) {}
+export class ChangePasswordDto extends createZodDto(ChangePasswordSchema) {}

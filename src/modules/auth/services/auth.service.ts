@@ -10,6 +10,7 @@ export class AuthService {
   constructor(private prisma: PrismaService) {}
 
   async register(dto: RegisterDto): Promise<TokenPair & { user: Partial<User> }> {
+   
     // Check if user already exists
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email },
@@ -19,26 +20,24 @@ export class AuthService {
       throw new ConflictException('User with this email already exists');
     }
 
+  
     // Hash password
     const hashedPassword = await CryptoUtils.hashPassword(dto.password);
+  console.log(hashedPassword, 'hashedPassword')
 
     // Create user
     const user = await this.prisma.user.create({
-      data: {
+      data:{
+        name: dto.name,
         email: dto.email,
         password: hashedPassword,
-        firstName: dto.firstName,
-        lastName: dto.lastName,
       },
       select: {
         id: true,
         email: true,
-        firstName: true,
-        lastName: true,
         role: true,
-        createdAt: true,
       },
-    });
+    })
 
     // Generate tokens
     const tokens = JWTUtils.generateTokens({
@@ -56,7 +55,7 @@ export class AuthService {
       where: { email: dto.email },
     });
 
-    if (!user || !user.isActive) {
+    if (!user || user.deletedAt) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -78,8 +77,7 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
+        name: user.name,
         role: user.role,
       },
     };
@@ -96,10 +94,10 @@ export class AuthService {
       // Verify user still exists
       const user = await this.prisma.user.findUnique({
         where: { id: payload.userId },
-        select: { id: true, isActive: true },
+        select: { id: true, deletedAt: true },
       });
 
-      if (!user || !user.isActive) {
+      if (!user || user.deletedAt) {
         throw new UnauthorizedException('User not found or inactive');
       }
 
@@ -149,8 +147,7 @@ export class AuthService {
       select: {
         id: true,
         email: true,
-        firstName: true,
-        lastName: true,
+        name: true,
         role: true,
         createdAt: true,
         updatedAt: true,

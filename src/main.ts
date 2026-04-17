@@ -5,7 +5,7 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { ErrorHandler } from './middleware/error-handler.middleware';
 import { RequestLogger } from './middleware/request-logger.middleware';
-
+import { cleanupOpenApiDoc, ZodValidationPipe } from 'nestjs-zod';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
@@ -19,25 +19,28 @@ async function bootstrap() {
   // Global pipes
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,
+       whitelist: false,
       forbidNonWhitelisted: true,
       transform: true,
     }),
   );
 
   // Global filters
+  app.useGlobalPipes(new ZodValidationPipe());
   app.useGlobalFilters(new ErrorHandler());
+  
 
   // Swagger
   const config = new DocumentBuilder()
-    .setTitle('Allowcate ')
+    .setTitle('Allocate ')
     .setDescription('API for managing a Smart Resource-Sharing Hub for Co-working Spaces or Shared Offices API')
     .setVersion('1.0')
-    .addTag('shifts')
-    .addTag('payroll')
-    .addTag('auth')
+    .addTag('Auth')
+    .addBearerAuth()
     .build();
-  const document = SwaggerModule.createDocument(app, config);
+  const rawDocument = SwaggerModule.createDocument(app, config);
+  const document = cleanupOpenApiDoc(rawDocument);
+
   SwaggerModule.setup('api', app, document);
 
   const port = process.env.PORT ?? 3000;

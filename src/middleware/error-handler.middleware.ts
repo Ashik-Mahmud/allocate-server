@@ -1,35 +1,42 @@
-import { Catch, ExceptionFilter, ArgumentsHost, HttpStatus } from '@nestjs/common';
-import { Response } from 'express';
-import { AppError } from '../errors/AppError';
+import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
+import { ZodValidationException } from 'nestjs-zod';
 
 @Catch()
 export class ErrorHandler implements ExceptionFilter {
-  catch(exception: unknown, host: ArgumentsHost) {
+  catch(exception: any, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
-    const response = ctx.getResponse<Response>();
+    const response = ctx.getResponse();
+    const request = ctx.getRequest();
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let message = 'Internal server error';
-    let error = 'InternalServerError';
+    let message: any = 'Internal Server Error';
+    let code = exception.constructor.name;
 
-    if (exception instanceof AppError) {
-      status = exception.statusCode;
-      message = exception.message;
-      error = exception.constructor.name;
-    } else if (exception instanceof Error) {
-      message = exception.message;
-      error = exception.constructor.name;
+    // 1. Handle Zod Specific Errors
+    if (exception instanceof ZodValidationException) {
+      status = HttpStatus.BAD_REQUEST;
+      // This extracts the actual field errors (e.g., "email is invalid")
+      message = (exception as any)?.getZodError().errors.map(err => ({
+        path: err.path.join('.'),
+        message: err.message
+      }));
+    } 
+    // 2. Handle standard NestJS HttpExceptions (like Unauthorized, NotFound)
+    else if (exception instanceof HttpException) {
+      status = exception.getStatus();
+      const res = exception.getResponse();
+      message = typeof res === 'object' ? (res as any).message : res;
     }
 
-    const errorResponse = {
+    // Return the structure you want
+    response.status(status).json({
       success: false,
       error: {
-        code: error,
-        message,
+        code: code,
+        message: message,
       },
       timestamp: new Date().toISOString(),
-    };
-
-    response.status(status).json(errorResponse);
+      path: request.url,
+    });
   }
 }
