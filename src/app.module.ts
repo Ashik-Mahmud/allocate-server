@@ -8,6 +8,7 @@ import { APP_PIPE } from '@nestjs/core';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './modules/prisma/prisma.module';
+import { OrganizationModule } from './modules/organization/organization.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { PrismaModule } from './modules/prisma/prisma.module';
     }),
     PrismaModule,
     AuthModule,
+    OrganizationModule,
     ThrottlerModule.forRoot({
       throttlers: [
         {
@@ -24,6 +26,7 @@ import { PrismaModule } from './modules/prisma/prisma.module';
         },
       ],
     }),
+    OrganizationModule,
   ],
   controllers: [AppController],
   providers: [

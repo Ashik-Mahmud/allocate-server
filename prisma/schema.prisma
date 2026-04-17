@@ -7,17 +7,17 @@ datasource db {
 }
 
 model User {
-  id               String        @id @default(cuid())
-  email            String        @unique
+  id               String         @id @default(cuid())
+  email            String         @unique
   password         String
   name             String
   photo            String?
   personal_credits Int?
-  role             Role          @default(CLIENT)
+  role             Role           @default(CLIENT)
   last_login       DateTime?
   deletedAt        DateTime?
-  createdAt        DateTime?     @default(now())
-  updatedAt        DateTime?     @updatedAt
+  createdAt        DateTime?      @default(now())
+  updatedAt        DateTime?      @updatedAt
   org_id           String?
   organization     Organizations? @relation(fields: [org_id], references: [id], onDelete: Cascade)
 
@@ -30,12 +30,12 @@ model Organizations {
   org_type    String?
   tagline     String?
   photo       String?
-  plan_type   PlanType  @default(FREE)
-  credit_pool Int       @default(0)
-  is_active   Boolean   @default(true)
+  plan_type   PlanType? @default(FREE)
+  credit_pool Int?      @default(100)
+  is_active   Boolean?  @default(true)
   deletedAt   DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime? @default(now())
+  updatedAt   DateTime? @updatedAt
   users       User[]
 
   @@map("organizations")
