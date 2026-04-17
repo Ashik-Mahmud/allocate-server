@@ -9,7 +9,10 @@ import { cleanupOpenApiDoc, ZodValidationPipe } from 'nestjs-zod';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+
+
   // Security
+  (app as any).set('trust proxy', 1);
   app.use(helmet());
   app.enableCors();
 
@@ -19,7 +22,7 @@ async function bootstrap() {
   // Global pipes
   app.useGlobalPipes(
     new ValidationPipe({
-       whitelist: false,
+      whitelist: false,
       forbidNonWhitelisted: true,
       transform: true,
     }),
@@ -28,7 +31,7 @@ async function bootstrap() {
   // Global filters
   app.useGlobalPipes(new ZodValidationPipe());
   app.useGlobalFilters(new ErrorHandler());
-  
+
 
   // Swagger
   const config = new DocumentBuilder()

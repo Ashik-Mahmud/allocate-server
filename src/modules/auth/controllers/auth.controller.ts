@@ -8,12 +8,17 @@ import { ResponseUtil } from '../../../utils/responses';
 import { AUTH_SUCCESS_MESSAGES } from '../constant/auth.constant';
 import { ResponseMessage } from 'src/shared/decorators/response_message.decorator';
 import {ZodResponse} from "nestjs-zod"
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) { }
 
+  @UseGuards(ThrottlerGuard)
+  @Throttle({
+    default:{limit: 3, ttl: 60000}
+  })
   @Post('register')
   @ResponseMessage(AUTH_SUCCESS_MESSAGES.register)
   async register(@Body() dto: RegisterDto, res: Response) {

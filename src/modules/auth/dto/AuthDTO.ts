@@ -10,7 +10,7 @@ export const LoginSchema = z.object({
 export const RegisterSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
-  name: z.string().min(1, 'Name is required'),
+  name: z.string().min(1, 'Name is required').default('Client Name'),
   // optional fields
   //photo: z.string().optional(),
 
