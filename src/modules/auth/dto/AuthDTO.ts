@@ -25,8 +25,13 @@ export const ChangePasswordSchema = z.object({
   newPassword: passwordSchema,
 });
 
+export const ForgotPasswordSchema = z.object({
+  email: emailSchema
+})
+
 
 export class RegisterDto extends createZodDto(RegisterSchema) {} 
-export class LoginDto extends createZodDto(RegisterSchema) {}
+export class LoginDto extends createZodDto(LoginSchema) {}
 export class RefreshTokenDto extends createZodDto(RefreshTokenSchema) {}
 export class ChangePasswordDto extends createZodDto(ChangePasswordSchema) {}
+export class ForgotPasswordDto extends createZodDto(ForgotPasswordSchema) {}

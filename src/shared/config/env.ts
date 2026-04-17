@@ -10,6 +10,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string(),
   JWT_SECRET: z.string(),
   JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
+  RESET_PASSWORD_TOKEN_ENPIRES_IN: z.string().default('2m'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
 });
 

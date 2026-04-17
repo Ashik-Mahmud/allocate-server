@@ -21,6 +21,8 @@ export class AuthGuard implements CanActivate {
     try {
       const payload = JWTUtils.verifyToken(token);
 
+   
+
       if (payload.type !== 'access') {
         throw new UnauthorizedException('Invalid token type');
       }
@@ -31,7 +33,7 @@ export class AuthGuard implements CanActivate {
         select: { id: true, email: true, role: true, deletedAt: true },
       });
 
-      if (!user || !user.deletedAt) {
+      if (!user || user.deletedAt) {
         throw new UnauthorizedException('User not found or inactive');
       }
 
@@ -42,8 +44,8 @@ export class AuthGuard implements CanActivate {
       };
 
       return true;
-    } catch (error) {
-      throw new UnauthorizedException('Invalid token');
+    } catch (error: any) {
+      throw new UnauthorizedException(error.message);
     }
   }
 }

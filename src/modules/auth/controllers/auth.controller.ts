@@ -2,7 +2,7 @@ import { Controller, Post, Body, Get, UseGuards, Req, Res, HttpCode, HttpStatus 
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiProperty, ApiBody, ApiOkResponse } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { AuthService } from '../services/auth.service';
-import { RegisterDto, LoginDto, RefreshTokenDto, ChangePasswordDto } from '../dto/AuthDTO';
+import { RegisterDto, LoginDto, RefreshTokenDto, ChangePasswordDto, ForgotPasswordDto } from '../dto/AuthDTO';
 import { AuthGuard } from '../guards/auth.guard';
 import { ResponseUtil } from '../../../utils/responses';
 import { AUTH_SUCCESS_MESSAGES } from '../constant/auth.constant';
@@ -26,12 +26,16 @@ export class AuthController {
     return ResponseUtil.success(result, res);
   }
 
+   @UseGuards(ThrottlerGuard)
+  @Throttle({
+    default:{limit: 3, ttl: 60000}
+  })
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Login user' })
   @ApiResponse({ status: 200, description: 'Login successful' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   async login(@Body() dto: LoginDto, @Res() res: Response) {
+   
     const result = await this.authService.login(dto);
     return ResponseUtil.success(result, res);
   }
@@ -44,6 +48,15 @@ export class AuthController {
   async refreshToken(@Body() dto: RefreshTokenDto, @Res() res: Response) {
     const result = await this.authService.refreshToken(dto.refreshToken);
     return ResponseUtil.success(result, res);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiResponse({ status: 200, description: 'Password reset link sent successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async forgotPassword(@Body() dto: ForgotPasswordDto, @Res() res: Response) {
+    await this.authService.forgotPassword(dto.email);
+    return ResponseUtil.success({ message: 'Password reset link sent successfully' }, res);
   }
 
   @Post('change-password')

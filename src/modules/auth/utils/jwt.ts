@@ -8,6 +8,12 @@ export interface JWTPayload {
   type: 'access' | 'refresh';
 }
 
+export interface JWTPayloadReset {
+  userId: string;
+  email: string;
+  type: 'reset';
+}
+
 export interface TokenPair {
   accessToken: string;
   refreshToken: string;
@@ -27,6 +33,14 @@ export class JWTUtils {
     return { accessToken, refreshToken };
   }
 
+  // generate reset token
+  static generateResetToken(payload: Omit<JWTPayloadReset, 'type'>): string {
+    const resetPayload: JWTPayloadReset = { ...payload, type: 'reset' };
+    const resetOptions = { expiresIn: env.RESET_PASSWORD_TOKEN_ENPIRES_IN };
+    const resetToken = jwt.sign(resetPayload, env.JWT_SECRET as string, resetOptions as any);
+    return resetToken;
+  }
+
   static verifyToken(token: string): JWTPayload {
     try {
       const decoded = jwt.verify(token, env.JWT_SECRET) as JWTPayload;
@@ -35,6 +49,7 @@ export class JWTUtils {
       throw new Error('Invalid token');
     }
   }
+
 
   static extractToken(authHeader: string | undefined): string | null {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

@@ -7,10 +7,10 @@ import { User } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async register(dto: RegisterDto): Promise<TokenPair & { user: Partial<User> }> {
-   
+
     // Check if user already exists
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email },
@@ -19,13 +19,13 @@ export class AuthService {
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
     }
-  
+
     // Hash password
     const hashedPassword = await CryptoUtils.hashPassword(dto.password);
 
     // Create user
     const user = await this.prisma.user.create({
-      data:{
+      data: {
         name: dto.name,
         email: dto.email,
         password: hashedPassword,
@@ -37,7 +37,7 @@ export class AuthService {
       },
     })
 
-  
+
     // Generate tokens
     const tokens = JWTUtils.generateTokens({
       userId: user.id,
@@ -49,6 +49,7 @@ export class AuthService {
     return { ...tokens, user };
   }
 
+  // login
   async login(dto: LoginDto): Promise<TokenPair & { user: Partial<User> }> {
     // Find user
     const user = await this.prisma.user.findUnique({
@@ -83,6 +84,7 @@ export class AuthService {
     };
   }
 
+  // refresh token
   async refreshToken(refreshToken: string): Promise<TokenPair> {
     try {
       const payload = JWTUtils.verifyToken(refreshToken);
@@ -111,7 +113,29 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
+  //forgotPassword
+  async forgotPassword(email: string): Promise<void> {
+    // Find user
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
 
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Generate reset token
+    const resetToken = JWTUtils.generateResetToken({
+      userId: user.id,
+      email: user.email,
+    });
+
+    // TODO: Send email with reset token
+
+
+    // Send email with reset token
+  }
+  //change password
   async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
