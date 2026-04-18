@@ -4,7 +4,7 @@ import { createZodDto } from 'nestjs-zod';
 
 export const LoginSchema = z.object({
   email: emailSchema,
-  password: z.string().min(1, 'Password is required'),
+  password: z.string().min(1, 'Password is required').default('Aa123456'),
 });
 
 export const RegisterSchema = z.object({

@@ -1,0 +1,7 @@
+-- AlterTable
+ALTER TABLE "organizations" ALTER COLUMN "plan_type" DROP NOT NULL,
+ALTER COLUMN "credit_pool" DROP NOT NULL,
+ALTER COLUMN "credit_pool" SET DEFAULT 100,
+ALTER COLUMN "is_active" DROP NOT NULL,
+ALTER COLUMN "createdAt" DROP NOT NULL,
+ALTER COLUMN "updatedAt" DROP NOT NULL;

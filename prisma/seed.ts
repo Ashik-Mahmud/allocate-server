@@ -16,40 +16,49 @@ async function main() {
   // Create admin user
   const hashedPassword = await CryptoUtils.hashPassword('Admin123!');
 
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@example.com' },
-    update: {},
-    create: {
-      name: 'Admin User',
-      email: 'admin@example.com',
-      password: hashedPassword,
-      role: 'ADMIN',
-      id: '1',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      last_login: new Date(),
-      personal_credits: 0,
-      
-    } as any,
+  const admin = await prisma.$transaction(async (prisma) => {
+    const organization = await prisma.organizations.create({
+      data: { name: 'Admin Organization', plan_type: 'FREE' },
+    });
+
+    return prisma.user.create({
+      data: {
+        email: 'admin@example.com',
+        password: hashedPassword,
+        name: 'Admin User',
+        role: 'ADMIN',
+        org_id: organization.id,
+        id: '1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        last_login: new Date(),
+        personal_credits: 0
+      } as any
+    });
   });
 
   // Create sample user
   const userPassword = await CryptoUtils.hashPassword('User123!');
 
-  const user = await prisma.user.upsert({
-    where: { email: 'user@example.com' },
-    update: {},
-     create: {
-       email: 'user@example.com',
-       password: userPassword,
-       name: 'John Doe',
-       role: 'CLIENT',
-       id: '2',
-       createdAt: new Date(),
-       updatedAt: new Date(),
-       last_login: new Date(),
-       personal_credits: 0
-     } as any
+  const user = await prisma.$transaction(async (prisma) => {
+    const organization = await prisma.organizations.create({
+      data: { name: 'Sample Organization', plan_type: 'FREE' },
+    });
+
+    return prisma.user.create({
+      data: {
+        email: 'user@example.com',
+        password: userPassword,
+        name: 'John Doe',
+        role: 'CLIENT',
+        org_id: organization.id,
+        id: '2',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        last_login: new Date(),
+        personal_credits: 0
+      } as any
+    });
   });
 
   console.log('Seed data created:', { admin, user });

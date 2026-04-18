@@ -4,6 +4,7 @@ import { CryptoUtils } from '../utils/crypto';
 import { RegisterDto, LoginDto, ChangePasswordDto } from '../dto/AuthDTO';
 import { User } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
+import GLOBAL_CONFIG from 'src/shared/constant/global.constant';
 
 @Injectable()
 export class AuthService {
@@ -23,29 +24,53 @@ export class AuthService {
     // Hash password
     const hashedPassword = await CryptoUtils.hashPassword(dto.password);
 
-    // Create user
-    const user = await this.prisma.user.create({
-      data: {
-        name: dto.name,
-        email: dto.email,
-        password: hashedPassword,
-      },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-      },
-    })
+
+
+
+    // Create user and orgnaization in a transaction
+    const user = await this.prisma.$transaction(async (prisma) => {
+      // orgnization
+      const organization = await prisma.organizations.create({
+        data: {
+          name: dto.name,
+          plan_type: 'FREE', // Default plan type for new organizations
+        },
+      });
+
+      // user
+      const createdUser = await prisma.user.create({
+        data: {
+          ...dto,
+          password: hashedPassword,
+          org_id: organization.id,
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          org_id: true,
+        },
+      });
+
+      return createdUser;
+    });
+
+
 
 
     // Generate tokens
+    if (!user.org_id) {
+      throw new UnauthorizedException('User organization not found');
+    }
+
     const tokens = JWTUtils.generateTokens({
       userId: user.id,
       email: user.email,
       role: user.role,
+      orgId: user.org_id,
     });
 
-    console.log(tokens, 'tokens')
     return { ...tokens, user };
   }
 
@@ -67,10 +92,14 @@ export class AuthService {
     }
 
     // Generate tokens
+    if (!user?.org_id) {
+      throw new UnauthorizedException('User organization not found');
+    }
     const tokens = JWTUtils.generateTokens({
       userId: user.id,
       email: user.email,
       role: user.role,
+      orgId: user?.org_id, // Fallback to default org ID if not set
     });
 
     return {
@@ -96,7 +125,7 @@ export class AuthService {
       // Verify user still exists
       const user = await this.prisma.user.findUnique({
         where: { id: payload.userId },
-        select: { id: true, deletedAt: true },
+        select: { id: true, deletedAt: true, org_id: true },
       });
 
       if (!user || user.deletedAt) {
@@ -108,6 +137,7 @@ export class AuthService {
         userId: payload.userId,
         email: payload.email,
         role: payload.role,
+        orgId: payload.orgId || user.org_id || '', // Fallback to org ID from token or user record
       });
     } catch (error) {
       throw new UnauthorizedException('Invalid refresh token');

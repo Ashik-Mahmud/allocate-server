@@ -20,40 +20,220 @@ model User {
   updatedAt        DateTime?      @updatedAt
   org_id           String?
   organization     Organizations? @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  notifications    Notification[]
+  bookings         Bookings[]
 
+  @@index([email, org_id])
   @@map("users")
 }
 
 model Organizations {
-  id          String    @id @default(cuid())
-  name        String
-  org_type    String?
-  tagline     String?
-  photo       String?
-  plan_type   PlanType? @default(FREE)
-  credit_pool Int?      @default(100)
-  is_active   Boolean?  @default(true)
-  deletedAt   DateTime?
-  createdAt   DateTime? @default(now())
-  updatedAt   DateTime? @updatedAt
-  users       User[]
+  id             String          @id @default(cuid())
+  name           String
+  slug           String?          @unique
+  org_type       String?
+  tagline        String?
+  photo          String?
+  plan_type      PlanType?       @default(FREE)
+  credit_pool    Int?            @default(100)
+  is_active      Boolean?        @default(true)
+  timezone       String          @default("UTC")
+  address        Json?
+  business_email String?
+  deletedAt      DateTime?
+  createdAt      DateTime?       @default(now())
+  updatedAt      DateTime?       @updatedAt
+  users          User[]
+  resources      Resources[]
+  subscriptions  Subscription[]
+  resourcesRules ResourcesRule[]
+  notifications  Notification[]
+  invitations    Invitation[]
+  bookings       Bookings[]
 
+  @@index([name, id])
   @@map("organizations")
 }
 
 model Resources {
-  id           String    @id @default(cuid())
-  org_id       String
-  name         String
-  type         String
-  metadata     Json
-  is_available Boolean
-  is_active    Boolean
-  deletedAt    DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id             String          @id @default(cuid())
+  org_id         String
+  organization   Organizations   @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  name           String
+  type           String
+  hourly_rate    Decimal
+  metadata       Json
+  is_available   Boolean
+  is_active      Boolean
+  is_maintenance Boolean
+  deletedAt      DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  resourcesRules ResourcesRule[]
+  bookings       Bookings[]
 
+  @@index([org_id])
   @@map("resources")
+}
+
+model ResourcesRule {
+  id                String        @id @default(cuid())
+  org_id            String
+  organization      Organizations @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  resource_id       String
+  resource          Resources     @relation(fields: [resource_id], references: [id], onDelete: Cascade)
+  max_booking_hours Int?
+  min_lead_time     Int?
+  buffer_time       Int?
+  deletedAt         DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([org_id, resource_id])
+  @@map("resources_rules")
+}
+
+model Subscription {
+  id             String        @id @default(cuid())
+  org_id         String
+  organization   Organizations @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  plan_name      PlanType
+  start_date     DateTime
+  end_date       DateTime
+  payment_status PaymentStatus
+  is_active      Boolean       @default(true)
+  deletedAt      DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([org_id])
+  @@map("subscriptions")
+}
+
+model Bookings {
+  id                  String    @id @default(cuid())
+  user_id             String
+  resource_id         String
+  org_id              String
+  start_time          DateTime
+  end_time            DateTime
+  total_cost          Decimal
+  status              String
+  cancellation_reason String?
+  deletedAt           DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  user               User                @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  organization       Organizations       @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  resource           Resources           @relation(fields: [resource_id], references: [id], onDelete: Cascade)
+  creditTransactions CreditTransaction[]
+
+  @@index([user_id, resource_id, org_id])
+  @@map("bookings")
+}
+
+model CreditTransaction {
+  id              String          @id @default(uuid())
+  org_id          String
+  user_id         String
+  amount          Decimal // +50.00 or -10.00
+  type            TransactionType // Enum: SPEND, ALLOCATE, REFUND
+  previousBalance Decimal
+  currentBalance  Decimal
+  referenceId     String? // Booking ID or Top-up ID
+  description     String?
+  performedBy     String // Admin ID who performed the action
+  createdAt       DateTime        @default(now())
+
+  booking Bookings? @relation(fields: [referenceId], references: [id], onDelete: Cascade)
+
+  @@index([org_id, user_id])
+  @@map("credit_transactions")
+}
+
+model Notification {
+  id           String           @id @default(cuid())
+  user_id      String
+  org_id       String
+  type         NotificationType
+  title        String
+  message      String
+  is_read      Boolean          @default(false)
+  reference_id String?
+
+  user         User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  organization Organizations @relation(fields: [org_id], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([user_id, org_id])
+  @@map("notifications")
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  org_id    String
+  user_id   String
+  action    String
+  ipAddress String
+  userAgent String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([org_id, user_id])
+  @@map("activity_logs")
+}
+
+model SystemSettings {
+  id                   String   @id @default("global_config")
+  maintenance_mode     Boolean  @default(false)
+  global_alert_message Json?
+  support_email        String?
+  features_flags       Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+model Invitation {
+  id        String           @id @default(cuid())
+  org_id    String
+  email     String
+  role      Role             @default(CLIENT)
+  token     String           @unique
+  expiresAt DateTime
+  status    InvitationStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  organization Organizations @relation(fields: [org_id], references: [id], onDelete: Cascade)
+
+  @@index([org_id, email])
+  @@map("invitations")
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+enum NotificationType {
+  BOOKING_CONFIRMED
+  BOOKING_REJECTED
+  CREDIT_RECEIVED
+  SYSTEM_ALERT
+  INVITATION_RECEIVED
+}
+
+enum TransactionType {
+  SPEND
+  ALLOCATE
+  REFUND
 }
 
 enum Role {
@@ -62,10 +242,11 @@ enum Role {
   CLIENT
 }
 
-enum PayrollStatus {
+enum PaymentStatus {
   PENDING
-  PROCESSED
-  PAID
+  COMPLETED
+  FAILED
+  OVERDUE
 }
 
 enum PlanType {
