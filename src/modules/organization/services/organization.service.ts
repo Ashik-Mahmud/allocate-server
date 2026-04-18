@@ -32,17 +32,12 @@ export class OrganizationService {
 
         // Create organization
         return await this.prisma.$transaction(async (prisma) => {
-            const planType: PlanType =
-                createOrganizationDto.plan_type &&
-                    Object.values(PlanType).includes(createOrganizationDto.plan_type as PlanType)
-                    ? (createOrganizationDto.plan_type as PlanType)
-                    : PlanType.FREE;
+
 
             const organization = await prisma.organizations.create({
                 data: {
                     ...createOrganizationDto,
-                    plan_type: planType, // Default to FREE if not provided or invalid
-                    
+
                 },
             });
 
