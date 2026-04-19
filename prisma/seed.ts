@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PaymentStatus, PlanType, PrismaClient, Role } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { CryptoUtils } from '../src/modules/auth/utils/crypto';
@@ -14,20 +14,16 @@ const prisma = new PrismaClient({
 
 async function main() {
   // Create admin user
-  const hashedPassword = await CryptoUtils.hashPassword('Admin123!');
+  const hashedPassword = await CryptoUtils.hashPassword('Aa123456');
 
   const admin = await prisma.$transaction(async (prisma) => {
-    const organization = await prisma.organizations.create({
-      data: { name: 'Admin Organization', plan_type: 'FREE' },
-    });
 
     return prisma.user.create({
       data: {
         email: 'admin@example.com',
         password: hashedPassword,
         name: 'Admin User',
-        role: 'ADMIN',
-        org_id: organization.id,
+        role: Role.ADMIN,
         id: '1',
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -38,19 +34,20 @@ async function main() {
   });
 
   // Create sample user
-  const userPassword = await CryptoUtils.hashPassword('User123!');
+  const userPassword = await CryptoUtils.hashPassword('Aa123456');
 
   const user = await prisma.$transaction(async (prisma) => {
     const organization = await prisma.organizations.create({
-      data: { name: 'Sample Organization', plan_type: 'FREE' },
+      data: { name: 'Sample Organization', plan_type: PlanType.FREE },
     });
 
-    return prisma.user.create({
+
+    const user = await prisma.user.create({
       data: {
         email: 'user@example.com',
         password: userPassword,
         name: 'John Doe',
-        role: 'CLIENT',
+        role: Role.ORG_ADMIN,
         org_id: organization.id,
         id: '2',
         createdAt: new Date(),
@@ -59,6 +56,18 @@ async function main() {
         personal_credits: 0
       } as any
     });
+
+    await prisma.subscription.create({
+      data: {
+        org_id: organization.id,
+        plan_name: PlanType.FREE,
+        start_date: new Date(),
+        end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        payment_status: PaymentStatus.COMPLETED,
+      },
+    });
+
+    return user;
   });
 
   console.log('Seed data created:', { admin, user });

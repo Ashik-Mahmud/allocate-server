@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "subscriptions" ALTER COLUMN "end_date" DROP NOT NULL,
+ALTER COLUMN "payment_status" DROP NOT NULL,
+ALTER COLUMN "is_active" DROP NOT NULL,
+ALTER COLUMN "createdAt" DROP NOT NULL,
+ALTER COLUMN "updatedAt" DROP NOT NULL;

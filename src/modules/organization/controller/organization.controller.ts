@@ -55,7 +55,7 @@ export class OrganizationController {
      */
 
     @UseGuards(RolesGuard)
-    @Roles(Role.ADMIN, Role.CLIENT)
+    @Roles(Role.ORG_ADMIN, Role.ADMIN,)
     @Patch('profile/:id')
     @ApiQuery({ name: 'clientId', required: true, description: 'Select Organization Client' })
     @ApiOperation({ summary: 'Update organization details (Admin and Client)' })
@@ -82,15 +82,16 @@ export class OrganizationController {
      */
 
     @UseGuards(RolesGuard)
-    @Roles(Role.ADMIN, Role.CLIENT)
+    @Roles(Role.ORG_ADMIN, Role.ADMIN)
     @Get('profile/:id')
+    @ApiQuery({ name: 'clientId', required: false, description: 'Select Organization Client' })
     @ApiOperation({ summary: 'Get organization details (Client)' })
     @ApiResponse({ status: 200, description: 'Organization details fetched successfully' })
     @ApiResponse({ status: 401, description: 'Unauthorized - Token required' })
     @ApiResponse({ status: 403, description: 'Forbidden - Client role required' })
-    async getOrganization(@CurrentUser() currentUser: User, @Param('id') id: string,  clientId: string, @Res() res: Response) {
+    async getOrganization(@CurrentUser() currentUser: User, @Param('id') id: string, @Query('clientId') clientId: string, @Res() res: Response) {
         // Logic to get an organization will go here
-        const organization = await this.service.getOrganization(currentUser, id, res);
+        const organization = await this.service.getOrganization(currentUser, id, clientId, res);
         return ResponseUtil.success(organization, res);
     }
 

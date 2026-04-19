@@ -13,7 +13,7 @@ model User {
   name             String
   photo            String?
   personal_credits Int?
-  role             Role           @default(CLIENT)
+  role             Role           @default(ORG_ADMIN)
   last_login       DateTime?
   deletedAt        DateTime?
   createdAt        DateTime?      @default(now())
@@ -30,7 +30,7 @@ model User {
 model Organizations {
   id             String          @id @default(cuid())
   name           String
-  slug           String?          @unique
+  slug           String?         @unique
   org_type       String?
   tagline        String?
   photo          String?
@@ -40,6 +40,7 @@ model Organizations {
   timezone       String          @default("UTC")
   address        Json?
   business_email String?
+  needUpdateOrg  Boolean?        @default(true)
   deletedAt      DateTime?
   createdAt      DateTime?       @default(now())
   updatedAt      DateTime?       @updatedAt
@@ -94,17 +95,17 @@ model ResourcesRule {
 }
 
 model Subscription {
-  id             String        @id @default(cuid())
+  id             String         @id @default(cuid())
   org_id         String
-  organization   Organizations @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  organization   Organizations  @relation(fields: [org_id], references: [id], onDelete: Cascade)
   plan_name      PlanType
   start_date     DateTime
-  end_date       DateTime
-  payment_status PaymentStatus
-  is_active      Boolean       @default(true)
+  end_date       DateTime?
+  payment_status PaymentStatus?
+  is_active      Boolean?       @default(true)
   deletedAt      DateTime?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  createdAt      DateTime?      @default(now())
+  updatedAt      DateTime?      @updatedAt
 
   @@index([org_id])
   @@map("subscriptions")
@@ -202,7 +203,7 @@ model Invitation {
   id        String           @id @default(cuid())
   org_id    String
   email     String
-  role      Role             @default(CLIENT)
+  role      Role             @default(ORG_ADMIN)
   token     String           @unique
   expiresAt DateTime
   status    InvitationStatus @default(PENDING)
@@ -239,7 +240,7 @@ enum TransactionType {
 enum Role {
   STAFF
   ADMIN
-  CLIENT
+  ORG_ADMIN
 }
 
 enum PaymentStatus {

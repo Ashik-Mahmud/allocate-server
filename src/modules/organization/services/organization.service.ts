@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
-import { PlanType, User } from '@prisma/client';
+import { PlanType, Role, User } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import { CreateOrganizationDto, UpdateOrganizationDto } from '../dto/organization.dto';
 import { Response } from 'express';
@@ -83,23 +83,29 @@ export class OrganizationService {
 
 
     // Get organization details
-    async getOrganization(currentUser: User, id: string, response: Response) {
-        // check if clientId is provided in the query parameters
-        if (!currentUser || !currentUser.org_id) {
-            throw new Error(`Client with ID ${currentUser?.id} not found`);
+    async getOrganization(currentUser: User, id: string, clientId: string, response: Response) {
+
+
+        const targetedUserId = clientId || currentUser.id;
+
+        // If the user is an admin, they can access any organization
+        if (currentUser.role === Role.ADMIN) {
+            // Admin can access any organization
+            const organization = await this.prisma.organizations.findUnique({
+                where: { id, deletedAt: null },
+            });
+
+            if (!organization) throw new Error('Organization not found');
+            return organization;
         }
 
-        if (currentUser.org_id !== id) {
-            throw new ForbiddenException('Client is not authorized to access this organization');
-        }
-
-        // Get organization
+        // Get organization for CLient
         const organization = await this.prisma.organizations.findFirst({
             where: {
                 id: id,
                 users: {
                     some: {
-                        id: currentUser.id,
+                        id: targetedUserId,
                     },
                 },
             },
@@ -107,7 +113,7 @@ export class OrganizationService {
         });
 
         if (!organization) {
-            throw new Error('Organization not found');
+            throw new Error('Organization not found or access denied');
         }
 
         return organization;

@@ -2,7 +2,7 @@ import { Injectable, ConflictException, UnauthorizedException, NotFoundException
 import { JWTUtils, TokenPair } from '../utils/jwt';
 import { CryptoUtils } from '../utils/crypto';
 import { RegisterDto, LoginDto, ChangePasswordDto } from '../dto/AuthDTO';
-import { User } from '@prisma/client';
+import { PaymentStatus, PlanType, User } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import GLOBAL_CONFIG from 'src/shared/constant/global.constant';
 
@@ -24,16 +24,13 @@ export class AuthService {
     // Hash password
     const hashedPassword = await CryptoUtils.hashPassword(dto.password);
 
-
-
-
     // Create user and orgnaization in a transaction
     const user = await this.prisma.$transaction(async (prisma) => {
       // orgnization
       const organization = await prisma.organizations.create({
         data: {
           name: dto.name,
-          plan_type: 'FREE', // Default plan type for new organizations
+          plan_type: PlanType.FREE, // Default plan type for new organizations
         },
       });
 
@@ -53,8 +50,22 @@ export class AuthService {
         },
       });
 
+      // subscription creation for new organization
+      await prisma.subscription.create({
+        data: {
+          org_id: organization.id,
+          plan_name: PlanType.FREE,
+          start_date: new Date(),
+          end_date: new Date(Date.now() + GLOBAL_CONFIG.FREE_PLAN_DURATION_DAYS * 24 * 60 * 60 * 1000), // Free plan duration
+          payment_status: PaymentStatus.COMPLETED
+        },
+      });
+
+
       return createdUser;
     });
+
+
 
 
 

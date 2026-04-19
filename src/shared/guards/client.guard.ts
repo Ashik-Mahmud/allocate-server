@@ -4,9 +4,10 @@ import {
   ExecutionContext,
   ForbiddenException,
 } from '@nestjs/common';
+import { Role } from '@prisma/client';
 
 /**
- * ClientGuard - Restricts access to CLIENT role only
+ * ClientGuard - Restricts access to ORG_ADMIN role only
  * Used for client-specific actions like organization management
  * 
  * @decorator @UseGuards(ClientGuard)
@@ -22,8 +23,8 @@ export class ClientGuard implements CanActivate {
       throw new ForbiddenException('User not authenticated');
     }
 
-    if (user.role !== 'CLIENT') {
-      throw new ForbiddenException('This action is only available for clients');
+    if (user.role !== Role.ORG_ADMIN) {
+      throw new ForbiddenException('This action is only available for ORG_ADMIN users');
     }
 
     return true;
