@@ -65,11 +65,6 @@ export class AuthService {
       return createdUser;
     });
 
-
-
-
-
-
     // Generate tokens
     if (!user.org_id) {
       throw new UnauthorizedException('User organization not found');
@@ -86,10 +81,11 @@ export class AuthService {
   }
 
   // login
-  async login(dto: LoginDto): Promise<TokenPair & { user: Partial<User> }> {
+  async login(dto: LoginDto): Promise<TokenPair & { user: Partial<User> & { needUpdateOrg: boolean } }> {
     // Find user
     const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
+      where: { email: dto.email, },
+      include: { organization: true }
     });
 
     if (!user || user.deletedAt) {
@@ -102,15 +98,29 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Generate tokens
-    if (!user?.org_id) {
+    // Check if organization exists 
+    if (!user?.org_id && !user?.organization) {
       throw new UnauthorizedException('User organization not found');
     }
+
+    // Check if organization is active
+    if (!user?.organization?.is_active) {
+      throw new UnauthorizedException('Your organization has been suspended. Please contact support.');
+    }
+
+
+    // Update last login time
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { last_login: new Date() },
+    });
+
+
     const tokens = JWTUtils.generateTokens({
       userId: user.id,
       email: user.email,
       role: user.role,
-      orgId: user?.org_id, // Fallback to default org ID if not set
+      orgId: user?.organization?.id || user?.org_id || '', // Fallback to default org ID if not set
     });
 
     return {
@@ -120,6 +130,8 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
+        org_id: user.org_id,
+        needUpdateOrg: user?.organization?.needUpdateOrg || false,
       },
     };
   }
