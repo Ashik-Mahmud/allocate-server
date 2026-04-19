@@ -10,6 +10,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { OrganizationModule } from './modules/organization/organization.module';
 import { ResourcesModule } from './modules/resources/resources.module';
+import { BookingsModule } from './modules/bookings/bookings.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { ResourcesModule } from './modules/resources/resources.module';
       ],
     }),
     OrganizationModule,
+    BookingsModule,
   ],
   controllers: [AppController],
   providers: [

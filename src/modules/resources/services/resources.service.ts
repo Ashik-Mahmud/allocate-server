@@ -205,6 +205,7 @@ export class ResourcesService {
                     orderBy,
                     skip: skip,
                     take: limit,
+
                     select: {
                         id: true,
                         org_id: true,
@@ -217,12 +218,26 @@ export class ResourcesService {
                         metadata: true,
                         createdAt: true,
                         updatedAt: true,
+
+                        organization: {
+                            select: {
+                                id: true,
+                                name: true,
+                                org_type: true,
+                                credit_pool: true,
+                                photo: true,
+                                slug: true,
+                            },
+                        },
+
+                        resourcesRules: true, // Include resource rules in the response
                         _count: {
                             select: {
                                 bookings: true,
                             },
                         },
                     },
+
                 }),
             ]);
             return {
@@ -257,6 +272,7 @@ export class ResourcesService {
                             name: true,
                         },
                     },
+                    resourcesRules: true, // Include resource rules in the response
                     _count: {
                         select: {
                             bookings: true,
