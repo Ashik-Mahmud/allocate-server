@@ -9,6 +9,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { OrganizationModule } from './modules/organization/organization.module';
+import { ResourcesModule } from './modules/resources/resources.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { OrganizationModule } from './modules/organization/organization.module';
     PrismaModule,
     AuthModule,
     OrganizationModule,
+    ResourcesModule,
     ThrottlerModule.forRoot({
       throttlers: [
         {
