@@ -115,3 +115,22 @@ export const isSubscriptionLimitReached = (
 
     return currentCount >= limitValue;
 };
+
+// For FREE user we will not allow to access of FEATURES that are behind subscription wall
+export const isFeatureAccessible = (
+    currentPlan: PlanType | null | undefined,
+    feature: keyof typeof SUBSCRIPTION_LIMITS[PlanType]['FEATURES'],
+): boolean => {
+    const limits = getSubscriptionLimits(currentPlan);
+    return limits.FEATURES[feature] ?? false;
+}
+
+// BUILT A error Message for subscription access
+export const buildSubscriptionAccessErrorMessage = (
+    currentPlan: PlanType | null | undefined,
+    allowedPlans: PlanType[],
+) => {
+    const allowedPlanLabel = formatSubscriptionPlans(allowedPlans);
+    const currentPlanLabel = getSubscriptionPlanLabel(currentPlan);
+    return `Your current plan is ${currentPlanLabel}. This action requires ${allowedPlanLabel}. Please upgrade to continue.`;
+}

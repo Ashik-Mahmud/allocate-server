@@ -27,3 +27,18 @@ export const UpdateResourceSchema = z.object({
 
 export class CreateResourceDto extends createZodDto(CreateResourceSchema) { }
 export class UpdateResourceDto extends createZodDto(UpdateResourceSchema) { }
+
+// DTO for listing/searching resources with pagination
+export const ListResourcesQuerySchema = z.object({
+    page: z.coerce.number().min(1, 'Page must be at least 1').default(1),
+    limit: z.coerce.number().min(1, 'Limit must be at least 1').max(100, 'Limit cannot exceed 100').default(10),
+    search: z.string().optional(),
+    type: z.string().optional(),
+    is_available: z.enum(['true', 'false']).optional().transform((val) => val === 'true' ? true : val === 'false' ? false : undefined),
+    is_active: z.enum(['true', 'false']).optional().transform((val) => val === 'true' ? true : val === 'false' ? false : undefined),
+    is_maintenance: z.enum(['true', 'false']).optional().transform((val) => val === 'true' ? true : val === 'false' ? false : undefined),
+    sortBy: z.enum(['name', 'hourly_rate', 'createdAt']).default('createdAt'),
+    sortOrder: z.enum(['asc', 'desc']).default('desc'),
+});
+
+export class ListResourcesQueryDto extends createZodDto(ListResourcesQuerySchema) { }

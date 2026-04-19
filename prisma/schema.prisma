@@ -81,7 +81,7 @@ model ResourcesRule {
   id                String        @id @default(cuid())
   org_id            String
   organization      Organizations @relation(fields: [org_id], references: [id], onDelete: Cascade)
-  resource_id       String
+  resource_id       String        @unique
   resource          Resources     @relation(fields: [resource_id], references: [id], onDelete: Cascade)
   max_booking_hours Int?
   min_lead_time     Int?

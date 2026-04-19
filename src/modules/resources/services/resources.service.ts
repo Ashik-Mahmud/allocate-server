@@ -1,7 +1,7 @@
 import { ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
-import { PlanType, User } from '@prisma/client';
+import { PlanType, Prisma, User } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
-import { CreateResourceDto, UpdateResourceDto } from '../dto/resources.dto';
+import { CreateResourceDto, UpdateResourceDto, ListResourcesQueryDto } from '../dto/resources.dto';
 import {
     buildSubscriptionLimitMessage,
     isSubscriptionLimitReached,
@@ -158,4 +158,123 @@ export class ResourcesService {
             throw new InternalServerErrorException('Something went wrong during delete');
         }
     }
+
+    // Service method to list resources with pagination, search, and filtering
+    async listResources(user: User, query: ListResourcesQueryDto) {
+        const { page, limit, search, type, is_available, is_active, is_maintenance, sortBy, sortOrder } = query;
+        if (!user.org_id) {
+            throw new ForbiddenException('User organization not found');
+        }
+
+        const organization = await this.prisma.organizations.findUnique({
+            where: { id: user.org_id },
+            select: { id: true, is_active: true },
+        });
+        // Check if organization is active before allowing access to resources
+        if (!organization || organization.is_active === false) {
+            throw new ForbiddenException('Your organization is not active. Please contact support.');
+        }
+
+        // Build where conditions
+        const whereConditions: Prisma.ResourcesWhereInput = {
+            org_id: user.org_id,
+            deletedAt: null,
+            ...(type && { type: { contains: type, mode: 'insensitive' } }),
+            ...(is_available !== undefined && { is_available }),
+            ...(is_active !== undefined && { is_active }),
+            ...(is_maintenance !== undefined && { is_maintenance }),
+            ...(search && {
+                OR: [
+                    { name: { contains: search, mode: 'insensitive' } },
+                    { type: { contains: search, mode: 'insensitive' } },
+                ],
+            }),
+        };
+
+        // Build sort order
+        const orderBy = { [sortBy || 'createdAt']: sortOrder || 'desc' };
+
+        // Calculate pagination
+        const skip = (page - 1) * query.limit;
+
+        try {
+            const [total, resources] = await Promise.all([
+                this.prisma.resources.count({ where: whereConditions }),
+                this.prisma.resources.findMany({
+                    where: whereConditions,
+                    orderBy,
+                    skip: skip,
+                    take: limit,
+                    select: {
+                        id: true,
+                        org_id: true,
+                        name: true,
+                        type: true,
+                        hourly_rate: true,
+                        is_available: true,
+                        is_active: true,
+                        is_maintenance: true,
+                        metadata: true,
+                        createdAt: true,
+                        updatedAt: true,
+                        _count: {
+                            select: {
+                                bookings: true,
+                            },
+                        },
+                    },
+                }),
+            ]);
+            return {
+                items: resources,
+                total,
+                page: query.page,
+                limit: query.limit,
+                totalPages: Math.ceil(total / query.limit),
+            };
+        } catch (error) {
+            throw new InternalServerErrorException('Failed to fetch resources');
+        }
+    }
+
+    // Service method to get a single resource by ID
+    async getResourceById(user: User, resourceId: string) {
+        if (!user.org_id) {
+            throw new ForbiddenException('User organization not found');
+        }
+
+        try {
+            const resource = await this.prisma.resources.findFirst({
+                where: {
+                    id: resourceId,
+                    org_id: user.org_id,
+                    deletedAt: null,
+                },
+                include: {
+                    organization: {
+                        select: {
+                            id: true,
+                            name: true,
+                        },
+                    },
+                    _count: {
+                        select: {
+                            bookings: true,
+                        },
+                    },
+                },
+            });
+
+            if (!resource) {
+                throw new NotFoundException('Resource not found in your organization');
+            }
+
+            return resource;
+        } catch (error) {
+            if (error instanceof NotFoundException) throw error;
+            throw new InternalServerErrorException('Failed to fetch resource');
+        }
+    }
+
+
 }
