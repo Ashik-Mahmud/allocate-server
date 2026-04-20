@@ -1,7 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { User } from '@prisma/client';
+import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { Bookings, BookingStatus, Prisma, Role, User } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import { CreateBookingDto } from '../dto/bookings.dto';
+import GLOBAL_CONFIG from 'src/shared/constant/global.constant';
+import { MyBookingsHistoryQueryDto } from '../dto/booking-filter.dto';
 
 @Injectable()
 export class BookingsService {
@@ -57,6 +59,27 @@ export class BookingsService {
             }
 
             if (rules) {
+                // check if weekend is allow 
+                const bookingDay = startTime.toLocaleDateString('en-US', { weekday: 'long' });
+                const isWeekend = GLOBAL_CONFIG.WEEKEND_DAYS.includes(bookingDay);
+                if (isWeekend && !rules.is_weekend_allowed) {
+                    throw new BadRequestException('Booking is not allowed on weekends');
+                }
+
+                // check if booking is only allowed on specific days
+                const availableDays = rules.availableDays as string[];
+                if (availableDays && availableDays?.length > 0) {
+                    if (!availableDays.includes(bookingDay)) {
+                        throw new BadRequestException(`Resource is only available on: ${availableDays.join(', ')}`);
+                    }
+                }
+
+                // check if the booking duration exceeds maximum allowed hours
+                if (rules.max_booking_hours && hoursDifference > rules.max_booking_hours) {
+                    throw new BadRequestException(`Maximum booking allowed is ${rules.max_booking_hours} hours`);
+                }
+
+                // Check if the booking duration exceeds maximum allowed hours
                 if (rules.max_booking_hours && hoursDifference > rules.max_booking_hours) {
                     throw new BadRequestException(`Maximum booking allowed is ${rules.max_booking_hours} hours`);
                 }
@@ -141,5 +164,213 @@ export class BookingsService {
         });
 
     }
+
+
+    // Update booking status (e.g. cancel a booking)
+    async updateBookingStatus(user: User, bookingId: string, status: BookingStatus): Promise<Bookings | void> {
+
+        const booking = await this.prisma.bookings.findUnique({
+            where: { id: bookingId, deletedAt: null },
+            include: { user: true }
+        });
+
+        if (!booking) throw new NotFoundException('Booking not found');
+
+        if (user.role === Role.STAFF && booking.user_id !== user.id) {
+            throw new BadRequestException('You can only update your own bookings');
+        }
+        return await this.prisma.$transaction(async (tx) => {
+            let finalStatus = status;
+            // If booking is pending and org admin is confirming it, then we will check if user has enough credits to confirm this booking and then deduct the credits from user
+            if (booking.status === BookingStatus.PENDING && status === BookingStatus.CONFIRMED) {
+                if (user?.role !== Role.ORG_ADMIN) {
+                    throw new BadRequestException('Only organization admins can confirm bookings');
+                }
+
+                // Check if user has enough credits to confirm this booking
+                if (Number(booking.user.personal_credits || 0) < Number(booking.total_cost || 0) || Number(booking.user.personal_credits || 0) < 0) {
+                    throw new BadRequestException('Not enough credits to confirm this booking');
+                }
+
+                // Deduct credits from user
+                await this.prisma.user.update({
+                    where: { id: booking.user_id },
+                    data: {
+                        personal_credits: {
+                            decrement: booking?.total_cost || 0,
+                        },
+                    },
+                });
+            }
+
+            if (booking.status === BookingStatus.CONFIRMED && status === BookingStatus.CANCELLED) {
+                const now = new Date();
+                const startTime = new Date(booking.start_time);
+                const timeDifference = startTime.getTime() - now.getTime();
+                const refundPolicyMs = Number(GLOBAL_CONFIG.REFUND_POLICY.FULL_REFUND_IF_CANCELLED_WITHIN) * 60 * 60 * 1000;
+
+                let refundMultiplier = 1; // Default Full Refund for ADMIN REJECT
+
+                if (status === BookingStatus.CANCELLED && timeDifference < refundPolicyMs) {
+                    refundMultiplier = GLOBAL_CONFIG.REFUND_POLICY.PARTIAL_REFUND_IF_CANCELLED_WITHIN;
+                }
+
+                const refundAmount = (Number(booking.total_cost) || 0) * refundMultiplier;
+
+                if (refundAmount > 0) {
+                    await tx.user.update({
+                        where: { id: booking.user_id },
+                        data: { personal_credits: { increment: refundAmount } }
+                    });
+                }
+            }
+
+            return await tx.bookings.update({
+                where: { id: bookingId },
+                data: {
+                    status: finalStatus,
+                },
+            });
+        });
+
+    }
+
+
+    // Get available slots for a resource within a date 
+    async getAvailableSlotsByResource(resourceId: string, date: string) {
+        const resource = await this.prisma.resources.findUnique({
+            where: { id: resourceId },
+            include: { resourcesRules: true }
+        });
+
+        if (!resource) {
+            throw new NotFoundException('Resource not found');
+        }
+
+        const rules = resource.resourcesRules[0];
+
+        const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date(date));
+        const availableDays = (rules?.availableDays as string[]) || [];
+        // check if resource is available on the requested day
+        if (availableDays?.length > 0 && !availableDays?.includes(dayName)) {
+            throw new BadRequestException(`Resource is not available on ${dayName}`);
+        }
+
+        // opening and closing hours
+        const workStart = new Date(`${date}T${String(rules.opening_hours || 9).padStart(2, '0')}:00:00.000Z`);
+        const workEnd = new Date(`${date}T${String(rules.closing_hours || 18).padStart(2, '0')}:00:00.000Z`);
+
+        // slot duration and buffer time in milliseconds
+        const slotDurationMs = (rules.slot_duration_min || 30) * 60 * 1000;
+        const bufferMs = (rules.buffer_time || 0) * 60 * 60 * 1000;
+
+        const bookings = await this.prisma.bookings.findMany({
+            where: {
+                resource_id: resourceId,
+                status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING] },
+                deletedAt: null,
+                start_time: { gte: workStart, lte: workEnd }
+            }
+        });
+
+        const availableSlots: { start: string; end: string }[] = [];
+        let currentSlotStart = new Date(workStart);
+        const now = new Date();
+
+        while (currentSlotStart.getTime() + slotDurationMs <= workEnd.getTime()) {
+            const currentSlotEnd = new Date(currentSlotStart.getTime() + slotDurationMs);
+
+            // Deducted past slots and slots that are in buffer time from now to avoid showing them as available
+            if (currentSlotStart < now) {
+                currentSlotStart = currentSlotEnd;
+                continue;
+            }
+
+            // Overlap and buffer check
+            const isOccupied = bookings.some(booking => {
+                const bStart = new Date(booking.start_time.getTime() - bufferMs);
+                const bEnd = new Date(booking.end_time.getTime() + bufferMs);
+                return (currentSlotStart < bEnd && currentSlotEnd > bStart);
+            });
+
+            if (!isOccupied) {
+                availableSlots.push({
+                    start: currentSlotStart.toISOString(),
+                    end: currentSlotEnd.toISOString()
+                });
+            }
+
+            currentSlotStart = currentSlotEnd;
+        }
+
+        return {
+            date,
+            day: dayName,
+            availableSlots
+        };
+    }
+
+
+    // Get my booking history
+    async getMyBookingsHistory(user: User, query: MyBookingsHistoryQueryDto) {
+
+        const page = Number(query.page) || 1;
+        const limit = Number(query.limit) || 10;
+        const skip = (page - 1) * limit;
+        const { status, search } = query;
+
+        if (!user.org_id) {
+            throw new BadRequestException('User does not belong to any organization');
+        }
+
+        const whereClause: Prisma.BookingsWhereInput = {
+            user_id: user.id,
+            deletedAt: null,
+            org_id: user?.org_id,
+            ...(status ? { status } : {}),
+            ...(search ? {
+                resource: {
+                    OR: [
+                        { name: { contains: search, mode: 'insensitive' } },
+                        { type: { contains: search, mode: 'insensitive' } },
+                    ],
+                },
+            } : {}),
+        };
+
+        try {
+            const [bookings, total] = await this.prisma.$transaction([
+                this.prisma.bookings.findMany({
+                    where: whereClause,
+                    include: {
+                        resource: true,
+                    },
+                    orderBy: { createdAt: 'desc' },
+                    skip,
+                    take: limit,
+                }),
+                this.prisma.bookings.count({ where: whereClause }),
+            ]);
+            return {
+                items: bookings,
+                total,
+                page: page,
+                limit: limit,
+                totalPages: Math.ceil(total / limit),
+            };
+
+        } catch (error: any) {
+            throw new InternalServerErrorException(error?.message || 'Error fetching booking history');
+        }
+
+
+    }
+
+
+
+
+
+
+
 
 }

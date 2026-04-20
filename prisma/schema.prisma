@@ -79,17 +79,22 @@ model Resources {
 }
 
 model ResourcesRule {
-  id                String        @id @default(cuid())
-  org_id            String
-  organization      Organizations @relation(fields: [org_id], references: [id], onDelete: Cascade)
-  resource_id       String        @unique
-  resource          Resources     @relation(fields: [resource_id], references: [id], onDelete: Cascade)
-  max_booking_hours Int?
-  min_lead_time     Int?
-  buffer_time       Int?
-  deletedAt         DateTime?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  id                 String        @id @default(cuid())
+  org_id             String
+  organization       Organizations @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  resource_id        String        @unique
+  resource           Resources     @relation(fields: [resource_id], references: [id], onDelete: Cascade)
+  max_booking_hours  Float?
+  min_lead_time      Float?
+  buffer_time        Float?
+  opening_hours      Int?          @default(9) // in 24h format, e.g. 9 for 9 AM
+  closing_hours      Int?          @default(18) // in 24h format, e.g. 17
+  slot_duration_min  Int           @default(30) // in minutes
+  is_weekend_allowed Boolean       @default(false)
+  availableDays      Json?         @default("[]") // e.g. ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+  deletedAt          DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
 
   @@index([org_id, resource_id])
   @@map("resources_rules")

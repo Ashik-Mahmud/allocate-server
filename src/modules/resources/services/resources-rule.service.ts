@@ -55,6 +55,11 @@ export class ResourcesRuleService {
                     max_booking_hours: updateResourcesRuleDto.max_booking_hours,
                     min_lead_time: updateResourcesRuleDto.min_lead_time,
                     buffer_time: updateResourcesRuleDto.buffer_time,
+                    opening_hours: updateResourcesRuleDto.opening_hours,
+                    closing_hours: updateResourcesRuleDto.closing_hours,
+                    slot_duration_min: updateResourcesRuleDto.slot_duration_min,
+                    is_weekend_allowed: updateResourcesRuleDto.is_weekend_allowed,
+                    availableDays: updateResourcesRuleDto.availableDays,
                     deletedAt: null,
                 },
                 create: {
@@ -63,6 +68,11 @@ export class ResourcesRuleService {
                     max_booking_hours: updateResourcesRuleDto.max_booking_hours,
                     min_lead_time: updateResourcesRuleDto.min_lead_time,
                     buffer_time: updateResourcesRuleDto.buffer_time,
+                    opening_hours: updateResourcesRuleDto.opening_hours,
+                    closing_hours: updateResourcesRuleDto.closing_hours,
+                    slot_duration_min: updateResourcesRuleDto.slot_duration_min,
+                    is_weekend_allowed: updateResourcesRuleDto.is_weekend_allowed,
+                    availableDays: updateResourcesRuleDto.availableDays,
                 },
             });
             return newRule;
