@@ -8,6 +8,7 @@ import { Role, User } from '@prisma/client';
 import { CurrentUser } from 'src/shared/decorators/user.decorator';
 import { CreateBookingDto } from '../dto/bookings.dto';
 import { ResponseUtil } from 'src/utils/responses';
+import { Response } from 'express';
 
 
 @ApiTags('Bookings')
@@ -37,9 +38,12 @@ export class BookingsController {
     @ApiResponse({ status: 401, description: 'Unauthorized - Token required' })
     @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
     async createBooking(@CurrentUser() currentUser: User, @Body() createBookingDto: CreateBookingDto, @Res() res: Response) {
-        // const result = await this.service.createBooking(currentUser, createBookingDto);
-        // return ResponseUtil.success(result, res);
+        const result = await this.service.createBooking(currentUser, createBookingDto);
+        return ResponseUtil.success(result, res);
     }
+
+
+    
 
 
 }
