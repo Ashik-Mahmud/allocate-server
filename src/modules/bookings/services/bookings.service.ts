@@ -3,7 +3,7 @@ import { Bookings, BookingStatus, Prisma, Role, User } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import { CreateBookingDto } from '../dto/bookings.dto';
 import GLOBAL_CONFIG from 'src/shared/constant/global.constant';
-import { AllBookingsQueryDto, MyBookingsHistoryQueryDto } from '../dto/booking-filter.dto';
+import { AllBookingsQueryDto, BookingStatsQueryDto, MyBookingsHistoryQueryDto } from '../dto/booking-filter.dto';
 import { BookingCalendarData } from '../interfaces/booking.interface';
 
 
@@ -499,6 +499,85 @@ export class BookingsService {
     }
 
 
+    // Get booking statistics (for ORG_ADMIN)
+    async getBookingStats(user: User, query: BookingStatsQueryDto) {
+        const { startDate, endDate, groupBy } = query;
+
+        if (!user.org_id) {
+            throw new BadRequestException('User does not belong to any organization');
+        }
+        const whereClause: Prisma.BookingsWhereInput = {
+            org_id: user.org_id,
+            deletedAt: null,
+            ...(startDate && endDate ? {
+                start_time: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+            } : {}),
+        };
+
+        try {
+            if (groupBy === 'day' || groupBy === 'week' || groupBy === 'month') {
+                const bookings = await this.prisma.bookings.findMany({
+                    where: whereClause,
+                    select: {
+                        start_time: true,
+                        total_cost: true,
+                    },
+                });
+
+                const getWeekKey = (date: Date) => {
+                    const utcDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+                    const dayNum = utcDate.getUTCDay() || 7;
+                    utcDate.setUTCDate(utcDate.getUTCDate() + 4 - dayNum);
+                    const yearStart = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 1));
+                    const weekNo = Math.ceil((((utcDate.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+                    return `${utcDate.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+                };
+
+                const grouped = new Map<string, { count: number; totalCost: number }>();
+
+                for (const booking of bookings) {
+                    const bookingDate = new Date(booking.start_time);
+                    const key =
+                        groupBy === 'day'
+                            ? bookingDate.toISOString().split('T')[0]
+                            : groupBy === 'month'
+                                ? `${bookingDate.getUTCFullYear()}-${String(bookingDate.getUTCMonth() + 1).padStart(2, '0')}`
+                                : getWeekKey(bookingDate);
+
+                    const current = grouped.get(key) || { count: 0, totalCost: 0 };
+                    current.count += 1;
+                    current.totalCost += Number(booking.total_cost || 0);
+                    grouped.set(key, current);
+                }
+
+                return Array.from(grouped.entries()).map(([period, values]) => ({
+                    period,
+                    _count: { id: values.count },
+                    _sum: { total_cost: values.totalCost },
+                }));
+            }
+
+            const allowedGroupByFields: Prisma.BookingsScalarFieldEnum[] = ['resource_id', 'user_id', 'status'];
+            const byField: Prisma.BookingsScalarFieldEnum =
+                groupBy && allowedGroupByFields.includes(groupBy as Prisma.BookingsScalarFieldEnum)
+                    ? (groupBy as Prisma.BookingsScalarFieldEnum)
+                    : 'resource_id';
+
+            const stats = await this.prisma.bookings.groupBy({
+                by: [byField],
+                where: whereClause,
+                _count: { id: true },
+                _sum: { total_cost: true },
+            });
+
+            return stats;
+        } catch (error: any) {
+            throw new InternalServerErrorException(error?.message || 'Error fetching booking statistics');
+        }
+    }
 
 
 

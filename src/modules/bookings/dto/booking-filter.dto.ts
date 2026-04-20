@@ -2,6 +2,7 @@
 // Using Zod for validation
 import { z } from 'zod';
 import { createZodDto } from "nestjs-zod"
+import { start } from 'repl';
 
 // DTO for listing/searching resources with pagination
 export const MyBookingsHistoryQuerySchema = z.object({
@@ -19,6 +20,15 @@ export const AllBookingsQuerySchema = MyBookingsHistoryQuerySchema.extend({
 });
 
 
+export const BookingStatsQuerySchema = z.object({
+    startDate: z.string().optional(), // e.g. "2024-01-01"
+    endDate: z.string().optional(),   // e.g. "2024-01-31"
+    groupBy: z.enum(['day', 'week', 'month']).default('day'),
+});
+
+
+
 
 export class MyBookingsHistoryQueryDto extends createZodDto(MyBookingsHistoryQuerySchema) { }
 export class AllBookingsQueryDto extends createZodDto(AllBookingsQuerySchema) { }
+export class BookingStatsQueryDto extends createZodDto(BookingStatsQuerySchema) { }

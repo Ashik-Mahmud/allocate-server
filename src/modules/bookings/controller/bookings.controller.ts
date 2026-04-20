@@ -9,7 +9,7 @@ import { CurrentUser } from 'src/shared/decorators/user.decorator';
 import { CreateBookingDto } from '../dto/bookings.dto';
 import { ResponseUtil } from 'src/utils/responses';
 import { Response } from 'express';
-import { AllBookingsQueryDto, MyBookingsHistoryQueryDto } from '../dto/booking-filter.dto';
+import { AllBookingsQueryDto, BookingStatsQueryDto, MyBookingsHistoryQueryDto } from '../dto/booking-filter.dto';
 import { SubscriptionPlans } from 'src/shared/decorators/subscription.decorator';
 
 
@@ -164,7 +164,7 @@ export class BookingsController {
      * @returns - Success response with list of bookings or error response
      */
     @UseGuards(RolesGuard, SubscriptionGuard)
-    @SubscriptionPlans( PlanType.PRO, PlanType.ENTERPRISE) // Allow access based on subscription plan
+    @SubscriptionPlans(PlanType.PRO, PlanType.ENTERPRISE) // Allow access based on subscription plan
     @Roles(Role.STAFF, Role.ORG_ADMIN) // Allow both ORG_MEMBER and ORG_ADMIN to view bookings for a resource
     @Get('resource/:resourceId/calendar')
     @ApiOperation({ summary: 'Get all bookings for a resource for a specific month and year (STAFF and ORG_ADMIN roles)' })
@@ -184,6 +184,27 @@ export class BookingsController {
         @Res() res: Response
     ) {
         const result = await this.service.getBookingsByResourceAndMonth(currentUser, resourceId, month, year);
+        return ResponseUtil.success(result, res);
+    }
+
+
+    /**
+     * This controller will get all the admin bookings stats for the organization. It will allow clients to retrieve various statistics related to bookings for their organization, such as total bookings, upcoming bookings, and booking trends over time.
+     * @param currentUser - The current authenticated user
+     * @param res - Response object
+     */
+    @UseGuards(RolesGuard)
+    @Roles(Role.ORG_ADMIN) // Only ORG_ADMIN can view booking stats for the organization
+    @Get('stats')
+    @ApiOperation({ summary: 'Get booking statistics for the organization (ORG_ADMIN role only)' })
+    @ApiResponse({ status: 200, description: 'Booking statistics retrieved successfully' })
+    @ApiResponse({ status: 401, description: 'Unauthorized - Token required' })
+    @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+    @ApiQuery({ name: 'startDate', required: false, type: String, description: 'Start date for statistics (e.g. "2024-01-01")' })
+    @ApiQuery({ name: 'endDate', required: false, type: String, description: 'End date for statistics (e.g. "2024-01-31")' })
+    @ApiQuery({ name: 'groupBy', required: false, enum: ['day', 'week', 'month'], description: 'Group statistics by time period' })
+    async getBookingStats(@CurrentUser() currentUser: User, @Query() query: BookingStatsQueryDto, @Res() res: Response) {
+        const result = await this.service.getBookingStats(currentUser, query);
         return ResponseUtil.success(result, res);
     }
 
