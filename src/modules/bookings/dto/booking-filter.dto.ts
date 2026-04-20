@@ -11,4 +11,14 @@ export const MyBookingsHistoryQuerySchema = z.object({
     status: z.enum(['PENDING', 'CONFIRMED', 'REJECTED', 'CANCELLED', 'COMPLETED']).optional(),
 });
 
+
+export const AllBookingsQuerySchema = MyBookingsHistoryQuerySchema.extend({
+    userId: z.string().optional(),
+    resourceId: z.string().optional(),
+    dateRange: z.string().optional(), // e.g. "2024-01-01 to 2024-01-07"
+});
+
+
+
 export class MyBookingsHistoryQueryDto extends createZodDto(MyBookingsHistoryQuerySchema) { }
+export class AllBookingsQueryDto extends createZodDto(AllBookingsQuerySchema) { }

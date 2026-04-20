@@ -3,7 +3,9 @@ import { Bookings, BookingStatus, Prisma, Role, User } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import { CreateBookingDto } from '../dto/bookings.dto';
 import GLOBAL_CONFIG from 'src/shared/constant/global.constant';
-import { MyBookingsHistoryQueryDto } from '../dto/booking-filter.dto';
+import { AllBookingsQueryDto, MyBookingsHistoryQueryDto } from '../dto/booking-filter.dto';
+import { BookingCalendarData } from '../interfaces/booking.interface';
+
 
 @Injectable()
 export class BookingsService {
@@ -367,6 +369,134 @@ export class BookingsService {
     }
 
 
+    // Get all bookings for organization (for ORG_ADMIN)
+    async getAllBookings(user: User, query: AllBookingsQueryDto) {
+        const page = Number(query.page) || 1;
+        const limit = Number(query.limit) || 10;
+        const skip = (page - 1) * limit;
+        const { status, search, userId, resourceId, dateRange } = query;
+
+        const [startDate, endDate] = dateRange ? dateRange.split(' to ').map(dateStr => new Date(dateStr)) : [null, null];
+        if (startDate && endDate) {
+            endDate.setHours(23, 59, 59, 999);
+        }
+
+        if (!user.org_id) {
+            throw new BadRequestException('User does not belong to any organization');
+        }
+
+        const whereClause: Prisma.BookingsWhereInput = {
+            org_id: user.org_id,
+            deletedAt: null,
+            ...(status ? { status } : {}),
+            ...(search ? {
+                // also allowing search by resources name and type in addition to user name to make it easier for org admins to find specific bookings
+                OR: [
+                    { resource: { name: { contains: search, mode: 'insensitive' } } },
+                    { resource: { type: { contains: search, mode: 'insensitive' } } },
+                    { user: { name: { contains: search, mode: 'insensitive' } } },
+                    { user: { email: { contains: search, mode: 'insensitive' } } },
+                ]
+            } : {}),
+            ...(userId ? { user_id: userId } : {}),
+            ...(resourceId ? { resource_id: resourceId } : {}),
+            ...(startDate && endDate ? {
+                start_time: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+            } : {}),
+        };
+        try {
+            const [bookings, total] = await this.prisma.$transaction([
+                this.prisma.bookings.findMany({
+                    where: whereClause,
+                    include: {
+                        resource: true,
+                        user: { select: { id: true, name: true, email: true, photo: true } },
+                    },
+                    orderBy: { createdAt: 'desc' },
+                    skip,
+                    take: limit,
+                }),
+                this.prisma.bookings.count({ where: whereClause }),
+            ]);
+            return {
+                items: bookings,
+                total,
+                page: page,
+                limit: limit,
+                totalPages: Math.ceil(total / limit),
+            };
+
+        } catch (error: any) {
+            throw new InternalServerErrorException(error?.message || 'Error fetching all bookings');
+        }
+
+    }
+
+    // Get all bookings for a resource for a specific month and year (for ORG_ADMIN and STAFF)
+    async getBookingsByResourceAndMonth(user: User, resourceId: string, month: number, year: number) {
+
+        if (!user.org_id) {
+            throw new BadRequestException('User does not belong to any organization');
+        }
+
+        const startDate = new Date(year, month - 1, 1);
+        const endDate = new Date(year, month, 0);
+
+        // check if resource exists and belongs to user's organization
+        const resource = await this.prisma.resources.findUnique({
+            where: { id: resourceId },
+            include: { resourcesRules: true }
+        });
+
+        if (!resource) {
+            throw new NotFoundException('Resource not found');
+        }
+        const rules = resource.resourcesRules[0];
+        const calendarData: BookingCalendarData[] = [];
+
+        // loop through each day in the month
+        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+            const dateStr = d.toISOString().split('T')[0];
+            const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
+
+
+            let slots: { start: string; end: string }[] = [];
+            let status = 'AVAILABLE';
+
+            try {
+                const result = await this.getAvailableSlotsByResource(resourceId, dateStr);
+                slots = result.availableSlots;
+
+                // Add the status logic based on available slots and resource rules
+                if (slots.length === 0) {
+                    // check if it's off day based on resource rules
+                    const isAvailableDay = (rules.availableDays as string[])?.includes(dayName);
+                    status = isAvailableDay ? 'FULLY_BOOKED' : 'OFF_DAY';
+                } else {
+                    // check if all slots are booked
+                    status = 'PARTIALLY_BOOKED';
+                    // you can calculate maxSlots and compare if needed
+                }
+            } catch (error) {
+                // if getAvailableSlotsByResource throws an error (e.g., for off-days)
+                status = 'OFF_DAY';
+            }
+
+            calendarData.push({
+                date: dateStr,
+                day: dayName,
+                availableSlotsCount: slots.length,
+                status: status
+            });
+        }
+
+
+
+        return { resourceId, month, year, calendar: calendarData };
+    }
 
 
 

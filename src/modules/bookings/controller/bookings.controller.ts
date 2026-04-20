@@ -9,7 +9,7 @@ import { CurrentUser } from 'src/shared/decorators/user.decorator';
 import { CreateBookingDto } from '../dto/bookings.dto';
 import { ResponseUtil } from 'src/utils/responses';
 import { Response } from 'express';
-import { MyBookingsHistoryQueryDto } from '../dto/booking-filter.dto';
+import { AllBookingsQueryDto, MyBookingsHistoryQueryDto } from '../dto/booking-filter.dto';
 
 
 @ApiTags('Bookings')
@@ -124,6 +124,64 @@ export class BookingsController {
     @ApiQuery({ name: 'search', required: false, type: String, description: 'Search by resource name or type' })
     async getMyBookingsHistory(@CurrentUser() currentUser: User, @Query('query') query: MyBookingsHistoryQueryDto, @Res() res: Response) {
         const result = await this.service.getMyBookingsHistory(currentUser, query);
+        return ResponseUtil.paginated(result.items, result.total, result.page, result.limit, res);
+    }
+
+
+    /**
+     * This controller will get all the bookings for their organization. It will allow clients to retrieve a list of all bookings associated with their organization.
+     * @param currentUser - The current authenticated user
+     * @param res - Response object
+     * @returns - Success response with list of bookings or error response
+     */
+
+    @UseGuards(RolesGuard)
+    @Roles(Role.ORG_ADMIN) // Only ORG_ADMIN can view all bookings for the organization
+    @Get('all')
+    @ApiOperation({ summary: 'Get all bookings for the organization (ORG_ADMIN role only)' })
+    @ApiResponse({ status: 200, description: 'Bookings retrieved successfully' })
+    @ApiResponse({ status: 401, description: 'Unauthorized - Token required' })
+    @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+    @ApiQuery({ name: 'status', enum: ['PENDING', 'CONFIRMED', 'REJECTED', 'CANCELLED', 'COMPLETED'], required: false, description: 'Filter bookings by status' })
+    @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
+    @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10, max: 100)' })
+    @ApiQuery({ name: 'search', required: false, type: String, description: 'Search by resource name or type' })
+    @ApiQuery({ name: 'userId', required: false, type: String, description: 'Filter by user ID' })
+    @ApiQuery({ name: 'resourceId', required: false, type: String, description: 'Filter by resource ID' })
+    @ApiQuery({ name: 'dateRange', required: false, type: String, description: 'Filter by date range (e.g. "2024-01-01 to 2024-01-07")' })
+    async getAllBookings(@CurrentUser() currentUser: User, @Query('query') query: AllBookingsQueryDto, @Res() res: Response) {
+        const result = await this.service.getAllBookings(currentUser, query);
+        return ResponseUtil.paginated(result.items, result.total, result.page, result.limit, res);
+    }
+
+
+    /**
+     * This controller will get all the bookings for the resource for the whole month based on the staff selection month and year.
+     * It will allow clients to retrieve a list of all bookings associated with a resource for a specific month and year.
+     * @param currentUser - The current authenticated user
+     * @param res - Response object
+     * @returns - Success response with list of bookings or error response
+     */
+    @UseGuards(RolesGuard)
+    @Roles(Role.STAFF, Role.ORG_ADMIN) // Allow both ORG_MEMBER and ORG_ADMIN to view bookings for a resource
+    @Get('resource/:resourceId/calendar')
+    @ApiOperation({ summary: 'Get all bookings for a resource for a specific month and year (STAFF and ORG_ADMIN roles)' })
+    @ApiResponse({ status: 200, description: 'Bookings retrieved successfully' })
+    @ApiResponse({ status: 401, description: 'Unauthorized - Token required' })
+    @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+    @ApiParam({ name: 'resourceId', type: 'string', description: 'ID of the resource to get bookings for' })
+    @ApiQuery({ name: 'month', type: Number, description: 'Month to filter bookings by (1-12)' })
+    @ApiQuery({
+        name: 'year', type: Number, description: 'Year to filter bookings by (e.g. 2024)'
+    })
+    async getBookingsByResourceAndMonth(
+        @CurrentUser() currentUser: User,
+        @Param('resourceId') resourceId: string,
+        @Query('month') month: number,
+        @Query('year') year: number,
+        @Res() res: Response
+    ) {
+        const result = await this.service.getBookingsByResourceAndMonth(currentUser, resourceId, month, year);
         return ResponseUtil.success(result, res);
     }
 
