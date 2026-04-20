@@ -473,7 +473,7 @@ export class BookingsService {
                 // Add the status logic based on available slots and resource rules
                 if (slots.length === 0) {
                     // check if it's off day based on resource rules
-                    const isAvailableDay = (rules.availableDays as string[])?.includes(dayName);
+                    const isAvailableDay = (rules?.availableDays as string[])?.includes(dayName);
                     status = isAvailableDay ? 'FULLY_BOOKED' : 'OFF_DAY';
                 } else {
                     // check if all slots are booked

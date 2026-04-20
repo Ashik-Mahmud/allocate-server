@@ -54,6 +54,23 @@ export class ResourcesService {
                 org_id: organization.id,
                 ...createResourceDto,
                 metadata: createResourceDto.metadata ?? {},
+
+                resourcesRules: {
+                    create: {
+                        org_id: user.org_id,
+                        max_booking_hours: 2,
+                        min_lead_time: 1,
+                        buffer_time: 0.25,
+                        opening_hours: 9,
+                        closing_hours: 18,
+                        slot_duration_min: 30,
+                        is_weekend_allowed: true,
+                        availableDays: [
+                            "Saturday", "Sunday", "Monday",
+                            "Tuesday", "Wednesday", "Thursday", "Friday"
+                        ],
+                    },
+                }
             },
         });
 

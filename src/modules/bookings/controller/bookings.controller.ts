@@ -2,14 +2,15 @@ import { Body, Controller, Get, Param, Patch, Post, Query, Res, UseGuards } from
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
 import { BookingsService } from '../services/bookings.service';
-import { RolesGuard } from 'src/shared/guards';
+import { RolesGuard, SubscriptionGuard } from 'src/shared/guards';
 import { Roles } from 'src/shared/decorators/roles.decorator';
-import { BookingStatus, Role, User } from '@prisma/client';
+import { BookingStatus, PlanType, Role, User } from '@prisma/client';
 import { CurrentUser } from 'src/shared/decorators/user.decorator';
 import { CreateBookingDto } from '../dto/bookings.dto';
 import { ResponseUtil } from 'src/utils/responses';
 import { Response } from 'express';
 import { AllBookingsQueryDto, MyBookingsHistoryQueryDto } from '../dto/booking-filter.dto';
+import { SubscriptionPlans } from 'src/shared/decorators/subscription.decorator';
 
 
 @ApiTags('Bookings')
@@ -162,7 +163,8 @@ export class BookingsController {
      * @param res - Response object
      * @returns - Success response with list of bookings or error response
      */
-    @UseGuards(RolesGuard)
+    @UseGuards(RolesGuard, SubscriptionGuard)
+    @SubscriptionPlans( PlanType.PRO, PlanType.ENTERPRISE) // Allow access based on subscription plan
     @Roles(Role.STAFF, Role.ORG_ADMIN) // Allow both ORG_MEMBER and ORG_ADMIN to view bookings for a resource
     @Get('resource/:resourceId/calendar')
     @ApiOperation({ summary: 'Get all bookings for a resource for a specific month and year (STAFF and ORG_ADMIN roles)' })
