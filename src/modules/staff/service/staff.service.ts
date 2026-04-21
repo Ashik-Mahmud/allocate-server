@@ -1,6 +1,6 @@
 import { Prisma, PrismaClient, Role, User } from "@prisma/client";
 import { PrismaService } from "src/modules/prisma/prisma.service";
-import { CreateStaffDto, ManageCreditsDto, UpdateStaffDto } from "../dto/staff.dto";
+import { CreateStaffDto, ManageCreditsDto, ManageMultipleStaffCreditsDto, UpdateStaffDto } from "../dto/staff.dto";
 import { CryptoUtils } from "src/modules/auth/utils/crypto";
 import { EmailService } from "src/modules/inbox/service/email.service";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
@@ -286,9 +286,70 @@ export class StaffService {
 
 
 
+    // Manage/Assign credits to multiple staff members
+    async manageMultipleStaffCredits(manageCreditsDto: ManageMultipleStaffCreditsDto, user: User) {
+        const { staffCredits } = manageCreditsDto;
+        const orgId = user?.org_id;
 
+        if (!orgId) {
+            throw new ForbiddenException('You must belong to an organization to manage staff credits');
+        }
 
+        const organization = await this.prisma.organizations.findUnique({
+            where: { id: orgId },
+            select: { id: true, name: true, credit_pool: true }
+        });
 
+        if (!organization) {
+            throw new NotFoundException('Organization not found');
+        }
+
+        const totalRequiredCredits = staffCredits.reduce((sum, item) => sum + item.credits, 0);
+
+        if (Number(organization.credit_pool || 0) < totalRequiredCredits) {
+            throw new BadRequestException('Insufficient credits in the organization pool for this operation');
+        }
+
+        try {
+            const updatedStaffs = await this.prisma.$transaction(async (tx) => {
+
+                await tx.organizations.update({
+                    where: { id: orgId },
+                    data: { credit_pool: { decrement: totalRequiredCredits } },
+                });
+                const updates = staffCredits.map(async (sc) => {
+                    const staff = await tx.user.findFirst({
+                        where: { id: sc.staff_id, org_id: orgId, deletedAt: null }
+                    });
+
+                    if (!staff) throw new NotFoundException(`Staff ${sc.staff_id} not found`);
+
+                    const updated = await tx.user.update({
+                        where: { id: sc.staff_id },
+                        data: { personal_credits: { increment: sc.credits } },
+                        select: { id: true, name: true, email: true }
+                    });
+
+                    // Send email notification for each staff member
+                    this.emailService.sendCreditAssignmentEmail(
+                        updated.email,
+                        updated.name,
+                        sc.credits,
+                        organization.name,
+                    ).catch(err => console.error('Email failed for:', updated.email, err));
+
+                    return updated;
+                });
+
+                return Promise.all(updates);
+            });
+            return updatedStaffs;
+        }
+        catch (error) {
+            console.error('Failed to send email:', error);
+            throw new InternalServerError('Failed to manage credits for the multiple staff members');
+        }
+    }
 
 
 }

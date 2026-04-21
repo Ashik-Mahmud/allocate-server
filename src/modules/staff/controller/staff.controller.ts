@@ -11,7 +11,7 @@ import { Roles } from 'src/shared/decorators/roles.decorator';
 import { Role, User } from '@prisma/client';
 import { CurrentUser } from 'src/shared/decorators/user.decorator';
 import { StaffService } from '../service/staff.service';
-import { CreateStaffDto, ManageCreditsDto, UpdateStaffDto } from '../dto/staff.dto';
+import { CreateStaffDto, ManageCreditsDto, ManageMultipleStaffCreditsDto, UpdateStaffDto } from '../dto/staff.dto';
 import { ResponseUtil } from 'src/utils/responses';
 import { StaffFilterDto } from '../dto/staff-filter.dto';
 
@@ -136,6 +136,26 @@ export class StaffController {
         // This is a placeholder implementation and should be replaced with actual logic
         const result = await this.staffService.manageSingleStaffCredits(id, manageCreditsDto, user);
         return ResponseUtil.success({ message: `Credits for staff member ${id} managed successfully` }, res);
+    }
+
+
+    /**
+     * Manage/Assign credits to multiple staff members
+     * @route POST /staff/credits
+     * @param manageCreditsDto - The data for managing credits for multiple staff members
+     */
+
+    @Post("credits")
+    @ApiBody({ type: ManageMultipleStaffCreditsDto })
+    @ApiResponse({ status: 200, description: 'Staff members credits managed successfully.' })
+    @ApiResponse({ status: 400, description: 'Bad Request.' })
+    @ApiResponse({ status: 401, description: 'Unauthorized.' })
+    @ApiResponse({ status: 403, description: 'Forbidden.' })
+    async manageMultipleStaffCredits(@Body() manageCreditsDto: ManageMultipleStaffCreditsDto, @CurrentUser() user: User, @Res() res: Response) {
+        // Implement logic to manage/assign credits to multiple staff members
+        // This is a placeholder implementation and should be replaced with actual logic
+        const result = await this.staffService.manageMultipleStaffCredits(manageCreditsDto, user);
+        return ResponseUtil.success({ message: `Credits for staff members managed successfully` }, res);
     }
 
 }
