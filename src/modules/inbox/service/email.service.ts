@@ -57,6 +57,19 @@ export class EmailService {
         return this.sendTemplateEmail(options.to, options.staffName, template);
     }
 
+    async sendUpdateStaffProfileInfoByOrganizationEmail(to: string, name: string, updatedFields: string[]) {
+        const template = buildAnnouncementEmailTemplate({
+            name,
+            heading: 'Profile Updated',
+            title: 'Your profile information has been updated',
+            message: `Your profile information has been updated with the following changes: ${updatedFields.join(', ')}. If you did not make these changes, please contact your administrator immediately.`,
+            ctaUrl: process.env.WEB_APP_LINK || 'http://localhost:3000',
+            ctaLabel: 'Review Your Profile',
+        });
+
+        return this.sendTemplateEmail(to, name, template);
+    }
+
     async sendForgotPasswordEmail(to: string, name: string, resetUrl: string, expiresInMinutes?: number) {
         const template = buildForgotPasswordEmailTemplate({
             name,

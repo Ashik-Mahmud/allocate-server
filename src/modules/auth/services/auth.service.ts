@@ -5,16 +5,17 @@ import { RegisterDto, LoginDto, ChangePasswordDto } from '../dto/AuthDTO';
 import { PaymentStatus, PlanType, User } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import GLOBAL_CONFIG from 'src/shared/constant/global.constant';
+import { EmailService } from 'src/modules/inbox/service/email.service';
 
 @Injectable()
 export class AuthService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService, private emailService: EmailService) { }
 
   async register(dto: RegisterDto): Promise<TokenPair & { user: Partial<User> }> {
 
     // Check if user already exists
     const existingUser = await this.prisma.user.findUnique({
-      where: { email: dto.email },
+      where: { email: dto.email, deletedAt: null },
     });
 
     if (existingUser) {
@@ -76,6 +77,11 @@ export class AuthService {
       role: user.role,
       orgId: user.org_id,
     });
+    try {
+      await this.emailService.sendWelcomeEmail(user.email, user.name);
+    } catch (error) {
+      console.error('Failed to send welcome email:', error);
+    }
 
     return { ...tokens, user };
   }
@@ -89,13 +95,13 @@ export class AuthService {
     });
 
     if (!user || user.deletedAt) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Invalid credentials or user not found');
     }
 
     // Verify password
     const isPasswordValid = await CryptoUtils.comparePassword(dto.password, user.password);
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Invalid credentials or user not found');
     }
 
     // Check if organization exists 

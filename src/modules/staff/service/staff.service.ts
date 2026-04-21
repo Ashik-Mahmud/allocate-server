@@ -1,9 +1,10 @@
-import { PrismaClient, Role, User } from "@prisma/client";
+import { Prisma, PrismaClient, Role, User } from "@prisma/client";
 import { PrismaService } from "src/modules/prisma/prisma.service";
-import { CreateStaffDto } from "../dto/staff.dto";
+import { CreateStaffDto, UpdateStaffDto } from "../dto/staff.dto";
 import { CryptoUtils } from "src/modules/auth/utils/crypto";
 import { EmailService } from "src/modules/inbox/service/email.service";
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { StaffFilterDto } from "../dto/staff-filter.dto";
 
 // Write staff service code
 @Injectable()
@@ -19,27 +20,19 @@ export class StaffService {
         const { email, name, password, photo, org_id } = createStaffDto;
 
         // check if the user has any accosciated organization
-        if (!user?.org_id) {
-            throw new Error('User is not associated with any organization');
+        const targetOrgId = org_id || user.org_id;
+        if (!targetOrgId) {
+            throw new ForbiddenException('You must belong to an organization to create staff');
         }
         // Check if the email already exists in the organization
-        const existingStaff = await this.prisma.user.findFirst({
-            where: {
-                email,
-                org_id: user?.org_id,
-            },
-            include: {
-                organization: {
-                    select: {
-                        name: true
-                    }
-                }
-            }
+        const existingUser = await this.prisma.user.findUnique({
+            where: { email, deletedAt: null },
         });
 
-        if (existingStaff) {
-            throw new Error('A staff member with this email already exists in the organization');
+        if (existingUser) {
+            throw new ConflictException('A user with this email already exists in the system');
         }
+
 
         // Hashed password 
         const hashedPassword = await CryptoUtils.hashPassword(password);
@@ -53,29 +46,179 @@ export class StaffService {
                 password: hashedPassword,
                 photo,
                 role: Role.STAFF,
-                org_id: (org_id || user.org_id), // Associate the staff member with the same organization as the creator
+                org_id: targetOrgId,
             },
             include: {
-                organization: {
-                    select: {
-                        name: true
-                    }
-                }
+                organization: { select: { name: true } }
             }
         });
-
-        this.emailService.sendStaffInviteEmail({
-            to: email,
-            staffName: name,
-            tempPassword: password,
-            webAppLink: process.env.WEB_APP_LINK || 'http://localhost:3000',
-            organizationName: staff?.organization?.name,
-            invitedBy: user?.name,
-        });
+        try {
+            await this.emailService.sendStaffInviteEmail({
+                to: email,
+                staffName: name,
+                tempPassword: password,
+                webAppLink: process.env.WEB_APP_LINK || 'http://localhost:3000',
+                organizationName: staff?.organization?.name || 'Our Organization',
+                invitedBy: user?.name,
+            });
+        } catch (emailError) {
+            console.error('Failed to send welcome email:', emailError);
+        }
 
         const { password: _, ...result } = staff;
         return result;
 
+    }
+
+
+    // Get all staff members in the organization
+    async getStaffMembersList(user: User, query: StaffFilterDto) {
+        const orgId = user.org_id;
+        const page = Number(query.page) || 1;
+        const limit = Number(query.limit) || 10;
+        const { search, email, } = query;
+
+
+        const whereClause: Prisma.UserWhereInput = {
+            org_id: orgId,
+            deletedAt: null,
+
+            role: {
+                in: [Role.STAFF, Role.ORG_ADMIN],
+            },
+            ...(search ? {
+                OR: [
+                    { name: { contains: search, mode: 'insensitive' } },
+                    { email: { contains: search, mode: 'insensitive' } },
+                ],
+            } : {}),
+            ...(email ? { email: { contains: email, mode: 'insensitive' } } : {}),
+        };
+
+
+        const [items, total] = await this.prisma.$transaction([
+            this.prisma.user.findMany({
+                where: whereClause,
+                skip: (page - 1) * limit,
+                take: limit,
+                orderBy: { createdAt: 'desc' },
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    role: true,
+                    photo: true,
+                    createdAt: true,
+                },
+            }),
+            this.prisma.user.count({ where: whereClause }),
+        ]);
+        const totalPages = Math.ceil(total / limit);
+        return { items, total, page, limit, totalPages };
+    }
+
+    // Get a specific staff member by ID
+    async getStaffById(id: string, user: User) {
+        const staff = await this.prisma.user.findFirst({
+            where: { id, deletedAt: null, org_id: user.org_id, role: { in: [Role.STAFF, Role.ORG_ADMIN] } },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+                photo: true,
+                createdAt: true,
+            },
+        });
+        if (!staff) {
+            throw new NotFoundException('Staff member not found');
+        }
+        return staff;
+    }
+
+    // Update a staff member's information
+    async updateStaff(id: string, updateStaffDto: UpdateStaffDto, user: User) {
+        const { email, name, password, photo } = updateStaffDto;
+        const staff = await this.prisma.user.findFirst({
+            where: { id, deletedAt: null, org_id: user.org_id, role: { in: [Role.STAFF, Role.ORG_ADMIN] } },
+        });
+        if (!staff) {
+            throw new NotFoundException('Staff member not found');
+        }
+        if (email && email !== staff.email) {
+            const existingUser = await this.prisma.user.findUnique({
+                where: { email, },
+            });
+            if (existingUser) {
+                throw new ConflictException('A user with this email already exists in the system');
+            }
+        }
+
+        const updateData: Prisma.UserUpdateInput = {
+            name,
+            email,
+            photo,
+        };
+
+        if (password) {
+            updateData.password = await CryptoUtils.hashPassword(password);
+        }
+
+        const updatedStaff = await this.prisma.user.update({
+            where: { id, org_id: user.org_id },
+            data: updateData,
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+                photo: true,
+                createdAt: true,
+            },
+        });
+
+        try {
+            const updatedFields = Object.keys(updateStaffDto).filter(key => updateStaffDto[key] !== undefined);
+            await this.emailService.sendUpdateStaffProfileInfoByOrganizationEmail(
+                updatedStaff.email,
+                updatedStaff.name,
+                updatedFields,
+            );
+        } catch (error) {
+            console.error('Failed to send email:', error);
+        }
+        return updatedStaff;
+    }
+
+
+    // Soft delete a staff member
+    async deleteStaff(id: string, user: User) {
+        const staff = await this.prisma.user.findFirst({
+            where: { id, deletedAt: null, org_id: user.org_id, role: { in: [Role.STAFF, Role.ORG_ADMIN] } },
+        });
+        if (!staff) {
+            throw new NotFoundException('Staff member not found');
+        }
+
+        if (staff.id === user.id) {
+            throw new BadRequestException('You cannot delete your own account');
+        }
+        const deletedStaff = await this.prisma.user.update({
+            where: { id, org_id: user.org_id },
+            data: {
+                deletedAt: new Date(),
+                email: `${staff.email}-deleted-${Date.now()}`, // To prevent email conflicts in the future
+            },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+                photo: true,
+                createdAt: true,
+            },
+        });
+        return deletedStaff;
     }
 
 }
