@@ -14,6 +14,7 @@ import { BookingsModule } from './modules/bookings/bookings.module';
 import { StaffModule } from './modules/staff/staff.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { InboxModule } from './modules/inbox/inbox.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { InboxModule } from './modules/inbox/inbox.module';
     StaffModule,
     AdminModule,
     InboxModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [
