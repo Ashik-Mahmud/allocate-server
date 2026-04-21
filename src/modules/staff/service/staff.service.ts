@@ -28,6 +28,13 @@ export class StaffService {
                 email,
                 org_id: user?.org_id,
             },
+            include: {
+                organization: {
+                    select: {
+                        name: true
+                    }
+                }
+            }
         });
 
         if (existingStaff) {
@@ -48,9 +55,23 @@ export class StaffService {
                 role: Role.STAFF,
                 org_id: (org_id || user.org_id), // Associate the staff member with the same organization as the creator
             },
+            include: {
+                organization: {
+                    select: {
+                        name: true
+                    }
+                }
+            }
         });
 
-        this.emailService.sendEmail(email, 'Welcome to the team!', `Hello ${name},\n\nYou have been added as a staff member to the organization. Please log in to your account to get started.\n\nBest regards,\nAllocate Team`, name);
+        this.emailService.sendStaffInviteEmail({
+            to: email,
+            staffName: name,
+            tempPassword: password,
+            webAppLink: process.env.WEB_APP_LINK || 'http://localhost:3000',
+            organizationName: staff?.organization?.name,
+            invitedBy: user?.name,
+        });
 
         const { password: _, ...result } = staff;
         return result;
