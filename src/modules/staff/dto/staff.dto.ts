@@ -40,5 +40,11 @@ export const UpdateStaffSchema = z.object({
     org_id: z.string().optional(),
 });
 
+
+export const ManageCreditsSchema = z.object({
+    credits: z.number().int().nonnegative(),    
+});
+
 export class CreateStaffDto extends createZodDto(CreateStaffSchema) { }
 export class UpdateStaffDto extends createZodDto(UpdateStaffSchema) { }
+export class ManageCreditsDto extends createZodDto(ManageCreditsSchema) { }

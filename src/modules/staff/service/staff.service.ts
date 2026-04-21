@@ -1,10 +1,11 @@
 import { Prisma, PrismaClient, Role, User } from "@prisma/client";
 import { PrismaService } from "src/modules/prisma/prisma.service";
-import { CreateStaffDto, UpdateStaffDto } from "../dto/staff.dto";
+import { CreateStaffDto, ManageCreditsDto, UpdateStaffDto } from "../dto/staff.dto";
 import { CryptoUtils } from "src/modules/auth/utils/crypto";
 import { EmailService } from "src/modules/inbox/service/email.service";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { StaffFilterDto } from "../dto/staff-filter.dto";
+import { InternalServerError } from "node_modules/@getbrevo/brevo/dist/cjs/api";
 
 // Write staff service code
 @Injectable()
@@ -221,5 +222,73 @@ export class StaffService {
         });
         return deletedStaff;
     }
+
+    // Manage/Assign credits to a staff member
+    async manageSingleStaffCredits(id: string, manageCreditsDto: ManageCreditsDto, user: User) {
+        const { credits } = manageCreditsDto;
+        const staff = await this.prisma.user.findFirst({
+            where: { id, deletedAt: null, org_id: user.org_id, role: { in: [Role.STAFF, Role.ORG_ADMIN] } },
+            include: { organization: { select: { name: true, credit_pool: true, id: true } } }
+        });
+        if (!staff || !staff.organization?.id) {
+            throw new NotFoundException('Staff member not found');
+        }
+
+        if (Number(staff?.organization?.credit_pool || 0) < credits) {
+            throw new BadRequestException('Insufficient credits in the organization pool');
+        }
+
+        try {
+            const updatedStaff = await this.prisma.$transaction(async (tx) => {
+                // Deduct credits from organization pool
+                await tx.organizations.update({
+                    where: { id: staff.organization?.id },
+                    data: {
+                        credit_pool: { decrement: credits },
+                    },
+                });
+
+                // Add credits to staff member
+                const updatedStaff = await tx.user.update({
+                    where: { id, org_id: user.org_id },
+                    data: {
+                        personal_credits: {
+                            increment: credits,
+                        },
+                    },
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        role: true,
+                        photo: true,
+                        createdAt: true,
+                    },
+                });
+
+                return updatedStaff;
+            });
+            await this.emailService.sendCreditAssignmentEmail(
+                updatedStaff.email,
+                updatedStaff.name,
+                credits,
+                staff.organization.name,
+            ).catch((error) => {
+                console.error('Failed to send credit assignment email:', error);
+            });
+            return updatedStaff;
+        } catch (error) {
+            console.error('Failed to send email:', error);
+            throw new InternalServerError('Failed to manage credits for the staff member');
+        }
+
+    }
+
+
+
+
+
+
+
 
 }

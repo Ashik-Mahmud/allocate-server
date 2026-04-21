@@ -3,7 +3,7 @@
 // Write admin controller code
 import { Request, response, Response } from 'express';
 
-import { ApiBearerAuth, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Body, Controller, Get, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
 import { ClientGuard, RolesGuard, UserVerificationGuard } from 'src/shared/guards';
@@ -11,7 +11,7 @@ import { Roles } from 'src/shared/decorators/roles.decorator';
 import { Role, User } from '@prisma/client';
 import { CurrentUser } from 'src/shared/decorators/user.decorator';
 import { StaffService } from '../service/staff.service';
-import { CreateStaffDto, UpdateStaffDto } from '../dto/staff.dto';
+import { CreateStaffDto, ManageCreditsDto, UpdateStaffDto } from '../dto/staff.dto';
 import { ResponseUtil } from 'src/utils/responses';
 import { StaffFilterDto } from '../dto/staff-filter.dto';
 
@@ -105,16 +105,37 @@ export class StaffController {
      * @returns The deleted staff member
      */
 
-     @Patch(":id/delete")
-     @ApiParam({ name: 'id', description: 'The ID of the staff member to delete', type: String })
-     @ApiResponse({ status: 200, description: 'Staff member deleted successfully.' })
-     @ApiResponse({ status: 401, description: 'Unauthorized.' })
-     @ApiResponse({ status: 403, description: 'Forbidden.' })
+    @Patch(":id/delete")
+    @ApiParam({ name: 'id', description: 'The ID of the staff member to delete', type: String })
+    @ApiResponse({ status: 200, description: 'Staff member deleted successfully.' })
+    @ApiResponse({ status: 401, description: 'Unauthorized.' })
+    @ApiResponse({ status: 403, description: 'Forbidden.' })
     async deleteStaff(@Query('id') id: string, @CurrentUser() user: User, @Res() res: Response) {
         // Implement logic to delete a staff member
         const staff = await this.staffService.deleteStaff(id, user);
         return ResponseUtil.success(staff, res);
     }
-     
+
+
+    /**
+     *  Manage/Assign credits to a staff member 
+     * @route POST /staff/:id/credits
+     * @param id - The ID of the staff member to manage credits for
+     * @param manageCreditsDto - The data for managing credits
+     */
+
+    @Post(":id/credits")
+    @ApiParam({ name: 'id', description: 'The ID of the staff member to manage credits for', type: String })
+    @ApiBody({ type: ManageCreditsDto })
+    @ApiResponse({ status: 200, description: 'Staff member credits managed successfully.' })
+    @ApiResponse({ status: 400, description: 'Bad Request.' })
+    @ApiResponse({ status: 401, description: 'Unauthorized.' })
+    @ApiResponse({ status: 403, description: 'Forbidden.' })
+    async manageCredits(@Query('id') id: string, @Body() manageCreditsDto: ManageCreditsDto, @CurrentUser() user: User, @Res() res: Response) {
+        // Implement logic to manage/assign credits to a staff member
+        // This is a placeholder implementation and should be replaced with actual logic
+        const result = await this.staffService.manageSingleStaffCredits(id, manageCreditsDto, user);
+        return ResponseUtil.success({ message: `Credits for staff member ${id} managed successfully` }, res);
+    }
 
 }

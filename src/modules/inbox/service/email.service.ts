@@ -111,4 +111,18 @@ export class EmailService {
 
         return this.sendTemplateEmail(to, name, template);
     }
+
+    // Send email to assign credits to staff member
+    async sendCreditAssignmentEmail(to: string, name: string, credits: number, organizationName: string) {
+        const template = buildAnnouncementEmailTemplate({
+            name,
+            heading: 'Credits Assigned',
+            title: `You have been assigned ${credits} credits`,
+            message: `You have been assigned ${credits} credits in the organization ${organizationName}. You can use these credits to book resources. If you have any questions, please contact your administrator.`,
+            ctaUrl: process.env.WEB_APP_LINK || 'http://localhost:3000',
+            ctaLabel: 'View Your Credits',
+        });
+
+        return this.sendTemplateEmail(to, name, template);
+    }
 }
