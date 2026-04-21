@@ -11,6 +11,9 @@ import { PrismaModule } from './modules/prisma/prisma.module';
 import { OrganizationModule } from './modules/organization/organization.module';
 import { ResourcesModule } from './modules/resources/resources.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
+import { StaffModule } from './modules/staff/staff.module';
+import { AdminModule } from './modules/admin/admin.module';
+import { InboxModule } from './modules/inbox/inbox.module';
 
 @Module({
   imports: [
@@ -31,6 +34,9 @@ import { BookingsModule } from './modules/bookings/bookings.module';
     }),
     OrganizationModule,
     BookingsModule,
+    StaffModule,
+    AdminModule,
+    InboxModule,
   ],
   controllers: [AppController],
   providers: [
