@@ -12,6 +12,9 @@ const envSchema = z.object({
   JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
   RESET_PASSWORD_TOKEN_ENPIRES_IN: z.string().default('2m'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
+  BREVO_API_KEY: z.string(),
+  SENDER_EMAIL: z.string().email(),
+  SENDER_NAME: z.string(),
 });
 
 export const env = envSchema.parse(process.env);

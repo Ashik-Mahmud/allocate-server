@@ -35,4 +35,20 @@ export class InboxController {
         response.status(200).json({ message: 'Notification sent successfully' });
     }
 
+
+    /**
+     * Add endpoint to send emails
+     * @param request - The incoming request object
+     * @param response - The outgoing response object
+     */
+    @Post('/email')
+    @ApiResponse({ status: 200, description: 'Email sent successfully.' })
+    @ApiResponse({ status: 403, description: 'Forbidden.' })
+    async sendEmail(@CurrentUser() user: User, @Body() emailDto: any, @Res() response: Response) {
+        // Implement logic to send email here
+        // You can use this.inboxService to call service methods for business logic
+        response.status(200).json({ message: 'Email sent successfully' });
+    }
+
+
 }
