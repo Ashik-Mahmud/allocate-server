@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, UnauthorizedException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { JWTUtils, TokenPair } from '../utils/jwt';
 import { CryptoUtils } from '../utils/crypto';
 import { RegisterDto, LoginDto, ChangePasswordDto } from '../dto/AuthDTO';
@@ -6,7 +6,7 @@ import { PaymentStatus, PlanType, User } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import GLOBAL_CONFIG from 'src/shared/constant/global.constant';
 import { EmailService } from 'src/modules/inbox/service/email.service';
-
+import { v4 as uuidv4 } from 'uuid';
 @Injectable()
 export class AuthService {
   constructor(private prisma: PrismaService, private emailService: EmailService) { }
@@ -242,5 +242,53 @@ export class AuthService {
     }
 
     return user;
+  }
+
+
+  // send verification email
+  async sendVerificationEmail(email: string, name: string): Promise<void> {
+    // Generate verification token
+    try {
+      const verificationToken = uuidv4();
+      const expiryDate = new Date(Date.now() + GLOBAL_CONFIG.VERIFICATION_TOKEN_EXPIRY_MINUTES * 60 * 1000);
+
+      // Update user with verification token
+      await this.prisma.user.update({
+        where: { email },
+        data: {
+          verification_token: verificationToken,
+          token_expiry: expiryDate, // Set the expiry date for the token
+        },
+      })
+      const verificationLink = `${process.env.WEB_APP_LINK}/verify-email?token=${verificationToken}`;
+      await this.emailService.sendVerifyEmail(email, name, verificationLink, GLOBAL_CONFIG.VERIFICATION_TOKEN_EXPIRY_MINUTES);
+    } catch (error: any) {
+      throw new InternalServerErrorException('Failed to send verification email');
+    }
+
+  }
+
+  // verify email
+  async verifyEmail(token: string, user: User): Promise<void> {
+    const dbUser = await this.prisma.user.findUnique({
+      where: { verification_token: token },
+      select: { id: true, deletedAt: true, is_verified: true, token_expiry: true },
+    });
+
+    if (!dbUser || dbUser.deletedAt) {
+      throw new NotFoundException('User not found or inactive');
+    }
+    if (dbUser.is_verified) {
+      throw new ConflictException('Email is already verified');
+    }
+    // check token has expired or not and get user with the token
+    if (dbUser.token_expiry && dbUser.token_expiry < new Date()) {
+      throw new UnauthorizedException('Verification token has expired');
+    }
+
+    await this.prisma.user.update({
+      where: { id: dbUser.id },
+      data: { is_verified: true, verification_token: null, token_expiry: null },
+    });
   }
 }

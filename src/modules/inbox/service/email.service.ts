@@ -90,10 +90,11 @@ export class EmailService {
         return this.sendTemplateEmail(to, name, template);
     }
 
-    async sendVerifyEmail(to: string, name: string, verifyUrl: string) {
+    async sendVerifyEmail(to: string, name: string, verifyUrl: string, expiresInMinutes?: number) {
         const template = buildVerifyEmailTemplate({
             name,
             verifyUrl,
+            expiresInMinutes,
         });
 
         return this.sendTemplateEmail(to, name, template);

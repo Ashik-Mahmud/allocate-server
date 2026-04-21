@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, UseGuards, Req, Res, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Req, Res, HttpCode, HttpStatus, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiProperty, ApiBody, ApiOkResponse } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { AuthService } from '../services/auth.service';
@@ -9,6 +9,8 @@ import { AUTH_SUCCESS_MESSAGES } from '../constant/auth.constant';
 import { ResponseMessage } from 'src/shared/decorators/response_message.decorator';
 import { ZodResponse } from "nestjs-zod"
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { CurrentUser } from 'src/shared/decorators/user.decorator';
+import { User } from '@prisma/client';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -118,6 +120,46 @@ export class AuthController {
   async getProfile(@Req() req: Request, @Res() res: Response) {
     const profile = await this.authService.getProfile(req.user!.id);
     return ResponseUtil.success(profile, res);
+  }
+
+  /**
+   *  Sends a verification email to the authenticated user.
+   * @param user - The current authenticated user.
+   * @param res - The response object to send the result back to the client.
+   * @return A success response indicating that the verification email has been sent.
+   */
+
+  @Post('send-verification-email')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Send verification email' })
+  @ApiResponse({ status: 200, description: 'Verification email sent successfully' })
+  async sendVerificationEmail(@CurrentUser() user: User, @Res() res: Response) {
+    try {
+      await this.authService.sendVerificationEmail(user.email, user.name);
+      return ResponseUtil.success({ message: `Verification email sent to ${user.email}` }, res);
+    } catch (error: any) { 
+      return ResponseUtil.error(error.message, 500, res);
+    }
+  }
+
+
+  /**
+   * Verify email address for a user.
+   * @param token - The verification token sent to the user's email.
+   * @param res - The response object to send the result back to the client.
+   */
+  @Get('verify')
+  @ApiOperation({ summary: 'Verify email address' })
+  @ApiResponse({ status: 200, description: 'Email verified successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired token' })
+  async verifyEmail(@Query('token') token: string, @CurrentUser() user: User, @Res() res: Response) {
+    try {
+      await this.authService.verifyEmail(token, user);
+      return ResponseUtil.success({ message: 'Email verified successfully' }, res);
+    } catch (error: any) {
+      return ResponseUtil.error(error.message, 400, res);
+    }
   }
 
   /**

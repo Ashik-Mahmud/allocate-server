@@ -8,3 +8,4 @@ export { ClientGuard } from './client.guard';
 export { StaffGuard } from './staff.guard';
 export { RolesGuard } from './roles.guard';
 export { SubscriptionGuard } from './subscription.guard';
+export { UserVerificationGuard } from './user-verification.guard';

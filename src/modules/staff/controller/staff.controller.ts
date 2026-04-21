@@ -6,7 +6,7 @@ import { Request, response, Response } from 'express';
 import { ApiBearerAuth, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Body, Controller, Get, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
-import { ClientGuard, RolesGuard } from 'src/shared/guards';
+import { ClientGuard, RolesGuard, UserVerificationGuard } from 'src/shared/guards';
 import { Roles } from 'src/shared/decorators/roles.decorator';
 import { Role, User } from '@prisma/client';
 import { CurrentUser } from 'src/shared/decorators/user.decorator';
@@ -18,7 +18,7 @@ import { StaffFilterDto } from '../dto/staff-filter.dto';
 
 @ApiTags('Staff')
 @ApiBearerAuth()
-@UseGuards(AuthGuard, ClientGuard)
+@UseGuards(AuthGuard, ClientGuard, UserVerificationGuard)
 @Controller('staff')
 export class StaffController {
 

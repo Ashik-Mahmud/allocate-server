@@ -47,6 +47,7 @@ export class StaffService {
                 photo,
                 role: Role.STAFF,
                 org_id: targetOrgId,
+                is_verified: true, // Staff accounts created by admin are considered verified
             },
             include: {
                 organization: { select: { name: true } }

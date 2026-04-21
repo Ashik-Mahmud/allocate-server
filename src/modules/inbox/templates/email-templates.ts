@@ -38,6 +38,7 @@ interface VerifyOtpEmailOptions extends BaseTemplateOptions {
 interface VerifyEmailOptions extends BaseTemplateOptions {
     name: string;
     verifyUrl: string;
+    expiresInMinutes?: number;
 }
 
 interface PasswordChangedOptions extends BaseTemplateOptions {
@@ -195,6 +196,7 @@ export const buildVerifyEmailTemplate = (rawOptions: VerifyEmailOptions): EmailT
         `Hi ${escapeHtml(rawOptions.name)}, please verify your email to activate your account.`,
         `
       <a href="${escapeHtml(rawOptions.verifyUrl)}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#173b7a;color:#ffffff;text-decoration:none;font-weight:600;">Verify email</a>
+        <p style="margin:14px 0 0;font-size:13px;color:#5c6d82;">This link expires in ${rawOptions.expiresInMinutes ?? 60} minutes.</p>
     `,
     );
 

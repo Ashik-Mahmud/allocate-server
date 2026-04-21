@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
-import { ClientGuard, RolesGuard, SubscriptionGuard } from 'src/shared/guards';
+import { ClientGuard, RolesGuard, SubscriptionGuard, UserVerificationGuard } from 'src/shared/guards';
 import { Roles } from 'src/shared/decorators/roles.decorator';
 import { ResponseUtil } from 'src/utils/responses';
 import { CreateResourceDto, UpdateResourceDto, ListResourcesQueryDto } from '../dto/resources.dto';
@@ -16,7 +16,7 @@ import { ResourcesRuleService } from '../services/resources-rule.service';
 
 @ApiTags('Resources')
 @ApiBearerAuth()
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, UserVerificationGuard)
 // Only clients can create organizations
 @Controller('resources')
 export class ResourcesController {

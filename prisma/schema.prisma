@@ -15,6 +15,9 @@ model User {
   personal_credits Int?
   role             Role           @default(ORG_ADMIN)
   last_login       DateTime?
+  is_verified      Boolean?       @default(false)
+  verification_token String?       @unique
+  token_expiry      DateTime?
   deletedAt        DateTime?
   createdAt        DateTime?      @default(now())
   updatedAt        DateTime?      @updatedAt

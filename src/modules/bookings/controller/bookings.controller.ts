@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Query, Res, UseGuards } from
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
 import { BookingsService } from '../services/bookings.service';
-import { RolesGuard, SubscriptionGuard } from 'src/shared/guards';
+import { RolesGuard, SubscriptionGuard, UserVerificationGuard } from 'src/shared/guards';
 import { Roles } from 'src/shared/decorators/roles.decorator';
 import { BookingStatus, PlanType, Role, User } from '@prisma/client';
 import { CurrentUser } from 'src/shared/decorators/user.decorator';
@@ -15,7 +15,7 @@ import { SubscriptionPlans } from 'src/shared/decorators/subscription.decorator'
 
 @ApiTags('Bookings')
 @ApiBearerAuth()
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, UserVerificationGuard)
 @Controller('bookings')
 export class BookingsController {
 
