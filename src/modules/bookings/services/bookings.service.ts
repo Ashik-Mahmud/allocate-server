@@ -1,11 +1,11 @@
-import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
-import { Bookings, BookingStatus, Prisma, Role, User } from '@prisma/client';
+import { BadRequestException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { Bookings, BookingStatus, PlanType, Prisma, Role, User } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import { CreateBookingDto } from '../dto/bookings.dto';
 import GLOBAL_CONFIG from 'src/shared/constant/global.constant';
 import { AllBookingsQueryDto, BookingStatsQueryDto, MyBookingsHistoryQueryDto } from '../dto/booking-filter.dto';
 import { BookingCalendarData } from '../interfaces/booking.interface';
-
+import { getWeekKey } from '../utils/helper';
 
 @Injectable()
 export class BookingsService {
@@ -506,46 +506,47 @@ export class BookingsService {
         if (!user.org_id) {
             throw new BadRequestException('User does not belong to any organization');
         }
+        const organization = await this.prisma.organizations.findUnique({ where: { id: user.org_id, deletedAt: null } });
+        if (!organization) {
+            throw new NotFoundException('Organization not found');
+        }
+
+        // month grouping is only allowed for PRO and ENTERPRISE plans due to complexity of calculating month keys and grouping by them in code, while day and week grouping can be easily achieved by just formatting the date in the query
+        if (organization.plan_type === PlanType.FREE && (groupBy === 'month' || groupBy === 'week')) {
+            throw new ForbiddenException(`Monthly and Weekly statistics are only available in ${PlanType.PRO} or ${PlanType.ENTERPRISE} plan`);
+        }
+
         const whereClause: Prisma.BookingsWhereInput = {
             org_id: user.org_id,
             deletedAt: null,
             ...(startDate && endDate ? {
-                start_time: {
-                    gte: startDate,
-                    lte: endDate,
-                },
+                start_time: { gte: new Date(startDate), lte: new Date(endDate) },
             } : {}),
         };
 
         try {
-            if (groupBy === 'day' || groupBy === 'week' || groupBy === 'month') {
+
+            // time based
+            if (['day', 'week', 'month'].includes(groupBy)) {
                 const bookings = await this.prisma.bookings.findMany({
                     where: whereClause,
-                    select: {
-                        start_time: true,
-                        total_cost: true,
-                    },
+                    select: { start_time: true, total_cost: true },
+                    orderBy: { start_time: 'asc' },
                 });
-
-                const getWeekKey = (date: Date) => {
-                    const utcDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-                    const dayNum = utcDate.getUTCDay() || 7;
-                    utcDate.setUTCDate(utcDate.getUTCDate() + 4 - dayNum);
-                    const yearStart = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 1));
-                    const weekNo = Math.ceil((((utcDate.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-                    return `${utcDate.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
-                };
 
                 const grouped = new Map<string, { count: number; totalCost: number }>();
 
                 for (const booking of bookings) {
                     const bookingDate = new Date(booking.start_time);
-                    const key =
-                        groupBy === 'day'
-                            ? bookingDate.toISOString().split('T')[0]
-                            : groupBy === 'month'
-                                ? `${bookingDate.getUTCFullYear()}-${String(bookingDate.getUTCMonth() + 1).padStart(2, '0')}`
-                                : getWeekKey(bookingDate);
+                    let key: string;
+
+                    if (groupBy === 'day') {
+                        key = bookingDate.toISOString().split('T')[0];
+                    } else if (groupBy === 'month') {
+                        key = `${bookingDate.getUTCFullYear()}-${String(bookingDate.getUTCMonth() + 1).padStart(2, '0')}`;
+                    } else {
+                        key = getWeekKey(bookingDate);
+                    }
 
                     const current = grouped.get(key) || { count: 0, totalCost: 0 };
                     current.count += 1;
@@ -555,22 +556,21 @@ export class BookingsService {
 
                 return Array.from(grouped.entries()).map(([period, values]) => ({
                     period,
-                    _count: { id: values.count },
-                    _sum: { total_cost: values.totalCost },
+                    bookingsCount: values.count,
+                    totalCredits: values.totalCost,
+                    averageCredits: values.count > 0 ? (values.totalCost / values.count).toFixed(2) : 0,
                 }));
             }
 
             const allowedGroupByFields: Prisma.BookingsScalarFieldEnum[] = ['resource_id', 'user_id', 'status'];
-            const byField: Prisma.BookingsScalarFieldEnum =
-                groupBy && allowedGroupByFields.includes(groupBy as Prisma.BookingsScalarFieldEnum)
-                    ? (groupBy as Prisma.BookingsScalarFieldEnum)
-                    : 'resource_id';
+            const byField = allowedGroupByFields.includes(groupBy as any) ? (groupBy as any) : 'resource_id';
 
             const stats = await this.prisma.bookings.groupBy({
                 by: [byField],
                 where: whereClause,
                 _count: { id: true },
                 _sum: { total_cost: true },
+                _avg: { total_cost: true },
             });
 
             return stats;
