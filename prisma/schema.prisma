@@ -7,25 +7,25 @@ datasource db {
 }
 
 model User {
-  id               String         @id @default(cuid())
-  email            String         @unique
-  password         String
-  name             String
-  photo            String?
-  personal_credits Int?
-  role             Role           @default(ORG_ADMIN)
-  last_login       DateTime?
-  is_verified      Boolean?       @default(false)
-  verification_token String?       @unique
-  token_expiry      DateTime?
-  deletedAt        DateTime?
-  createdAt        DateTime?      @default(now())
-  updatedAt        DateTime?      @updatedAt
-  org_id           String?
-  organization     Organizations? @relation(fields: [org_id], references: [id], onDelete: Cascade)
-  notifications    Notification[]
-  bookings         Bookings[]     @relation("BookingUser")
-  createdBookings  Bookings[]     @relation("BookingCreator")
+  id                 String         @id @default(cuid())
+  email              String         @unique
+  password           String
+  name               String
+  photo              String?
+  personal_credits   Int?
+  role               Role           @default(ORG_ADMIN)
+  last_login         DateTime?
+  is_verified        Boolean?       @default(false)
+  verification_token String?        @unique
+  token_expiry       DateTime?
+  deletedAt          DateTime?
+  createdAt          DateTime?      @default(now())
+  updatedAt          DateTime?      @updatedAt
+  org_id             String?
+  organization       Organizations? @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  notifications      Notification[]
+  bookings           Bookings[]     @relation("BookingUser")
+  createdBookings    Bookings[]     @relation("BookingCreator")
 
   @@index([email, org_id])
   @@map("users")
@@ -174,7 +174,8 @@ model Notification {
   title        String
   message      String
   is_read      Boolean          @default(false)
-  reference_id String?
+  reference_id String?  // e.g. Booking ID, Credit Transaction ID, etc.
+  metadata     Json?    // Additional data related to the notification
 
   user         User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
   organization Organizations @relation(fields: [org_id], references: [id], onDelete: Cascade)
@@ -245,11 +246,27 @@ enum InvitationStatus {
 }
 
 enum NotificationType {
+  // Booking Related
   BOOKING_CONFIRMED
   BOOKING_REJECTED
+  BOOKING_REMINDER 
+
+  // Credit Related
   CREDIT_RECEIVED
-  SYSTEM_ALERT
+  CREDIT_REVOKED 
+  LOW_CREDIT_WARNING 
+
+  // Invitation & Staff
   INVITATION_RECEIVED
+  STAFF_JOINED 
+
+  // Subscription (Paid Feature)
+  SUBSCRIPTION_EXPIRING 
+  SUBSCRIPTION_EXPIRED 
+
+  // System
+  SYSTEM_ALERT
+  MAINTENANCE_NOTICE 
 }
 
 enum TransactionType {
