@@ -125,4 +125,18 @@ export class EmailService {
 
         return this.sendTemplateEmail(to, name, template);
     }
+
+    // Send email to delete staff member from organization
+    async sendStaffDeletionEmail(to: string, name: string, organizationName: string) {
+        const template = buildAnnouncementEmailTemplate({
+            name,
+            heading: 'Account Deleted',
+            title: `Your account has been deleted from ${organizationName}`,
+            message: `Your account has been deleted from the organization ${organizationName}. If you have any questions, please contact your administrator.`,
+            ctaUrl: process.env.WEB_APP_LINK || 'http://localhost:3000',
+            ctaLabel: 'Contact Support',
+        });
+
+        return this.sendTemplateEmail(to, name, template);
+    }
 }

@@ -3,9 +3,8 @@ import { PrismaService } from "src/modules/prisma/prisma.service";
 import { CreateStaffDto, ManageCreditsDto, ManageMultipleStaffCreditsDto, UpdateStaffDto } from "../dto/staff.dto";
 import { CryptoUtils } from "src/modules/auth/utils/crypto";
 import { EmailService } from "src/modules/inbox/service/email.service";
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from "@nestjs/common";
 import { StaffFilterDto } from "../dto/staff-filter.dto";
-import { InternalServerError } from "node_modules/@getbrevo/brevo/dist/cjs/api";
 
 // Write staff service code
 @Injectable()
@@ -218,8 +217,22 @@ export class StaffService {
                 role: true,
                 photo: true,
                 createdAt: true,
+                organization: {
+                    select: {
+                        name: true,
+                    },
+                },
             },
         });
+        try {
+            await this.emailService.sendStaffDeletionEmail(
+                deletedStaff.email,
+                deletedStaff.name,
+                deletedStaff.organization?.name || 'Our Organization',
+            );
+        } catch (error) {
+            console.error('Failed to send staff deletion email:', error);
+        }
         return deletedStaff;
     }
 
@@ -279,7 +292,7 @@ export class StaffService {
             return updatedStaff;
         } catch (error) {
             console.error('Failed to send email:', error);
-            throw new InternalServerError('Failed to manage credits for the staff member');
+            throw new InternalServerErrorException('Failed to manage credits for the staff member');
         }
 
     }
@@ -347,9 +360,13 @@ export class StaffService {
         }
         catch (error) {
             console.error('Failed to send email:', error);
-            throw new InternalServerError('Failed to manage credits for the multiple staff members');
+            throw new InternalServerErrorException('Failed to manage credits for the multiple staff members');
         }
     }
 
+
+
+    // Get staff credit logs history
+    async getStaffCreditLogs(user: User) {}
 
 }

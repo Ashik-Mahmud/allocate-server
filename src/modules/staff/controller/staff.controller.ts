@@ -3,17 +3,18 @@
 // Write admin controller code
 import { Request, response, Response } from 'express';
 
-import { ApiBearerAuth, ApiBody, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Body, Controller, Get, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
-import { ClientGuard, RolesGuard, UserVerificationGuard } from 'src/shared/guards';
+import { ClientGuard, RolesGuard, SubscriptionGuard, UserVerificationGuard } from 'src/shared/guards';
 import { Roles } from 'src/shared/decorators/roles.decorator';
-import { Role, User } from '@prisma/client';
+import { PlanType, Role, User } from '@prisma/client';
 import { CurrentUser } from 'src/shared/decorators/user.decorator';
 import { StaffService } from '../service/staff.service';
 import { CreateStaffDto, ManageCreditsDto, ManageMultipleStaffCreditsDto, UpdateStaffDto } from '../dto/staff.dto';
 import { ResponseUtil } from 'src/utils/responses';
 import { StaffFilterDto } from '../dto/staff-filter.dto';
+import { SubscriptionPlans } from 'src/shared/decorators/subscription.decorator';
 
 
 @ApiTags('Staff')
@@ -32,6 +33,7 @@ export class StaffController {
      */
 
     @Post("create")
+    @ApiOperation({ summary: 'Create a new staff member in the organization (Organization Admin Only)' })
     @ApiResponse({ status: 201, description: 'Staff member created successfully.' })
     @ApiResponse({ status: 400, description: 'Bad Request.' })
     @ApiResponse({ status: 401, description: 'Unauthorized.' })
@@ -49,6 +51,7 @@ export class StaffController {
      * @return A list of staff members
      */
     @Get("list")
+    @ApiOperation({ summary: 'Get all staff members in the organization (Organization Admin Only)' })
     @ApiResponse({ status: 200, description: 'List of staff members retrieved successfully.' })
     @ApiResponse({ status: 401, description: 'Unauthorized.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
@@ -73,6 +76,7 @@ export class StaffController {
     @ApiResponse({ status: 200, description: 'Staff member retrieved successfully.' })
     @ApiResponse({ status: 401, description: 'Unauthorized.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
+    @ApiOperation({ summary: 'Get a specific staff member by ID (Organization Admin Only)' })
     async getStaffById(@Query('id') id: string, @CurrentUser() user: User, @Res() res: Response) {
         // Implement logic to retrieve a staff member by ID
         const staff = await this.staffService.getStaffById(id, user);
@@ -91,6 +95,7 @@ export class StaffController {
     @ApiResponse({ status: 400, description: 'Bad Request.' })
     @ApiResponse({ status: 401, description: 'Unauthorized.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
+    @ApiOperation({ summary: 'Update a staff member\'s information (Organization Admin Only)' })
     async updateStaff(@Query('id') id: string, @Body() updateStaffDto: UpdateStaffDto, @CurrentUser() user: User, @Res() res: Response) {
         // Implement logic to update a staff member's information
         const staff = await this.staffService.updateStaff(id, updateStaffDto, user);
@@ -110,6 +115,8 @@ export class StaffController {
     @ApiResponse({ status: 200, description: 'Staff member deleted successfully.' })
     @ApiResponse({ status: 401, description: 'Unauthorized.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
+    @ApiOperation({ summary: 'Delete a staff member (Organization Admin Only)' })
+
     async deleteStaff(@Query('id') id: string, @CurrentUser() user: User, @Res() res: Response) {
         // Implement logic to delete a staff member
         const staff = await this.staffService.deleteStaff(id, user);
@@ -131,6 +138,7 @@ export class StaffController {
     @ApiResponse({ status: 400, description: 'Bad Request.' })
     @ApiResponse({ status: 401, description: 'Unauthorized.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
+    @ApiOperation({ summary: 'Manage/Assign credits to a staff member (Organization Admin Only)' })
     async manageCredits(@Query('id') id: string, @Body() manageCreditsDto: ManageCreditsDto, @CurrentUser() user: User, @Res() res: Response) {
         // Implement logic to manage/assign credits to a staff member
         // This is a placeholder implementation and should be replaced with actual logic
@@ -151,11 +159,35 @@ export class StaffController {
     @ApiResponse({ status: 400, description: 'Bad Request.' })
     @ApiResponse({ status: 401, description: 'Unauthorized.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
+    @ApiOperation({ summary: 'Manage/Assign credits to multiple staff members (Organization Admin Only)' })
     async manageMultipleStaffCredits(@Body() manageCreditsDto: ManageMultipleStaffCreditsDto, @CurrentUser() user: User, @Res() res: Response) {
         // Implement logic to manage/assign credits to multiple staff members
         // This is a placeholder implementation and should be replaced with actual logic
         const result = await this.staffService.manageMultipleStaffCredits(manageCreditsDto, user);
         return ResponseUtil.success({ message: `Credits for staff members managed successfully` }, res);
+    }
+
+
+
+
+    /**
+     * Get api to see the staff credit logs history (credits assigned, credits used, credits expired etc)
+     * @route GET /staff/credits/logs
+     * @param user - The current authenticated user
+     * @returns The staff credit logs history
+     */
+
+    @Get("credits/logs")
+    @UseGuards(SubscriptionGuard)
+    @SubscriptionPlans(PlanType.PRO, PlanType.ENTERPRISE)
+    @ApiResponse({ status: 200, description: 'Staff credit logs history retrieved successfully.' })
+    @ApiResponse({ status: 401, description: 'Unauthorized.' })
+    @ApiResponse({ status: 403, description: 'Forbidden.' })
+    @ApiOperation({ summary: 'Get the staff credit logs history (Organization Admin Only)' })
+    async getStaffCreditLogs(@CurrentUser() user: User, @Res() res: Response) {
+        // Implement logic to get the staff credit logs history
+        const report = await this.staffService.getStaffCreditLogs(user);
+        return ResponseUtil.success(report, res);
     }
 
 }
