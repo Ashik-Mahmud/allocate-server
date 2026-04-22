@@ -2,9 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import { EmailService } from './email.service';
 import {
-  NotificationDispatcher,
-  NotificationPayload,
-  NotificationDispatchResult,
+    NotificationDispatcher,
+    NotificationPayload,
+    NotificationDispatchResult,
 } from 'src/utils/notification-dispatcher';
 
 /**
@@ -27,149 +27,161 @@ import {
  */
 @Injectable()
 export class NotificationManager {
-  constructor(
-    private prisma: PrismaService,
-    private emailService: EmailService,
-  ) {}
+    constructor(
+        private prisma: PrismaService,
+        private emailService: EmailService,
+    ) { }
 
-  /**
-   * Main method to send notifications through all configured channels
-   * Automatically fetches organization preferences and routes accordingly
-   */
-  async send(payload: NotificationPayload): Promise<NotificationDispatchResult> {
-    try {
-      // Fetch organization settings
-      const org = await this.prisma.organizations.findUnique({
-        where: { id: payload.orgId },
-        select: { settings: true },
-      });
+    /**
+     * Main method to send notifications through all configured channels
+     * Automatically fetches organization preferences and routes accordingly
+     */
+    async send(payload: NotificationPayload): Promise<NotificationDispatchResult> {
+        try {
+            // Fetch organization settings
+            const org = await this.prisma.organizations.findUnique({
+                where: { id: payload.orgId },
+                select: { settings: true },
+            });
 
-      if (!org) {
-        return this.errorResult('Organization not found');
-      }
+            if (!org) {
+                return this.errorResult('Organization not found');
+            }
 
-      // Parse notification preferences
-      const preferences = NotificationDispatcher.parsePreferences(org.settings);
+            // Parse notification preferences
+            const preferences = NotificationDispatcher.parsePreferences(org.settings);
 
-      // Prepare services for dispatcher
-      const services = {
-        inboxService: this,
-        emailService: this.emailService,
-        smsService: null, // Add when SMS service is ready
-        pushService: null, // Add when push service is ready
-      };
+            // Prepare services for dispatcher
+            const services = {
+                inboxService: this,
+                emailService: this.emailService,
+                smsService: null, // Add when SMS service is ready
+                pushService: null, // Add when push service is ready
+            };
 
-      // Dispatch to all enabled channels
-      const result = await NotificationDispatcher.dispatch(
-        payload,
-        preferences,
-        services,
-      );
+            // Dispatch to all enabled channels
+            const result = await NotificationDispatcher.dispatch(
+                payload,
+                preferences,
+                services,
+            );
 
-      return result;
-    } catch (error) {
-      console.error('Error in notification manager:', error);
-      return this.errorResult((error as Error).message);
+            return result;
+        } catch (error) {
+            console.error('Error in notification manager:', error);
+            return this.errorResult((error as Error).message);
+        }
     }
-  }
 
-  /**
-   * Send notification to multiple users
-   */
-  async sendBatch(
-    payloads: NotificationPayload[],
-  ): Promise<NotificationDispatchResult[]> {
-    const results = await Promise.all(payloads.map((p) => this.send(p)));
-    return results;
-  }
+    /**
+     * Send notification to multiple users
+     */
+    async sendBatch(
+        payloads: NotificationPayload[],
+    ): Promise<NotificationDispatchResult[]> {
+        const results = await Promise.all(payloads.map((p) => this.send(p)));
+        return results;
+    }
 
-  /**
-   * Create in-app notification (used internally by dispatcher)
-   */
-  async createNotification(data: {
-    userId: string;
-    orgId: string;
-    type: any;
-    title: string;
-    message: string;
-    refId?: string;
-    metadata?: any;
-  }) {
-    const notification = await this.prisma.notification.create({
-      data: {
-        user_id: data.userId,
-        org_id: data.orgId,
-        type: data.type,
-        title: data.title,
-        message: data.message,
-        reference_id: data.refId,
-        metadata: data.metadata,
-      },
-    });
+    /**
+     * Create in-app notification (used internally by dispatcher)
+     */
+    async createNotification(data: {
+        userId: string;
+        orgId: string;
+        type: any;
+        title: string;
+        message: string;
+        refId?: string;
+        metadata?: any;
+    }) {
+        const notification = await this.prisma.notification.create({
+            data: {
+                user_id: data.userId,
+                org_id: data.orgId,
+                type: data.type,
+                title: data.title,
+                message: data.message,
+                reference_id: data.refId,
+                metadata: data.metadata,
+            },
+        });
 
-    // TODO: Integrate with Socket.io or Firebase for real-time delivery
-    // this.socketService.sendToUser(data.userId, notification);
+        // TODO: Integrate with Socket.io or Firebase for real-time delivery
+        // this.socketService.sendToUser(data.userId, notification);
 
-    return notification;
-  }
+        return notification;
+    }
 
-  /**
-   * Get inbox messages for a user
-   */
-  async getInboxMessages(userId: string) {
-    return await this.prisma.notification.findMany({
-      where: { user_id: userId },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
+    /**
+     * Get inbox messages for a user
+     */
+    async getInboxMessages(userId: string, page: number = 1, limit: number = 10) {
+        const skip = (page - 1) * limit;
+        return await this.prisma.notification.findMany({
+            where: { user_id: userId },
+            orderBy: { createdAt: 'desc' },
+            skip: skip,
+            take: limit,
+        });
+    }
 
-  /**
-   * Mark notification as read
-   */
-  async markAsRead(notificationId: string) {
-    return await this.prisma.notification.update({
-      where: { id: notificationId },
-      data: { is_read: true },
-    });
-  }
+    /**
+     * Mark notification as read
+     */
+    async markAsRead(userId: string, notificationId: string) {
+        return await this.prisma.notification.update({
+            where: { id: notificationId, user_id: userId },
+            data: { is_read: true },
+        });
+    }
 
-  /**
-   * Mark all notifications as read for a user
-   */
-  async markAllAsRead(userId: string) {
-    return await this.prisma.notification.updateMany({
-      where: { user_id: userId, is_read: false },
-      data: { is_read: true },
-    });
-  }
+    /**
+     * Mark all notifications as read for a user
+     */
+    async markAllAsRead(userId: string) {
+        return await this.prisma.notification.updateMany({
+            where: { user_id: userId, is_read: false },
+            data: { is_read: true },
+        });
+    }
 
-  /**
-   * Delete notification
-   */
-  async deleteNotification(notificationId: string) {
-    return await this.prisma.notification.delete({
-      where: { id: notificationId },
-    });
-  }
+    /**
+     * Delete notification
+     */
+    async deleteNotification(userId: string, notificationId: string) {
+        return await this.prisma.notification.delete({
+            where: { id: notificationId, user_id: userId },
+        });
+    }
 
-  /**
-   * Get unread count for a user
-   */
-  async getUnreadCount(userId: string) {
-    return await this.prisma.notification.count({
-      where: { user_id: userId, is_read: false },
-    });
-  }
+    /**
+     * Get unread count for a user
+     */
+    async getUnreadCount(userId: string) {
+        return await this.prisma.notification.count({
+            where: { user_id: userId, is_read: false },
+        });
+    }
 
-  /**
-   * Helper to generate error result
-   */
-  private errorResult(message: string): NotificationDispatchResult {
-    return {
-      inApp: { sent: false, error: message },
-      email: { sent: false, error: message },
-      sms: { sent: false, error: message },
-      push: { sent: false, error: message },
-    };
-  }
+    /**
+     * Delete all notifications for a user
+     */
+    async deleteAllNotifications(userId: string) {
+        return await this.prisma.notification.deleteMany({
+            where: { user_id: userId },
+        });
+    }
+
+    /**
+     * Helper to generate error result
+     */
+    private errorResult(message: string): NotificationDispatchResult {
+        return {
+            inApp: { sent: false, error: message },
+            email: { sent: false, error: message },
+            sms: { sent: false, error: message },
+            push: { sent: false, error: message },
+        };
+    }
 }

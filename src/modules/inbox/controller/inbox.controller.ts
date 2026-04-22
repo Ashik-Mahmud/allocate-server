@@ -2,14 +2,16 @@
 // Write admin controller code
 import { Request, response, Response } from 'express';
 
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Body, Controller, Delete, Get, Param, Patch, Post, Res, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
 import { RolesGuard } from 'src/shared/guards';
 import { Roles } from 'src/shared/decorators/roles.decorator';
 import { Role, User } from '@prisma/client';
 import { CurrentUser } from 'src/shared/decorators/user.decorator';
 import { InboxService } from '../service/inbox.service';
+import { NotificationManager } from '../service/notification-manager.service';
+import { ResponseUtil } from 'src/utils/responses';
 
 @ApiTags('Inbox')
 @ApiBearerAuth()
@@ -17,7 +19,7 @@ import { InboxService } from '../service/inbox.service';
 @Controller('inbox')
 export class InboxController {
 
-    constructor(private inboxService: InboxService) { }
+    constructor(private inboxService: InboxService, private notificationManager: NotificationManager) { }
 
 
     /**
@@ -29,12 +31,16 @@ export class InboxController {
     @Get('/notifications')
     @ApiResponse({ status: 200, description: 'Inbox messages retrieved successfully.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
+    @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number for pagination' })
+    @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of items per page' })
     @ApiOperation({ summary: 'Get Inbox Messages', description: 'Retrieve inbox messages for the authenticated user.' })
-    async getInboxMessages(@CurrentUser() user: User, @Res() response: Response) {
+    async getInboxMessages(@CurrentUser() user: User, @Res() response: Response, @Query() query: { page?: number; limit?: number }) {
         // Implement logic to get inbox messages for the authenticated user here
         // You can use this.inboxService to call service methods for business logic
-        const messages = await this.inboxService.getInboxMessages(user.id);
-        response.status(200).json(messages);
+        // const messages = await this.inboxService.getInboxMessages(user.id);
+        // response.status(200).json(messages);
+        const result = await this.notificationManager.getInboxMessages(user.id, query.page, query.limit);
+        return ResponseUtil.success(result, response);
     }
 
 
@@ -51,7 +57,8 @@ export class InboxController {
     async markNotificationAsRead(@CurrentUser() user: User, @Param('id') notificationId: string, @Res() response: Response) {
         // Implement logic to mark a specific notification as read for the authenticated user here
         // You can use this.inboxService to call service methods for business logic
-        response.status(200).json({ message: 'Notification marked as read successfully' });
+        const result = await this.notificationManager.markAsRead(user.id, notificationId);
+        return ResponseUtil.success(result, response);
     }
 
 
@@ -67,7 +74,8 @@ export class InboxController {
     async markAllNotificationsAsRead(@CurrentUser() user: User, @Res() response: Response) {
         // Implement logic to mark all notifications as read for the authenticated user here
         // You can use this.inboxService to call service methods for business logic
-        response.status(200).json({ message: 'All notifications marked as read successfully' });
+        const result = await this.notificationManager.markAllAsRead(user.id);
+        return ResponseUtil.success(result, response);
     }
 
 
@@ -84,7 +92,9 @@ export class InboxController {
     async deleteNotification(@CurrentUser() user: User, @Param('id') notificationId: string, @Res() response: Response) {
         // Implement logic to delete a specific notification for the authenticated user here
         // You can use this.inboxService to call service methods for business logic
-        response.status(200).json({ message: 'Notification deleted successfully' });
+        const result = await this.notificationManager.deleteNotification(user.id, notificationId);
+        return ResponseUtil.success(result, response);
+       
     }
 
     /**
@@ -99,7 +109,24 @@ export class InboxController {
     async clearAllNotifications(@CurrentUser() user: User, @Res() response: Response) {
         // Implement logic to clear all notifications for the authenticated user here
         // You can use this.inboxService to call service methods for business logic
-        response.status(200).json({ message: 'All notifications cleared successfully' });
+        const result = await this.notificationManager.deleteAllNotifications(user.id);
+        return ResponseUtil.success(result, response);
+    }
+
+    /**
+     * Add endpoint to get unread notifications count for the authenticated user
+     * @param user - The currently authenticated user
+     * @param response - The outgoing response object
+     */
+    @Get('/notifications/unread-count')
+    @ApiResponse({ status: 200, description: 'Unread notifications count retrieved successfully.' })
+    @ApiResponse({ status: 403, description: 'Forbidden.' })
+    @ApiOperation({ summary: 'Get Unread Notifications Count', description: 'Retrieve the count of unread notifications for the authenticated user.' })
+    async getUnreadNotificationsCount(@CurrentUser() user: User, @Res() response: Response) {
+        // Implement logic to get the count of unread notifications for the authenticated user here
+        // You can use this.inboxService to call service methods for business logic
+        const result = await this.notificationManager.getUnreadCount(user.id);
+        return ResponseUtil.success({ unreadCount: result }, response);
     }
 
 
