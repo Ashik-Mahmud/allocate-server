@@ -4,7 +4,7 @@ import { CreateStaffDto, ManageCreditsDto, ManageMultipleStaffCreditsDto, Update
 import { CryptoUtils } from "src/modules/auth/utils/crypto";
 import { EmailService } from "src/modules/inbox/service/email.service";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from "@nestjs/common";
-import { StaffFilterDto } from "../dto/staff-filter.dto";
+import { CreditLogsFilterDto, StaffFilterDto } from "../dto/staff-filter.dto";
 import { buildSubscriptionLimitMessage, getSubscriptionLimits, isSubscriptionLimitReached } from "src/shared/constant/subscription.constant";
 import { Response } from "express";
 import { SharedService } from "src/shared/services/shared.service";
@@ -620,6 +620,54 @@ export class StaffService {
 
 
     // Get staff credit logs history
-    async getStaffCreditLogs(user: User) { }
+    async getStaffCreditLogs(user: User, query: CreditLogsFilterDto, res: Response) {
+        const orgId = user?.org_id;
+        const page = Number(query.page) || 1;
+        const limit = Number(query.limit) || 10;
+        const search = query.search || '';
+
+        if (!orgId) {
+            throw new BadRequestException('User does not belong to any organization');
+        }
+
+        const whereClause: Prisma.CreditTransactionWhereInput = {
+            org_id: orgId,
+            type: { in: [TransactionType.ALLOCATE, TransactionType.SPEND, TransactionType.REVOKE] },
+            ...(search ? {
+                OR: [
+                    { description: { contains: search, mode: 'insensitive' } },
+                    { referenceId: { contains: search, mode: 'insensitive' } },
+                    { user: { name: { contains: search, mode: 'insensitive' } } }
+                ],
+            } : {}),
+        };
+
+        const [items, total] = await this.prisma.$transaction([
+            this.prisma.creditTransaction.findMany({
+                where: whereClause,
+                include: {
+                    user: {
+                        select: {
+                            name: true,
+                            email: true,
+                            photo: true
+                        }
+                    }
+                },
+                skip: (page - 1) * limit,
+                take: limit,
+                orderBy: { createdAt: 'desc' },
+            }),
+            this.prisma.creditTransaction.count({ where: whereClause }),
+        ]);
+
+        return {
+            items,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+        };
+    }
 
 }

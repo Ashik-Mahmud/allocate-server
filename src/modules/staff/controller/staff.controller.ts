@@ -13,7 +13,7 @@ import { CurrentUser } from 'src/shared/decorators/user.decorator';
 import { StaffService } from '../service/staff.service';
 import { CreateStaffDto, ManageCreditsDto, ManageMultipleStaffCreditsDto, UpdateStaffDto } from '../dto/staff.dto';
 import { ResponseUtil } from 'src/utils/responses';
-import { StaffFilterDto } from '../dto/staff-filter.dto';
+import { CreditLogsFilterDto, StaffFilterDto } from '../dto/staff-filter.dto';
 import { SubscriptionPlans } from 'src/shared/decorators/subscription.decorator';
 
 
@@ -203,9 +203,12 @@ export class StaffController {
     @ApiResponse({ status: 401, description: 'Unauthorized.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
     @ApiOperation({ summary: 'Get the staff credit logs history (Organization Admin Only)' })
-    async getStaffCreditLogs(@CurrentUser() user: User, @Res() res: Response) {
+    @ApiQuery({ name: 'page', required: false, type: Number })
+    @ApiQuery({ name: 'limit', required: false, type: Number })
+    @ApiQuery({name: 'search', required: false, type: String, description: 'Search by resource name or action type'})
+    async getStaffCreditLogs(@CurrentUser() user: User, @Res() res: Response, @Query() query: CreditLogsFilterDto) {
         // Implement logic to get the staff credit logs history
-        const report = await this.staffService.getStaffCreditLogs(user);
+        const report = await this.staffService.getStaffCreditLogs(user, query, res);
         return ResponseUtil.success(report, res);
     }
 

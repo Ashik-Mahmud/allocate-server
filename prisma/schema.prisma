@@ -29,6 +29,7 @@ model User {
 
   @@index([email, org_id])
   @@map("users")
+  creditTransactions CreditTransaction[]
 }
 
 model Organizations {
@@ -163,6 +164,7 @@ model CreditTransaction {
   createdAt       DateTime        @default(now())
 
   booking Bookings? @relation(fields: [referenceId], references: [id], onDelete: Cascade)
+  user    User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([org_id, user_id])
   @@map("credit_transactions")

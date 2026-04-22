@@ -117,13 +117,32 @@ export class NotificationManager {
      * Get inbox messages for a user
      */
     async getInboxMessages(userId: string, page: number = 1, limit: number = 10) {
-        const skip = (page - 1) * limit;
-        return await this.prisma.notification.findMany({
+        const skip = Number((page - 1) * limit);
+        await this.prisma.notification.findMany({
             where: { user_id: userId },
             orderBy: { createdAt: 'desc' },
             skip: skip,
             take: limit,
         });
+        const [messages, total] = await this.prisma.$transaction([
+            this.prisma.notification.findMany({
+                where: { user_id: userId },
+                orderBy: { createdAt: 'desc' },
+                skip: skip,
+                take: limit,
+            }),
+            this.prisma.notification.count({ where: { user_id: userId } }),
+        ]);
+
+
+
+        return {
+            items: messages,
+            total,
+            page: page,
+            limit: limit,
+            totalPages: Math.ceil(total / limit),
+        };
     }
 
     /**
