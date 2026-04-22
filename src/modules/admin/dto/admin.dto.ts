@@ -23,4 +23,12 @@ export const UpdateSystemSettingsDtoSchema = z.object({
     features_flags: z.record(z.string(), z.boolean()).optional(),
 });
 
+export const BroadcastAnnouncementSchema = z.object({
+    title: z.string(),
+    message: z.string(),
+    target_org_ids: z.array(z.string()).optional(),
+    target_user_ids: z.array(z.string()).optional(),
+});
+
 export class UpdateSystemSettingsDto extends createZodDto(UpdateSystemSettingsDtoSchema) {}
+export class BroadcastAnnouncementDto extends createZodDto(BroadcastAnnouncementSchema) {}
