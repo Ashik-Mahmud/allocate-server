@@ -1,4 +1,4 @@
-import { PlanType, Prisma, PrismaClient, Role, User } from "@prisma/client";
+import { NotificationType, PlanType, Prisma, PrismaClient, Role, TransactionType, User } from "@prisma/client";
 import { PrismaService } from "src/modules/prisma/prisma.service";
 import { CreateStaffDto, ManageCreditsDto, ManageMultipleStaffCreditsDto, UpdateStaffDto } from "../dto/staff.dto";
 import { CryptoUtils } from "src/modules/auth/utils/crypto";
@@ -6,18 +6,22 @@ import { EmailService } from "src/modules/inbox/service/email.service";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from "@nestjs/common";
 import { StaffFilterDto } from "../dto/staff-filter.dto";
 import { buildSubscriptionLimitMessage, getSubscriptionLimits, isSubscriptionLimitReached } from "src/shared/constant/subscription.constant";
+import { Response } from "express";
+import { SharedService } from "src/shared/services/shared.service";
+import { NotificationManager } from "src/modules/inbox/service/notification-manager.service";
 
 // Write staff service code
 @Injectable()
 export class StaffService {
     constructor(
         private prisma: PrismaService,
-        private emailService: EmailService
-
+        private emailService: EmailService,
+        private sharedService: SharedService,
+        private NotificationManager: NotificationManager
     ) { }
 
     // Create a new staff member
-    async createStaff(createStaffDto: CreateStaffDto, user: User) {
+    async createStaff(createStaffDto: CreateStaffDto, user: User, res: Response) {
         const { email, name, password, photo, org_id } = createStaffDto;
 
         // check if the user has any accosciated organization
@@ -83,6 +87,20 @@ export class StaffService {
                 organization: { select: { name: true } }
             }
         });
+        // Log the activity
+        const ipAddress = (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '';
+        const userAgent: string = res.req.headers['user-agent'] || 'unknown';
+        await this.sharedService.logActivity(this.prisma, {
+            userId: user.id,
+            orgId: targetOrgId,
+            action: 'CREATE_STAFF',
+            details: `Created staff member with email ${email}`,
+            ipAddress: ipAddress,
+            userAgent: userAgent,
+            metadata: { org_id: targetOrgId, role: user.role },
+        });
+
+        // Send welcome email
         try {
             await this.emailService.sendStaffInviteEmail({
                 to: email,
@@ -168,7 +186,7 @@ export class StaffService {
     }
 
     // Update a staff member's information
-    async updateStaff(id: string, updateStaffDto: UpdateStaffDto, user: User) {
+    async updateStaff(id: string, updateStaffDto: UpdateStaffDto, user: User, res: Response) {
         const { email, name, password, photo } = updateStaffDto;
         const staff = await this.prisma.user.findFirst({
             where: { id, deletedAt: null, org_id: user.org_id, role: { in: [Role.STAFF, Role.ORG_ADMIN] } },
@@ -205,11 +223,28 @@ export class StaffService {
                 role: true,
                 photo: true,
                 createdAt: true,
+                org_id: true,
+
             },
         });
 
+        // Log the activity
+        const updatedFields = Object.keys(updateStaffDto).filter(key => updateStaffDto[key] !== undefined);
+        const ipAddress = (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '';
+        const userAgent: string = res.req.headers['user-agent'] || 'unknown';
+        await this.sharedService.logActivity(this.prisma, {
+            userId: user.id,
+            orgId: user.org_id || updatedStaff?.org_id || '',
+            action: 'UPDATE_STAFF',
+            details: `Updated staff member with email ${updatedStaff.email}`,
+            ipAddress: ipAddress,
+            userAgent: userAgent,
+            metadata: { org_id: user.org_id, role: user.role, updatedFields: updatedFields },
+        });
+
+        // Send email notification about profile update
         try {
-            const updatedFields = Object.keys(updateStaffDto).filter(key => updateStaffDto[key] !== undefined);
+
             await this.emailService.sendUpdateStaffProfileInfoByOrganizationEmail(
                 updatedStaff.email,
                 updatedStaff.name,
@@ -223,7 +258,7 @@ export class StaffService {
 
 
     // Soft delete a staff member
-    async deleteStaff(id: string, user: User) {
+    async deleteStaff(id: string, user: User, res: Response) {
         const staff = await this.prisma.user.findFirst({
             where: { id, deletedAt: null, org_id: user.org_id, role: { in: [Role.STAFF, Role.ORG_ADMIN] } },
         });
@@ -247,6 +282,7 @@ export class StaffService {
                 role: true,
                 photo: true,
                 createdAt: true,
+                org_id: true,
                 organization: {
                     select: {
                         name: true,
@@ -254,6 +290,19 @@ export class StaffService {
                 },
             },
         });
+        // Log the activity
+        const ipAddress = (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '';
+        const userAgent: string = res.req.headers['user-agent'] || 'unknown';
+        await this.sharedService.logActivity(this.prisma, {
+            userId: user.id,
+            orgId: user.org_id || deletedStaff?.org_id || '',
+            action: 'DELETE_STAFF',
+            details: `Deleted staff member with email ${deletedStaff.email}`,
+            ipAddress: ipAddress,
+            userAgent: userAgent,
+            metadata: { org_id: user.org_id, role: user.role },
+        });
+        // Send email notification about account deletion
         try {
             await this.emailService.sendStaffDeletionEmail(
                 deletedStaff.email,
@@ -267,7 +316,7 @@ export class StaffService {
     }
 
     // Manage/Assign credits to a staff member
-    async manageSingleStaffCredits(id: string, manageCreditsDto: ManageCreditsDto, user: User) {
+    async manageSingleStaffCredits(id: string, manageCreditsDto: ManageCreditsDto, user: User, res: Response) {
         const { credits } = manageCreditsDto;
         if (!id) throw new BadRequestException('Staff ID is required');
         const staff = await this.prisma.user.findFirst({
@@ -307,19 +356,161 @@ export class StaffService {
                         role: true,
                         photo: true,
                         createdAt: true,
+                        org_id: true,
+                        organization: {
+                            select: {
+                                name: true,
+                            },
+                        },
                     },
+                });
+                // creadit transaction log
+                await this.sharedService.createCreditTransaction(this.prisma, {
+                    userId: staff.id,
+                    orgId: staff.org_id || '',
+                    amount: credits,
+                    type: TransactionType.ALLOCATE,
+                    prevBalance: Number(staff.personal_credits || 0),
+                    currBalance: Number(staff.personal_credits || 0) + credits,
+                    refId: `credit-${Date.now()}`,
+                    description: `Assigned ${credits} credits to staff member with email ${staff.email} by ${user.name}`,
+                    performedBy: user.id,
                 });
 
                 return updatedStaff;
             });
-            await this.emailService.sendCreditAssignmentEmail(
-                updatedStaff.email,
-                updatedStaff.name,
-                credits,
-                staff.organization.name,
-            ).catch((error) => {
-                console.error('Failed to send credit assignment email:', error);
+
+
+            // Notification (in-app and email and push and sms if needed) about credit assignment
+            this.NotificationManager.send({
+                userId: staff.id,
+                orgId: staff.org_id || '',
+                emailSubject: 'Credit Assignment',
+                title: 'Credit Assignment',
+                message: `You have been assigned ${credits} credits in the organization ${staff.organization.name}. You can use these credits to book resources. If you have any questions, please contact your administrator.`,
+                type: NotificationType.CREDIT_RECEIVED,
+                userEmail: staff.email,
+                userName: staff.name,
+                metadata: { org_id: staff.org_id, role: staff.role, assignedCredits: credits },
+            })
+
+            // Log the activity
+            const ipAddress = (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '';
+            const userAgent: string = res.req.headers['user-agent'] || 'unknown';
+            await this.sharedService.logActivity(this.prisma, {
+                userId: user.id,
+                orgId: staff.org_id || '',
+                action: 'MANAGE_CREDITS',
+                details: `Assigned ${credits} credits to staff member with email ${staff.email}`,
+                metadata: { org_id: staff.org_id, role: user.role, assignedCredits: credits },
+                ipAddress: ipAddress,
+                userAgent: userAgent,
             });
+
+
+
+
+
+            return updatedStaff;
+        } catch (error) {
+            console.error('Failed to send email:', error);
+            throw new InternalServerErrorException('Failed to manage credits for the staff member');
+        }
+
+    }
+
+    // revoke credits from staff member and return to organization pool
+    async revokeStaffCredits(id: string, manageCreditsDto: ManageCreditsDto, user: User, res: Response) {
+        const { credits } = manageCreditsDto;
+        if (!id) throw new BadRequestException('Staff ID is required');
+        const staff = await this.prisma.user.findFirst({
+            where: { id, deletedAt: null, org_id: user.org_id, role: { in: [Role.STAFF, Role.ORG_ADMIN] } },
+            include: { organization: { select: { name: true, credit_pool: true, id: true } } }
+        });
+        if (!staff || !staff.organization?.id) {
+            throw new NotFoundException('Staff member not found');
+        }
+
+        if (Number(staff?.personal_credits || 0) < credits) {
+            throw new BadRequestException('Staff member does not have enough credits to revoke');
+        }
+
+        try {
+            const updatedStaff = await this.prisma.$transaction(async (tx) => {
+                // Add credits to organization pool
+                await tx.organizations.update({
+                    where: { id: staff.organization?.id },
+                    data: {
+                        credit_pool: { increment: credits },
+                    },
+                });
+
+
+                // Deduct credits from staff member
+                const updatedStaff = await tx.user.update({
+                    where: { id, org_id: user.org_id },
+                    data: {
+                        personal_credits: {
+                            decrement: credits,
+                        },
+                    },
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        role: true,
+                        photo: true,
+                        createdAt: true,
+                        org_id: true,
+                        organization: {
+                            select: {
+                                name: true,
+                            },
+                        },
+                    },
+                });
+                // creadit transaction log
+                await this.sharedService.createCreditTransaction(tx, {
+                    userId: staff.id,
+                    orgId: staff.org_id || '',
+                    amount: credits,
+                    type: TransactionType.REVOKE,
+                    prevBalance: Number(staff.personal_credits || 0),
+                    currBalance: Number(staff.personal_credits || 0) - credits,
+                    refId: `credit-${Date.now()}`,
+                    description: `Revoked ${credits} credits from staff member with email ${staff.email} by ${user.name}`,
+                    performedBy: user.id,
+                });
+                return updatedStaff;
+            });
+
+            // Notification (in-app and email and push and sms if needed) about credit revocation
+            this.NotificationManager.send({
+                userId: staff.id,
+                orgId: staff.org_id || '',
+                emailSubject: 'Credit Revocation',
+                title: 'Credit Revocation',
+                message: `You have been revoked ${credits} credits in the organization ${staff.organization.name}. If you have any questions, please contact your administrator.`,
+                type: NotificationType.CREDIT_REVOKED,
+                userEmail: staff.email,
+                userName: staff.name,
+                metadata: { org_id: staff.org_id, role: staff.role, revokedCredits: credits },
+            })
+
+            // Log the activity
+            const ipAddress = (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '';
+            const userAgent: string = res.req.headers['user-agent'] || 'unknown';
+            await this.sharedService.logActivity(this.prisma, {
+                userId: user.id,
+                orgId: staff.org_id || '',
+                action: 'REVOKE_CREDITS',
+                details: `Revoked ${credits} credits from staff member with email ${staff.email}`,
+                metadata: { org_id: staff.org_id, role: user.role, revokedCredits: credits },
+                ipAddress: ipAddress,
+                userAgent: userAgent,
+            });
+
+
             return updatedStaff;
         } catch (error) {
             console.error('Failed to send email:', error);
@@ -329,9 +520,8 @@ export class StaffService {
     }
 
 
-
     // Manage/Assign credits to multiple staff members
-    async manageMultipleStaffCredits(manageCreditsDto: ManageMultipleStaffCreditsDto, user: User) {
+    async manageMultipleStaffCredits(manageCreditsDto: ManageMultipleStaffCreditsDto, user: User, res: Response) {
         const { staffCredits } = manageCreditsDto;
         const orgId = user?.org_id;
 
@@ -375,12 +565,44 @@ export class StaffService {
                     });
 
                     // Send email notification for each staff member
-                    this.emailService.sendCreditAssignmentEmail(
-                        updated.email,
-                        updated.name,
-                        sc.credits,
-                        organization.name,
-                    ).catch(err => console.error('Email failed for:', updated.email, err));
+                    this.NotificationManager.send({
+                        userId: staff.id,
+                        orgId: orgId,
+                        emailSubject: 'Credit Assignment',
+                        title: 'Credit Assignment',
+                        message: `You have been assigned ${sc.credits} credits in the organization ${organization.name}. You can use these credits to book resources. If you have any questions, please contact your administrator.`,
+                        type: NotificationType.CREDIT_RECEIVED,
+                        userEmail: staff.email,
+                        userName: staff.name,
+                        metadata: { org_id: orgId, role: staff.role, assignedCredits: sc.credits },
+                    })
+
+                    // Log the activity
+                    const ipAddress = (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '';
+                    const userAgent: string = res.req.headers['user-agent'] || 'unknown';
+                    await this.sharedService.logActivity(this.prisma, {
+                        userId: user.id,
+                        orgId: orgId,
+                        action: 'MANAGE_CREDITS',
+                        details: `Assigned ${sc.credits} credits to staff member with email ${staff.email}`,
+                        metadata: { org_id: orgId, role: user.role, assignedCredits: sc.credits },
+                        ipAddress: ipAddress,
+                        userAgent: userAgent,
+                    });
+
+                    // creadit transaction log
+                    await this.sharedService.createCreditTransaction(this.prisma, {
+                        userId: staff.id,
+                        orgId: orgId,
+                        amount: sc.credits,
+                        type: TransactionType.ALLOCATE,
+                        prevBalance: Number(staff.personal_credits || 0),
+                        currBalance: Number(staff.personal_credits || 0) + sc.credits,
+                        refId: `credit-${Date.now()}`,
+                        description: `Assigned ${sc.credits} credits to staff member with email ${staff.email} by ${user.name}`,
+                        performedBy: user.id,
+                    });
+
 
                     return updated;
                 });

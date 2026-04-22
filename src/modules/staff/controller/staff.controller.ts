@@ -38,8 +38,8 @@ export class StaffController {
     @ApiResponse({ status: 400, description: 'Bad Request.' })
     @ApiResponse({ status: 401, description: 'Unauthorized.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
-    async create(@Body() createStaffDto: CreateStaffDto, @CurrentUser() user: User) {
-        const staff = await this.staffService.createStaff(createStaffDto, user);
+    async create(@Body() createStaffDto: CreateStaffDto, @CurrentUser() user: User, @Res() response: Response) {
+        const staff = await this.staffService.createStaff(createStaffDto, user, response);
         return ResponseUtil.success(staff);
     }
 
@@ -98,7 +98,7 @@ export class StaffController {
     @ApiOperation({ summary: 'Update a staff member\'s information (Organization Admin Only)' })
     async updateStaff(@Query('id') id: string, @Body() updateStaffDto: UpdateStaffDto, @CurrentUser() user: User, @Res() res: Response) {
         // Implement logic to update a staff member's information
-        const staff = await this.staffService.updateStaff(id, updateStaffDto, user);
+        const staff = await this.staffService.updateStaff(id, updateStaffDto, user, res);
         return ResponseUtil.success(staff, res);
     }
 
@@ -119,7 +119,7 @@ export class StaffController {
 
     async deleteStaff(@Query('id') id: string, @CurrentUser() user: User, @Res() res: Response) {
         // Implement logic to delete a staff member
-        const staff = await this.staffService.deleteStaff(id, user);
+        const staff = await this.staffService.deleteStaff(id, user, res);
         return ResponseUtil.success(staff, res);
     }
 
@@ -142,7 +142,7 @@ export class StaffController {
     async manageCredits(@Param('id') id: string, @Body() manageCreditsDto: ManageCreditsDto, @CurrentUser() user: User, @Res() res: Response) {
         // Implement logic to manage/assign credits to a staff member
         // This is a placeholder implementation and should be replaced with actual logic
-        const result = await this.staffService.manageSingleStaffCredits(id, manageCreditsDto, user);
+        const result = await this.staffService.manageSingleStaffCredits(id, manageCreditsDto, user, res);
         return ResponseUtil.success({ message: `Credits for staff member ${id} managed successfully` }, res);
     }
 
@@ -163,12 +163,31 @@ export class StaffController {
     async manageMultipleStaffCredits(@Body() manageCreditsDto: ManageMultipleStaffCreditsDto, @CurrentUser() user: User, @Res() res: Response) {
         // Implement logic to manage/assign credits to multiple staff members
         // This is a placeholder implementation and should be replaced with actual logic
-        const result = await this.staffService.manageMultipleStaffCredits(manageCreditsDto, user);
+        const result = await this.staffService.manageMultipleStaffCredits(manageCreditsDto, user, res);
         return ResponseUtil.success({ message: `Credits for staff members managed successfully` }, res);
     }
 
 
-
+    /**
+     * Revoke credits from a staff member (This can be implemented as part of manageSingleStaffCredits by passing negative credits, but we can also have a separate endpoint for clarity)
+     * @route POST /staff/:id/credits/revoke
+     * @param id - The ID of the staff member to revoke credits from
+     * @param manageCreditsDto - The data for revoking credits
+     */
+    @Post(":id/credits/revoke")
+    @ApiParam({ name: 'id', description: 'The ID of the staff member to revoke credits from', type: String })
+    @ApiBody({ type: ManageCreditsDto })
+    @ApiResponse({ status: 200, description: 'Staff member credits revoked successfully.' })
+    @ApiResponse({ status: 400, description: 'Bad Request.' })
+    @ApiResponse({ status: 401, description: 'Unauthorized.' })
+    @ApiResponse({ status: 403, description: 'Forbidden.' })
+    @ApiOperation({ summary: 'Revoke credits from a staff member (Organization Admin Only)' })
+    async revokeCredits(@Param('id') id: string, @Body() manageCreditsDto: ManageCreditsDto, @CurrentUser() user: User, @Res() res: Response) {
+        // Implement logic to revoke credits from a staff member
+        // This is a placeholder implementation and should be replaced with actual logic
+        const result = await this.staffService.revokeStaffCredits(id, manageCreditsDto, user, res);
+        return ResponseUtil.success({ message: `Credits for staff member ${id} revoked successfully` }, res);
+    }
 
     /**
      * Get api to see the staff credit logs history (credits assigned, credits used, credits expired etc)

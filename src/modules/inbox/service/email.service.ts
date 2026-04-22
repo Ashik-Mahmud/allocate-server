@@ -153,7 +153,7 @@ export class EmailService {
             title: options.subject,
             message: options.htmlContent,
             ctaUrl: process.env.WEB_APP_LINK || 'http://localhost:3000',
-            ctaLabel: 'Open App',
+            ctaLabel: 'View App',
         });
         return this.sendTemplateEmail(options.to, options.name, template);
     }
