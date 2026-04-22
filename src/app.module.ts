@@ -15,6 +15,7 @@ import { StaffModule } from './modules/staff/staff.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { InboxModule } from './modules/inbox/inbox.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { SharedService } from './shared/services/shared/shared.service';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
       provide: APP_PIPE,
       useClass: ZodValidationPipe,
     },
+    SharedService,
 
   ],
 })

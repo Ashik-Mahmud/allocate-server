@@ -300,11 +300,11 @@ export class BookingsService {
                 },
                 notifications: {
                     staff: {
-                        message: `Your booking for {{resourceName}} is now {{status}}.`,
+                        message: `Your booking for {{resourceName}} is now {{status}}. ${cancelReason ? `Reason: ${cancelReason}` : ''}`,
                     },
                     orgAdmin: {
                         enabled: user.role !== Role.ORG_ADMIN || booking.user_id !== user.id,
-                        message: `Booking for {{resourceName}} by {{requesterName}} is now {{status}}.`,
+                        message: `Booking for {{resourceName}} by {{requesterName}} is now {{status}}. ${cancelReason ? `Reason: ${cancelReason}` : ''}`,
                     },
                 },
                 creditTransaction: {

@@ -8,6 +8,7 @@ export type BookingMessageContext = {
     actorName?: string;
     startTime?: string;
     endTime?: string;
+    cancelReason?: string;
 };
 
 type BookingMessageFactory = (context: BookingMessageContext) => {
@@ -41,13 +42,13 @@ const BookingMessages: Partial<Record<NotificationType, BookingMessageAudienceMa
         }),
     },
     BOOKING_REJECTED: {
-        STAFF: ({ resourceName }) => ({
+        STAFF: ({ resourceName, cancelReason }) => ({
             title: 'Booking Rejected',
-            message: `Your booking request for ${resourceName} has been rejected.`,
+            message: `Your booking request for ${resourceName} has been rejected.${cancelReason ? ` Reason: ${cancelReason}` : ''}`,
         }),
-        ORG_ADMIN: ({ requesterName, resourceName }) => ({
+        ORG_ADMIN: ({ requesterName, resourceName, cancelReason }) => ({
             title: 'Booking Rejected',
-            message: `Booking request by ${requesterName || 'a staff member'} for ${resourceName} was rejected.`,
+            message: `Booking request by ${requesterName || 'a staff member'} for ${resourceName} was rejected.${cancelReason ? ` Reason: ${cancelReason}` : ''}`,
         }),
     },
     BOOKING_REMINDER: {
@@ -57,13 +58,13 @@ const BookingMessages: Partial<Record<NotificationType, BookingMessageAudienceMa
         }),
     },
     BOOKING_CANCELLED: {
-        STAFF: ({ resourceName }) => ({
+        STAFF: ({ resourceName, cancelReason }) => ({
             title: 'Booking Cancelled',
-            message: `Your booking for ${resourceName} has been cancelled.`,
+            message: `Your booking for ${resourceName} has been cancelled.${cancelReason ? ` Reason: ${cancelReason}` : ''}`,
         }),
-        ORG_ADMIN: ({ requesterName, resourceName }) => ({
+        ORG_ADMIN: ({ requesterName, resourceName, cancelReason }) => ({
             title: 'Booking Cancelled',
-            message: `Booking for ${resourceName} by ${requesterName || 'a staff member'} has been cancelled.`,
+            message: `Booking for ${resourceName} by ${requesterName || 'a staff member'} has been cancelled.${cancelReason ? ` Reason: ${cancelReason}` : ''}`,
         }),
     },
 };

@@ -2,8 +2,10 @@ import { Injectable } from "@nestjs/common";
 import { Bookings, BookingStatus, NotificationType, Prisma, TransactionType, User } from "@prisma/client";
 import { NotificationManager } from "src/modules/inbox/service/notification-manager.service";
 import { getBookingMessage } from "../constant/BookingMessages";
+import { SharedService } from "src/shared/services/shared.service";
 
 type BookingUtilServiceOthersOptions = {
+    cancelReason?: string;
     ipAddress?: string;
     userAgent?: string;
     queries?: {
@@ -44,7 +46,8 @@ type BookingUtilServiceOthersOptions = {
 export class BookingUtilService {
     constructor(
         private notificationManager: NotificationManager,
-    ) {}
+        private sharedService: SharedService,
+    ) { }
 
     async handlePostBookingActions(
         booking: Bookings | any,
@@ -67,6 +70,7 @@ export class BookingUtilService {
             actorName: currentUser.name,
             startTime: booking?.start_time ? new Date(booking.start_time).toLocaleString() : undefined,
             endTime: booking?.end_time ? new Date(booking.end_time).toLocaleString() : undefined,
+            cancelReason: options?.cancelReason,
         });
         const defaultAdminMessage = getBookingMessage(notificationType, 'ORG_ADMIN', {
             resourceName,
@@ -74,6 +78,7 @@ export class BookingUtilService {
             actorName: currentUser.name,
             startTime: booking?.start_time ? new Date(booking.start_time).toLocaleString() : undefined,
             endTime: booking?.end_time ? new Date(booking.end_time).toLocaleString() : undefined,
+            cancelReason: options?.cancelReason,
         });
 
         const tasks: Promise<any>[] = [];
@@ -145,35 +150,42 @@ export class BookingUtilService {
             options?.creditTransaction?.enabled ?? Number(booking.total_cost || 0) > 0;
 
         if (shouldCreateCreditTransaction) {
+            // here is catch if type is refund then amount should be positive and if type is spend then amount should be negative
+
             const amount = Number(options?.creditTransaction?.amount ?? booking.total_cost ?? 0);
             const previousBalance = Number(
                 options?.creditTransaction?.previousBalance ?? booking.user?.personal_credits ?? 0,
             );
-            const currentBalance = Number(
-                options?.creditTransaction?.currentBalance ?? previousBalance - amount,
-            );
+            const currentBalance =
+                options?.creditTransaction?.currentBalance ??
+                (options?.creditTransaction?.type === TransactionType.REFUND
+                    ? previousBalance + amount
+                    : previousBalance - amount);
+
+
             const creditDescription = this.resolveTemplate(
                 options?.creditTransaction?.description ||
-                    `Credits deducted for booking #{{bookingId}} for {{resourceName}}`,
+                `Credits deducted for booking #{{bookingId}} for {{resourceName}}`,
                 booking,
                 currentUser,
                 options,
             );
 
             tasks.push(
-                tx.creditTransaction.create({
-                    data: {
+                this.sharedService.createCreditTransaction(
+                    tx,
+                    {
                         amount,
-                        previousBalance,
-                        currentBalance,
+                        prevBalance: previousBalance,
+                        currBalance: currentBalance,
                         performedBy: currentUser.id,
                         type: options?.creditTransaction?.type || TransactionType.SPEND,
-                        user_id: booking.user_id,
-                        org_id: booking.org_id,
-                        referenceId: booking?.id,
+                        userId: booking.user_id,
+                        orgId: booking.org_id,
+                        refId: booking?.id,
                         description: creditDescription,
-                    },
-                }),
+                    }
+                )
             );
         }
 
@@ -182,32 +194,32 @@ export class BookingUtilService {
             options?.activityLog?.action || this.getActivityActionByStatus(booking.status as BookingStatus);
         const activityDetails = this.resolveTemplate(
             options?.activityLog?.details ||
-                `Booking action {{status}} for {{resourceName}} by {{actorName}}`,
+            `Booking action {{status}} for {{resourceName}} by {{actorName}}`,
             booking,
             currentUser,
             options,
         );
 
         tasks.push(
-            tx.activityLog.create({
-                data: {
-                    action: activityAction,
-                    user_id: currentUser.id,
-                    org_id: currentUser?.org_id || booking.org_id,
-                    details: activityDetails,
-                    metadata: {
-                        booking_id: booking.id,
-                        resource_id: booking.resource_id,
-                        status: booking.status,
-                        queryOne: options?.queries?.queryOne,
-                        queryTwo: options?.queries?.queryTwo,
-                        ...(options?.activityLog?.metadata || {}),
-                    },
-                    ipAddress: options?.ipAddress || '',
-                    userAgent: options?.userAgent || '',
+            this.sharedService.logActivity(tx, {
+                action: activityAction,
+                userId: currentUser.id,
+                orgId: currentUser?.org_id || booking.org_id,
+                details: activityDetails,
+                metadata: {
+                    booking_id: booking.id,
+                    resource_id: booking.resource_id,
+                    status: booking.status,
+                    queryOne: options?.queries?.queryOne,
+                    queryTwo: options?.queries?.queryTwo,
+                    ...(options?.activityLog?.metadata || {}),
                 },
+                ipAddress: options?.ipAddress || '',
+                userAgent: options?.userAgent || '',
+
             }),
         );
+
 
         await Promise.all(tasks);
     }
@@ -225,7 +237,7 @@ export class BookingUtilService {
                 return NotificationType.BOOKING_CANCELLED;
             default:
                 return NotificationType.BOOKING_REQUESTED;
-    }
+        }
     }
 
     private getActivityActionByStatus(status: BookingStatus): string {
@@ -259,6 +271,7 @@ export class BookingUtilService {
             status: String(booking?.status || ''),
             queryOne: options?.queries?.queryOne || '',
             queryTwo: options?.queries?.queryTwo || '',
+            cancelReason: options?.cancelReason || '',
         };
 
         return template.replace(/{{\s*([a-zA-Z0-9_]+)\s*}}/g, (_, key) => values[key] || '');
