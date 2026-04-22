@@ -1,10 +1,11 @@
-import { Prisma, PrismaClient, Role, User } from "@prisma/client";
+import { PlanType, Prisma, PrismaClient, Role, User } from "@prisma/client";
 import { PrismaService } from "src/modules/prisma/prisma.service";
 import { CreateStaffDto, ManageCreditsDto, ManageMultipleStaffCreditsDto, UpdateStaffDto } from "../dto/staff.dto";
 import { CryptoUtils } from "src/modules/auth/utils/crypto";
 import { EmailService } from "src/modules/inbox/service/email.service";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from "@nestjs/common";
 import { StaffFilterDto } from "../dto/staff-filter.dto";
+import { buildSubscriptionLimitMessage, getSubscriptionLimits, isSubscriptionLimitReached } from "src/shared/constant/subscription.constant";
 
 // Write staff service code
 @Injectable()
@@ -31,6 +32,35 @@ export class StaffService {
 
         if (existingUser) {
             throw new ConflictException('A user with this email already exists in the system');
+        }
+
+        const organization = await this.prisma.organizations.findUnique({
+            where: { id: targetOrgId },
+            select: {
+                id: true,
+                plan_type: true,
+                is_active: true,
+                _count: {
+                    select: {
+                        users: {
+                            where: { deletedAt: null }
+                        }
+                    }
+                }
+            },
+        })
+        if (!organization || !organization.is_active) {
+            throw new NotFoundException('Organization not found');
+        }
+
+        const currentPlan = organization.plan_type ?? PlanType.FREE;
+        const currentUsersCount = organization._count.users ?? 0;
+
+        if (isSubscriptionLimitReached(currentPlan, 'MAX_USERS', currentUsersCount)) {
+            const { MAX_USERS } = getSubscriptionLimits(currentPlan);
+            throw new ForbiddenException(
+                buildSubscriptionLimitMessage(currentPlan, 'users', MAX_USERS),
+            );
         }
 
 
@@ -367,6 +397,6 @@ export class StaffService {
 
 
     // Get staff credit logs history
-    async getStaffCreditLogs(user: User) {}
+    async getStaffCreditLogs(user: User) { }
 
 }

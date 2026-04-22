@@ -45,7 +45,7 @@ model Organizations {
   address        Json?
   business_email String?
   needUpdateOrg  Boolean?        @default(true)
-  settings       Json?           // For storing organization-specific settings like notification preferences, etc.
+  settings       Json?            @default("{\"notificationPreference\":{\"email\":true,\"sms\":false,\"push\":false, \"inApp\":true}}") // For future extensibility (e.g. notification preferences, etc.)
   isVerified      Boolean?        @default(false)
   deletedAt      DateTime?
   createdAt      DateTime?       @default(now())

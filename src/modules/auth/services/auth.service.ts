@@ -32,6 +32,14 @@ export class AuthService {
         data: {
           name: dto.name,
           plan_type: PlanType.FREE, // Default plan type for new organizations
+          settings: {
+            notification_preferences: {
+              email: true,
+              sms: false,
+              push: false,
+              inApp: true,
+            },
+          }
         },
       });
 
@@ -78,7 +86,8 @@ export class AuthService {
       orgId: user.org_id,
     });
     try {
-      await this.emailService.sendWelcomeEmail(user.email, user.name);
+      await this.emailService.sendWelcomeEmail(user.email, user.name); // Send welcome email after registration
+      await this.sendVerificationEmail(user.email, user.name); // Send verification email after registration
     } catch (error) {
       console.error('Failed to send welcome email:', error);
     }
