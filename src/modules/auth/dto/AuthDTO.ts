@@ -29,9 +29,14 @@ export const ForgotPasswordSchema = z.object({
   email: emailSchema
 })
 
+export const UpdateProfileSchema = z.object({
+  name: z.string().min(1, 'Name is required').optional(),
+  photo: z.string().optional(),
+})
 
 export class RegisterDto extends createZodDto(RegisterSchema) {} 
 export class LoginDto extends createZodDto(LoginSchema) {}
 export class RefreshTokenDto extends createZodDto(RefreshTokenSchema) {}
 export class ChangePasswordDto extends createZodDto(ChangePasswordSchema) {}
 export class ForgotPasswordDto extends createZodDto(ForgotPasswordSchema) {}
+export class UpdateProfileDto extends createZodDto(UpdateProfileSchema) {}

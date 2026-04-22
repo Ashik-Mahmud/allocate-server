@@ -3,11 +3,12 @@ import { PlanType, Role, User } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import { CreateOrganizationDto, UpdateOrganizationDto } from '../dto/organization.dto';
 import { Response } from 'express';
+import { SharedService } from 'src/shared/services/shared.service';
 
 @Injectable()
 export class OrganizationService {
 
-    constructor(private prisma: PrismaService) { }
+    constructor(private prisma: PrismaService, private sharedService: SharedService) { }
 
     // This service will handle all organization related business logic such as creating an organization, updating organization details, fetching organization information, etc.
 
@@ -41,9 +42,19 @@ export class OrganizationService {
                 },
             });
 
-            await prisma.user.update({
+            const user = await prisma.user.update({
                 where: { id: clientId },
                 data: { org_id: organization.id },
+            });
+            // Log activity for organization creation
+            await this.sharedService.logActivity(this.prisma, {
+                userId: clientId,
+                orgId: organization.id,
+                action: 'ORGANIZATION_CREATE',
+                details: `Organization created: ${organization.name}`,
+                ipAddress: (response?.req?.headers['x-forwarded-for'] as string) || response?.req?.ip || response?.req?.connection?.remoteAddress || '',
+                userAgent: response.req.headers['user-agent'] || 'unknown',
+                metadata: { planType: PlanType.FREE, orgId: organization.id, createdBy: user.name || user.email },
             });
 
             return organization;
@@ -61,7 +72,7 @@ export class OrganizationService {
         // check if client exists in the database
         const client = await this.prisma.user.findUnique({
             where: { id: clientId },
-            select: { org_id: true },
+            select: { org_id: true, name: true, email: true, organization: { select: { id: true, name: true } } },
         });
 
         if (!client) {
@@ -72,6 +83,24 @@ export class OrganizationService {
             throw new ForbiddenException('Client is not authorized to update this organization');
         }
 
+        // Log activity for organization creation
+        const changedFields = Object.keys(updateOrganizationDto).join(', ');
+        const previousFields = { changedFields };
+        const currentChangedValues = Object.values(updateOrganizationDto).join(', ');
+        const details = `Organization updated: ${client?.organization?.name || ''}. Changed fields: ${changedFields}. Previous values: ${JSON.stringify(previousFields)}. Current values: ${currentChangedValues}`;
+        await this.sharedService.logActivity(this.prisma, {
+            userId: clientId,
+            orgId: client.org_id,
+            action: 'ORGANIZATION_UPDATE',
+            details: details,
+            ipAddress: (response?.req?.headers['x-forwarded-for'] as string) || response?.req?.ip || response?.req?.connection?.remoteAddress || '',
+            userAgent: response.req.headers['user-agent'] || 'unknown',
+            metadata: {
+                orgId: client.org_id,
+                updatedBy: client.name || client.email,
+                changedFields: changedFields.split(', '),
+            },
+        });
         // Update organization
         return await this.prisma.organizations.update({
             where: { id },

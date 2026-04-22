@@ -1,8 +1,8 @@
-import { Controller, Post, Body, Get, UseGuards, Req, Res, HttpCode, HttpStatus, Query } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Req, Res, HttpCode, HttpStatus, Query, Patch } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiProperty, ApiBody, ApiOkResponse } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { AuthService } from '../services/auth.service';
-import { RegisterDto, LoginDto, RefreshTokenDto, ChangePasswordDto, ForgotPasswordDto } from '../dto/AuthDTO';
+import { RegisterDto, LoginDto, RefreshTokenDto, ChangePasswordDto, ForgotPasswordDto, UpdateProfileDto } from '../dto/AuthDTO';
 import { AuthGuard } from '../guards/auth.guard';
 import { ResponseUtil } from '../../../utils/responses';
 import { AUTH_SUCCESS_MESSAGES } from '../constant/auth.constant';
@@ -51,7 +51,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Login successful' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   async login(@Body() dto: LoginDto, @Res() res: Response) {
-    const result = await this.authService.login(dto);
+    const result = await this.authService.login(dto, res);
     return ResponseUtil.success(result, res);
   }
 
@@ -120,6 +120,22 @@ export class AuthController {
   async getProfile(@Req() req: Request, @Res() res: Response) {
     const profile = await this.authService.getProfile(req.user!.id);
     return ResponseUtil.success(profile, res);
+  }
+
+  /**
+   * Update user profile
+   * @param req - The HTTP request object containing the authenticated user's information.
+   * @param res - The response object to send the result back to the client.
+   * @return A success response containing the user's profile information.
+   */
+  @Patch('profile')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update user profile' })
+  @ApiResponse({ status: 200, description: 'Profile updated successfully' })
+  async updateProfile(@Req() req: Request, @Body() dto: UpdateProfileDto, @Res() res: Response, @CurrentUser() user: User) {
+    const updatedProfile = await this.authService.updateProfile( dto, res, user);
+    return ResponseUtil.success(updatedProfile, res);
   }
 
   /**

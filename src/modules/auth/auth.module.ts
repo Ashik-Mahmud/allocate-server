@@ -4,11 +4,12 @@ import { AuthService } from './services/auth.service';
 import { AuthMiddleware, OptionalAuthMiddleware } from './middleware/auth.middleware';
 import { AuthGuard } from './guards/auth.guard';
 import { EmailService } from '../inbox/service/email.service';
+import { SharedService } from 'src/shared/services/shared.service';
 
 @Module({
   //imports: [AuthMiddleware, OptionalAuthMiddleware],
   controllers: [AuthController],
-  providers: [AuthService,AuthMiddleware, OptionalAuthMiddleware, AuthGuard, EmailService],
+  providers: [AuthService,AuthMiddleware, OptionalAuthMiddleware, AuthGuard, EmailService, SharedService],
   exports: [AuthService, AuthMiddleware, OptionalAuthMiddleware, AuthGuard],
 })
 export class AuthModule implements NestModule {

@@ -1,15 +1,21 @@
 import { Injectable, ConflictException, UnauthorizedException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { JWTUtils, TokenPair } from '../utils/jwt';
 import { CryptoUtils } from '../utils/crypto';
-import { RegisterDto, LoginDto, ChangePasswordDto } from '../dto/AuthDTO';
+import { RegisterDto, LoginDto, ChangePasswordDto, UpdateProfileDto } from '../dto/AuthDTO';
 import { PaymentStatus, PlanType, User } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import GLOBAL_CONFIG from 'src/shared/constant/global.constant';
 import { EmailService } from 'src/modules/inbox/service/email.service';
 import { v4 as uuidv4 } from 'uuid';
+import { SharedService } from 'src/shared/services/shared.service';
+import { Response } from 'express';
 @Injectable()
 export class AuthService {
-  constructor(private prisma: PrismaService, private emailService: EmailService) { }
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+    private sharedService: SharedService
+  ) { }
 
   async register(dto: RegisterDto): Promise<TokenPair & { user: Partial<User> }> {
 
@@ -96,7 +102,7 @@ export class AuthService {
   }
 
   // login
-  async login(dto: LoginDto): Promise<TokenPair & { user: Partial<User> & { needUpdateOrg: boolean } }> {
+  async login(dto: LoginDto, res: Response): Promise<TokenPair & { user: Partial<User> & { needUpdateOrg: boolean } }> {
     // Find user
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email, },
@@ -138,6 +144,18 @@ export class AuthService {
       orgId: user?.organization?.id || user?.org_id || '', // Fallback to default org ID if not set
     });
 
+    // log activity
+    const ipAddress = (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '';
+    const userAgent: string = res.req.headers['user-agent'] || 'unknown';
+    await this.sharedService.logActivity(this.prisma, {
+      userId: user.id,
+      orgId: user.org_id || '',
+      action: 'USER_LOGIN',
+      details: `User ${user.email} logged in`,
+      ipAddress: ipAddress,
+      userAgent: userAgent,
+      metadata: { org_id: user?.organization?.id || user?.org_id || '', role: user.role },
+    });
     return {
       ...tokens,
       user: {
@@ -253,6 +271,40 @@ export class AuthService {
     return user;
   }
 
+  // update profile
+  async updateProfile(dto: UpdateProfileDto, res: Response, user: User): Promise<Partial<User>> {
+
+    if (!user.id) {
+      throw new NotFoundException('User not found');
+    }
+    const existUser = await this.prisma.user.findUnique({
+      where: { id: user?.id },
+    });
+    if (!existUser) {
+      throw new NotFoundException('User not found');
+    }
+    const updatedUser = await this.prisma.user.update({
+      where: { id: user?.id },
+      data: {
+        name: dto.name,
+        photo: dto.photo,
+      },
+    })
+    // log activity
+    const ipAddress = (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '';
+    const userAgent: string = res.req.headers['user-agent'] || 'unknown';
+
+    await this.sharedService.logActivity(this.prisma, {
+      userId: user?.id,
+      orgId: user?.org_id || updatedUser?.org_id || '',
+      action: 'PROFILE_UPDATE',
+      details: `User ${user.email} updated profile`,
+      ipAddress: ipAddress,
+      userAgent: userAgent,
+      metadata: { org_id: user?.org_id, updatedFields: Object.keys(dto) },
+    })
+    return updatedUser;
+  }
 
   // send verification email
   async sendVerificationEmail(email: string, name: string): Promise<void> {
