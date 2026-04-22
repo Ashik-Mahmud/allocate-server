@@ -45,6 +45,8 @@ model Organizations {
   address        Json?
   business_email String?
   needUpdateOrg  Boolean?        @default(true)
+  settings       Json?           // For storing organization-specific settings like notification preferences, etc.
+  isVerified      Boolean?        @default(false)
   deletedAt      DateTime?
   createdAt      DateTime?       @default(now())
   updatedAt      DateTime?       @updatedAt
@@ -151,10 +153,10 @@ model CreditTransaction {
   id              String          @id @default(uuid())
   org_id          String
   user_id         String
-  amount          Decimal // +50.00 or -10.00
+  amount          Float // +50.00 or -10.00
   type            TransactionType // Enum: SPEND, ALLOCATE, REFUND
-  previousBalance Decimal
-  currentBalance  Decimal
+  previousBalance Float
+  currentBalance  Float
   referenceId     String? // Booking ID or Top-up ID
   description     String?
   performedBy     String // Admin ID who performed the action
