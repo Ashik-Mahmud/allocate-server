@@ -9,8 +9,6 @@ export class InboxService {
     constructor(private prisma: PrismaService, private emailService: EmailService) {
         // Initialize any necessary properties or dependencies here
     }
-
-
     // create notification for user
     async createNotification(data: {
         userId: string;

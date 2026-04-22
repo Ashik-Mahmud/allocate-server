@@ -249,6 +249,7 @@ enum InvitationStatus {
 
 enum NotificationType {
   // Booking Related
+  BOOKING_REQUESTED
   BOOKING_CONFIRMED
   BOOKING_REJECTED
   BOOKING_REMINDER 
