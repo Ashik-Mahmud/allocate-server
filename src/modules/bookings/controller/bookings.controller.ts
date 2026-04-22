@@ -6,7 +6,7 @@ import { RolesGuard, SubscriptionGuard, UserVerificationGuard } from 'src/shared
 import { Roles } from 'src/shared/decorators/roles.decorator';
 import { BookingStatus, PlanType, Role, User } from '@prisma/client';
 import { CurrentUser } from 'src/shared/decorators/user.decorator';
-import { CreateBookingDto } from '../dto/bookings.dto';
+import { CreateBookingDto, UpdateBookingStatusDto } from '../dto/bookings.dto';
 import { ResponseUtil } from 'src/utils/responses';
 import { Response } from 'express';
 import { AllBookingsQueryDto, BookingStatsQueryDto, MyBookingsHistoryQueryDto } from '../dto/booking-filter.dto';
@@ -40,7 +40,7 @@ export class BookingsController {
     @ApiResponse({ status: 401, description: 'Unauthorized - Token required' })
     @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
     async createBooking(@CurrentUser() currentUser: User, @Body() createBookingDto: CreateBookingDto, @Res() res: Response) {
-        const result = await this.service.createBooking(currentUser, createBookingDto);
+        const result = await this.service.createBooking(currentUser, createBookingDto, res);
         return ResponseUtil.success(result, res);
     }
 
@@ -62,6 +62,7 @@ export class BookingsController {
     @ApiResponse({ status: 401, description: 'Unauthorized - Token required' })
     @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
     @ApiQuery({ name: 'bookingId', type: 'string', description: 'ID of the booking to update' })
+    
     @ApiQuery({
         name: 'status',
         enum: ['PENDING', 'CONFIRMED', 'REJECTED', 'CANCELLED', 'COMPLETED'],
@@ -71,9 +72,10 @@ export class BookingsController {
         @CurrentUser() currentUser: User,
         @Query('bookingId') bookingId: string,
         @Query('status') status: BookingStatus,
+        @Body() cancellationReasonDto: UpdateBookingStatusDto, // Optional cancellation reason when status is CANCELLED
         @Res() res: Response
     ) {
-        const result = await this.service.updateBookingStatus(currentUser, bookingId, status);
+        const result = await this.service.updateBookingStatus(currentUser, bookingId, status, cancellationReasonDto.cancellation_reason, res);
         return ResponseUtil.success(result, res);
     }
 

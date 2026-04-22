@@ -4,7 +4,7 @@
 import { Request, response, Response } from 'express';
 
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Body, Controller, Get, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
 import { ClientGuard, RolesGuard, SubscriptionGuard, UserVerificationGuard } from 'src/shared/guards';
 import { Roles } from 'src/shared/decorators/roles.decorator';
@@ -139,7 +139,7 @@ export class StaffController {
     @ApiResponse({ status: 401, description: 'Unauthorized.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
     @ApiOperation({ summary: 'Manage/Assign credits to a staff member (Organization Admin Only)' })
-    async manageCredits(@Query('id') id: string, @Body() manageCreditsDto: ManageCreditsDto, @CurrentUser() user: User, @Res() res: Response) {
+    async manageCredits(@Param('id') id: string, @Body() manageCreditsDto: ManageCreditsDto, @CurrentUser() user: User, @Res() res: Response) {
         // Implement logic to manage/assign credits to a staff member
         // This is a placeholder implementation and should be replaced with actual logic
         const result = await this.staffService.manageSingleStaffCredits(id, manageCreditsDto, user);

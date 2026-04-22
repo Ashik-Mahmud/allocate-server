@@ -1,26 +1,33 @@
 import { BadRequestException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
-import { Bookings, BookingStatus, PlanType, Prisma, Role, User } from '@prisma/client';
+import { Bookings, BookingStatus, NotificationType, PlanType, Prisma, Role, User } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import { CreateBookingDto } from '../dto/bookings.dto';
 import GLOBAL_CONFIG from 'src/shared/constant/global.constant';
 import { AllBookingsQueryDto, BookingStatsQueryDto, MyBookingsHistoryQueryDto } from '../dto/booking-filter.dto';
 import { BookingCalendarData } from '../interfaces/booking.interface';
 import { getWeekKey } from '../utils/helper';
+import { NotificationManager } from 'src/modules/inbox/service/notification-manager.service';
+import { BookingUtilService } from './bookingUtil.service';
+import { Response } from 'express';
 
 @Injectable()
 export class BookingsService {
 
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private notificationManager: NotificationManager,
+        private bookingUtilService: BookingUtilService
+    ) { }
 
     // Create a booking for a resource
-    async createBooking(currentUser: User, createBookingDto: CreateBookingDto) {
+    async createBooking(currentUser: User, createBookingDto: CreateBookingDto, res: Response) {
         const { user_id, resource_id, start_time, end_time, notes, metadata } = createBookingDto;
 
         // basic time variables for later use
         const startTime = new Date(start_time);
         const endTime = new Date(end_time);
         const now = new Date();
-
+        const userId = user_id || currentUser.id
 
         // If the start time is in the past or end time is before start time, throw an error
         if (startTime < now || endTime <= startTime) {
@@ -115,12 +122,12 @@ export class BookingsService {
             const hourlyRate = Number(resource?.hourly_rate || 0);
             const totalCost = hoursDifference * hourlyRate;
 
-            const user = await tx.user.findUnique({ where: { id: user_id } });
+            const user = await tx.user.findUnique({ where: { id: userId } });
             if (!user) throw new NotFoundException('User not found');
 
             // Check pending bookings for the user to calculate pending credits
             const pendingBookings = await tx.bookings.aggregate({
-                where: { user_id, status: 'PENDING', deletedAt: null },
+                where: { user_id: userId, status: 'PENDING', deletedAt: null },
                 _sum: { total_cost: true }
             });
             const pendingCredits = pendingBookings._sum.total_cost || 0;
@@ -131,10 +138,12 @@ export class BookingsService {
                 throw new BadRequestException('Insufficient personal credits');
             }
 
+
+
             // Create the booking
             const booking = await tx.bookings.create({
                 data: {
-                    user_id,
+                    user_id: userId,
                     resource_id,
                     org_id: currentUser.org_id,
                     start_time: startTime,
@@ -145,6 +154,29 @@ export class BookingsService {
                     created_by: currentUser.id,
                     status: bookingStatus,
                 },
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true,
+                            personal_credits: true,
+                        }
+                    },
+                    resource: {
+                        select: {
+                            id: true,
+                            name: true,
+                            type: true,
+                        }
+                    },
+                    organization: {
+                        select: {
+                            id: true,
+                            name: true,
+                        }
+                    }
+                },
             });
 
             // Deduct credits from user
@@ -153,7 +185,7 @@ export class BookingsService {
                     throw new BadRequestException('Not enough credits to confirm this booking');
                 }
                 await tx.user.update({
-                    where: { id: user_id },
+                    where: { id: userId },
                     data: {
                         personal_credits: {
                             decrement: totalCost,
@@ -162,18 +194,43 @@ export class BookingsService {
                 });
             }
 
+            // Send notification 
+            const ipAddress = (res.req?.headers['x-forwarded-for'] as string) || res.req?.ip || res.req?.connection?.remoteAddress || '';
+            await this.bookingUtilService.handlePostBookingActions(booking, tx, currentUser, {
+                ipAddress: ipAddress,
+                userAgent: res.req?.headers['user-agent'] || '',
+                queries: {
+                    queryOne: `start:${booking.start_time.toISOString()}`,
+                    queryTwo: `end:${booking.end_time.toISOString()}`,
+                },
+                notifications: {
+                    staff: {
+                        message: `Your booking for {{resourceName}} has been created with status {{status}}.`,
+                    },
+                    orgAdmin: {
+                        enabled: booking.status === BookingStatus.PENDING,
+                        message: `{{requesterName}} created a booking request for {{resourceName}}.`,
+                    },
+                },
+                activityLog: {
+                    action: 'BOOKING_CREATED',
+                    details: 'Booking #{{bookingId}} created for {{resourceName}} by {{actorName}}',
+                },
+            });
+
             return booking;
         });
 
     }
 
 
+
     // Update booking status (e.g. cancel a booking)
-    async updateBookingStatus(user: User, bookingId: string, status: BookingStatus): Promise<Bookings | void> {
+    async updateBookingStatus(user: User, bookingId: string, status: BookingStatus, cancelReason?: string, res?: Response): Promise<Bookings | void> {
 
         const booking = await this.prisma.bookings.findUnique({
             where: { id: bookingId, deletedAt: null },
-            include: { user: true }
+            include: { user: true, resource: true }
         });
 
         if (!booking) throw new NotFoundException('Booking not found');
@@ -183,6 +240,7 @@ export class BookingsService {
         }
         return await this.prisma.$transaction(async (tx) => {
             let finalStatus = status;
+            let refundAmount = 0;
             // If booking is pending and org admin is confirming it, then we will check if user has enough credits to confirm this booking and then deduct the credits from user
             if (booking.status === BookingStatus.PENDING && status === BookingStatus.CONFIRMED) {
                 if (user?.role !== Role.ORG_ADMIN) {
@@ -217,7 +275,7 @@ export class BookingsService {
                     refundMultiplier = GLOBAL_CONFIG.REFUND_POLICY.PARTIAL_REFUND_IF_CANCELLED_WITHIN;
                 }
 
-                const refundAmount = (Number(booking.total_cost) || 0) * refundMultiplier;
+                refundAmount = (Number(booking.total_cost) || 0) * refundMultiplier;
 
                 if (refundAmount > 0) {
                     await tx.user.update({
@@ -227,10 +285,59 @@ export class BookingsService {
                 }
             }
 
+            // Send notification to user about the status update
+            const ipAddress = (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '';
+            await this.bookingUtilService.handlePostBookingActions({
+                ...booking,
+                status: finalStatus,
+
+            }, tx, user, {
+                ipAddress: ipAddress,
+                userAgent: res?.req?.headers['user-agent'] || '',
+                queries: {
+                    queryOne: `status:${finalStatus}`,
+                    queryTwo: `resource:${booking.resource?.name || 'resource'}`,
+                },
+                notifications: {
+                    staff: {
+                        message: `Your booking for {{resourceName}} is now {{status}}.`,
+                    },
+                    orgAdmin: {
+                        enabled: user.role !== Role.ORG_ADMIN || booking.user_id !== user.id,
+                        message: `Booking for {{resourceName}} by {{requesterName}} is now {{status}}.`,
+                    },
+                },
+                creditTransaction: {
+                    enabled:
+                        (booking.status === BookingStatus.PENDING && finalStatus === BookingStatus.CONFIRMED) ||
+                        (booking.status === BookingStatus.CONFIRMED && finalStatus === BookingStatus.CANCELLED && refundAmount > 0),
+                    type:
+                        booking.status === BookingStatus.CONFIRMED && finalStatus === BookingStatus.CANCELLED
+                            ? 'REFUND'
+                            : 'SPEND',
+                    amount:
+                        booking.status === BookingStatus.CONFIRMED && finalStatus === BookingStatus.CANCELLED
+                            ? refundAmount
+                            : Number(booking.total_cost || 0),
+                    description:
+                        booking.status === BookingStatus.CONFIRMED && finalStatus === BookingStatus.CANCELLED
+                            ? 'Credits refunded for cancelled booking #{{bookingId}} ({{resourceName}})'
+                            : 'Credits spent for booking #{{bookingId}} ({{resourceName}})',
+                },
+                activityLog: {
+                    action: `BOOKING_${finalStatus}`,
+                    details: `Booking #{{bookingId}} for {{resourceName}} changed to {{status}} by {{actorName}}`,
+                    metadata: {
+                        previous_status: booking.status,
+                    },
+                },
+            });
+
             return await tx.bookings.update({
                 where: { id: bookingId },
                 data: {
                     status: finalStatus,
+                    ...(finalStatus === BookingStatus.CANCELLED && cancelReason ? { cancellation_reason: cancelReason } : {}),
                 },
             });
         });

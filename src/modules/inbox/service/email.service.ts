@@ -139,4 +139,22 @@ export class EmailService {
 
         return this.sendTemplateEmail(to, name, template);
     }
+
+    // Global Email Sending Template for various use cases
+    async sendGlobalEmail(options: {
+        to: string;
+        name: string;
+        subject: string;
+        htmlContent: string;
+    }) {
+        const template = buildAnnouncementEmailTemplate({
+            name: options.name,
+            heading: options.subject,
+            title: options.subject,
+            message: options.htmlContent,
+            ctaUrl: process.env.WEB_APP_LINK || 'http://localhost:3000',
+            ctaLabel: 'Open App',
+        });
+        return this.sendTemplateEmail(options.to, options.name, template);
+    }
 }

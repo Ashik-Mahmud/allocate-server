@@ -198,6 +198,7 @@ model ActivityLog {
   userAgent String
   metadata  Json?
   createdAt DateTime @default(now())
+  details String?
 
   @@index([org_id, user_id])
   @@map("activity_logs")
@@ -253,6 +254,7 @@ enum NotificationType {
   BOOKING_CONFIRMED
   BOOKING_REJECTED
   BOOKING_REMINDER 
+  BOOKING_CANCELLED
 
   // Credit Related
   CREDIT_RECEIVED
@@ -273,9 +275,20 @@ enum NotificationType {
 }
 
 enum TransactionType {
-  SPEND
-  ALLOCATE
-  REFUND
+  // Admin to Staff
+  ALLOCATE      // When admin allocates credits to staff
+  REVOKE        // When admin revokes credits from staff
+
+  // Staff Usage
+  SPEND         // When staff spend credits
+  REFUND        // When staff are refunded credits
+
+  // Organization Pool (System Admin to Org Admin)
+  TOP_UP        // When system admin adds credits to an organization's main pool
+  DEDUCT        // When credits are deducted from an organization's pool for a specific reason
+
+  // Bonus/System
+  ADJUSTMENT    // When the balance needs to be adjusted due to an error or other reason
 }
 
 enum Role {

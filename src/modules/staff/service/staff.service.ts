@@ -269,6 +269,7 @@ export class StaffService {
     // Manage/Assign credits to a staff member
     async manageSingleStaffCredits(id: string, manageCreditsDto: ManageCreditsDto, user: User) {
         const { credits } = manageCreditsDto;
+        if (!id) throw new BadRequestException('Staff ID is required');
         const staff = await this.prisma.user.findFirst({
             where: { id, deletedAt: null, org_id: user.org_id, role: { in: [Role.STAFF, Role.ORG_ADMIN] } },
             include: { organization: { select: { name: true, credit_pool: true, id: true } } }
