@@ -10,6 +10,7 @@ import { Roles } from 'src/shared/decorators/roles.decorator';
 import { Role, User } from '@prisma/client';
 import { BroadcastAnnouncementDto, UpdateSystemSettingsDto } from '../dto/admin.dto';
 import { CurrentUser } from 'src/shared/decorators/user.decorator';
+import { ResponseUtil } from 'src/utils/responses';
 
 @ApiTags('Admin')
 @ApiBearerAuth()
@@ -36,7 +37,8 @@ export class AdminController {
     async updateSystemSettings(@CurrentUser() user: User, @Body() updateSystemSettingsDto: UpdateSystemSettingsDto, @Res() response: Response) {
         // Implement logic to update system settings here
         // You can use this.adminService to call service methods for business logic
-        response.status(200).json({ message: 'System settings updated successfully' });
+        const updatedSettings = await this.adminService.updateSystemSettings(user, updateSystemSettingsDto);
+        ResponseUtil.success(updatedSettings, response);
     }
 
     /**
@@ -51,7 +53,8 @@ export class AdminController {
     async getSystemSettings(@CurrentUser() user: User, @Res() response: Response) {
         // Implement logic to retrieve system settings here
         // You can use this.adminService to call service methods for business logic
-        response.status(200).json({ message: 'System settings retrieved successfully', data: {} });
+        const settings = await this.adminService.getSystemSettings(user);
+        ResponseUtil.success(settings, response);
     }
 
     /**
@@ -66,7 +69,9 @@ export class AdminController {
     async broadcastAnnouncement(@CurrentUser() user: User, @Body() broadcastAnnouncementDto: BroadcastAnnouncementDto, @Res() response: Response) {
         // Implement logic to broadcast announcement to all organizations/users here
         // You can use this.adminService to call service methods for business logic
-        response.status(200).json({ message: 'Announcement broadcasted successfully' });
+        const result = await this.adminService.broadcastAnnouncement(user, broadcastAnnouncementDto);
+
+        ResponseUtil.success(result, response);
     }
 
 

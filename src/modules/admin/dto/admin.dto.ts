@@ -15,10 +15,11 @@
 // Write admin system setting dto using zod schema
 import { z } from 'zod';
 import { createZodDto } from "nestjs-zod"
+import { meta } from 'zod/v4/core';
 
 export const UpdateSystemSettingsDtoSchema = z.object({
     maintenance_mode: z.boolean().optional(),
-    global_alert_message: z.string().optional(),
+    global_alert_message: z.record(z.string(), z.any()).optional(),
     support_email: z.string().email().optional(),
     features_flags: z.record(z.string(), z.boolean()).optional(),
 });
@@ -26,9 +27,11 @@ export const UpdateSystemSettingsDtoSchema = z.object({
 export const BroadcastAnnouncementSchema = z.object({
     title: z.string(),
     message: z.string(),
-    target_org_ids: z.array(z.string()).optional(),
-    target_user_ids: z.array(z.string()).optional(),
+    userIds: z.array(z.string()).optional(),
+    type: z.enum(['SYSTEM_ALERT', 'MAINTENANCE_NOTICE']).default('SYSTEM_ALERT'),
+    metadata: z.record(z.string(), z.any()).optional(),
+    receiverType: z.enum(['ALL', 'ORG', 'STAFF', 'INDIVIDUAL']).default('ALL'),
 });
 
-export class UpdateSystemSettingsDto extends createZodDto(UpdateSystemSettingsDtoSchema) {}
-export class BroadcastAnnouncementDto extends createZodDto(BroadcastAnnouncementSchema) {}
+export class UpdateSystemSettingsDto extends createZodDto(UpdateSystemSettingsDtoSchema) { }
+export class BroadcastAnnouncementDto extends createZodDto(BroadcastAnnouncementSchema) { }

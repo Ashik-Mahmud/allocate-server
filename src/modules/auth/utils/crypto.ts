@@ -14,7 +14,7 @@ export class CryptoUtils {
     return await bcrypt.compare(password, hashedPassword);
   }
 
-  static generateRandomToken(): string {
-    return crypto.randomBytes(32).toString('hex');
+  static generateRandomToken(count: number = 32): string {
+    return crypto.randomBytes(count).toString('hex');
   }
 }
