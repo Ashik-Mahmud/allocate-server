@@ -9,14 +9,16 @@ import {
 
 } from 'src/shared/constant/subscription.constant';
 import { UpdateOrganizationDto } from 'src/modules/organization/dto/organization.dto';
+import { SharedService } from 'src/shared/services/shared.service';
+import { Response } from 'express';
 
 @Injectable()
 export class ResourcesService {
 
-    constructor(private prisma: PrismaService) { }
+    constructor(private prisma: PrismaService, private sharedService: SharedService) { }
 
     // Service method to create a resource
-    async createResource(user: User, createResourceDto: CreateResourceDto) {
+    async createResource(user: User, createResourceDto: CreateResourceDto, res?: Response) {
         if (!user.org_id) {
             throw new ForbiddenException('User organization not found');
         }
@@ -74,12 +76,25 @@ export class ResourcesService {
             },
         });
 
+        // Log resource creation activity
+        const ipAddress = (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '';
+        const userAgent = res?.req?.headers['user-agent'] || 'unknown';
+        await this.sharedService.logActivity(this.prisma, {
+            userId: user?.id,
+            orgId: user?.org_id || resource?.org_id || '',
+            action: 'RESOURCE_CREATE',
+            details: `User ${user.email} created resource`,
+            ipAddress: ipAddress,
+            userAgent: userAgent,
+            metadata: { org_id: user?.org_id || '', role: user?.role, resource_id: resource?.id || '' },
+        });
+
         return resource;
     }
 
 
     // Service method to update a resource
-    async updateResource(user: User, resourceId: string, updateResourceDto: UpdateResourceDto) {
+    async updateResource(user: User, resourceId: string, updateResourceDto: UpdateResourceDto, res?: Response) {
         if (!user.org_id) {
             throw new ForbiddenException('User organization not found');
         }
@@ -113,7 +128,21 @@ export class ResourcesService {
                     metadata: finalMetadata ?? {},
                 },
             });
-            return updatedResource
+
+            // Log resource update activity
+            const ipAddress = (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '';
+            const userAgent = res?.req?.headers['user-agent'] || 'unknown';
+            const updatedFields = Object.keys(updateResourceDto).join(', ');
+            await this.sharedService.logActivity(this.prisma, {
+                userId: user?.id,
+                orgId: user?.org_id || resource?.org_id || '',
+                action: 'RESOURCE_UPDATE',
+                details: `User ${user.email} updated resource`,
+                ipAddress: ipAddress,
+                userAgent: userAgent,
+                metadata: { org_id: user?.org_id || '', role: user?.role, resource_id: resource?.id || '', updatedFields },
+            });
+            return updatedResource;
 
         } catch (error) {
             if (error instanceof ForbiddenException || error instanceof NotFoundException) throw error;
@@ -123,7 +152,7 @@ export class ResourcesService {
     }
 
     // Service method to delete a resource
-    async deleteResource(user: User, resourceId: string) {
+    async deleteResource(user: User, resourceId: string, res?: Response) {
         if (!user.org_id) {
             throw new ForbiddenException('User organization not found');
         }
@@ -169,6 +198,20 @@ export class ResourcesService {
                 where: { id: resourceId },
                 data: { deletedAt: new Date() },
             });
+
+            // Log resource deletion activity
+            const ipAddress = (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '';
+            const userAgent = res?.req?.headers['user-agent'] || 'unknown';
+            await this.sharedService.logActivity(this.prisma, {
+                userId: user?.id,
+                orgId: user?.org_id || resource?.org_id || '',
+                action: 'RESOURCE_DELETE',
+                details: `User ${user.email} deleted resource`,
+                ipAddress: ipAddress,
+                userAgent: userAgent,
+                metadata: { org_id: user?.org_id || '', role: user?.role, resource_id: resource?.id || '', resourceName: resource.name },
+            });
+            
             return deletedResource;
         } catch (error) {
             if (error instanceof ForbiddenException || error instanceof NotFoundException) throw error;

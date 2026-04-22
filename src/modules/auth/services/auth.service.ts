@@ -352,4 +352,22 @@ export class AuthService {
       data: { is_verified: true, verification_token: null, token_expiry: null },
     });
   }
+
+  // logout
+  async logout(user: User, res: Response): Promise<void> {
+    // Invalidate tokens if you are using a token blacklist (not implemented here)
+    // For now, just return success
+    await this.sharedService.logActivity(this.prisma, {
+      userId: user.id,
+      orgId: user.org_id || '',
+      action: 'USER_LOGOUT',
+      details: `User ${user.email} logged out`,
+      ipAddress: (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '',
+      userAgent: res.req.headers['user-agent'] || 'unknown',
+      metadata: { org_id: user?.org_id || '', role: user.role },
+    });
+  }
+
+
+
 }

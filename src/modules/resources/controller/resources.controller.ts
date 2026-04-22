@@ -47,7 +47,7 @@ export class ResourcesController {
         @Res() res: Response
     ) {
         //Logic to create a resource will go here
-        const resource = await this.service.createResource(currentUser, createResourceDto);
+        const resource = await this.service.createResource(currentUser, createResourceDto, res);
         return ResponseUtil.success(resource, res);
     }
 
@@ -75,7 +75,7 @@ export class ResourcesController {
         @Res() res: Response
     ) {
         // Logic to update a resource will go here
-        const resource = await this.service.updateResource(currentUser, id, updateResourceDto);
+        const resource = await this.service.updateResource(currentUser, id, updateResourceDto, res);
         return ResponseUtil.success(resource, res);
 
     }
@@ -97,7 +97,7 @@ export class ResourcesController {
     @ApiResponse({ status: 403, description: 'Forbidden - ORG_ADMIN role required' })
     async deleteResource(@CurrentUser() currentUser: User, @Param('id') id: string, @Res() res: Response) {
         // Logic to delete a resource will go here
-        const resource = await this.service.deleteResource(currentUser, id);
+        const resource = await this.service.deleteResource(currentUser, id, res);
         return ResponseUtil.success(resource, res);
     }
 
@@ -177,7 +177,7 @@ export class ResourcesController {
         @Res() res: Response
     ) {
         // Logic to create a resource rule will go here
-        const result = await this.resourcesRuleService.createResourceRule(updateResourceRule, currentUser, id);
+        const result = await this.resourcesRuleService.createResourceRule(updateResourceRule, currentUser, id, res);
         // For now, just return a success response with the provided data
         return ResponseUtil.success(result, res);
     }

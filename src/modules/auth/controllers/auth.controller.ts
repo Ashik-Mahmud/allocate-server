@@ -188,9 +188,10 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Logout user' })
   @ApiResponse({ status: 200, description: 'Logged out successfully' })
-  async logout(@Res() res: Response) {
+  async logout(@Res() res: Response, @CurrentUser() user: User) {
     // In a real implementation, you might want to blacklist the token
     // For now, just return success
+     this.authService.logout(user, res);
     return ResponseUtil.success({ message: 'Logged out successfully' }, res);
   }
 }

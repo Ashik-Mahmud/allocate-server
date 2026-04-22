@@ -12,15 +12,17 @@ import {
 } from 'src/shared/constant/subscription.constant';
 import { UpdateOrganizationDto } from 'src/modules/organization/dto/organization.dto';
 import { CreateResourceRuleDto, UpdateResourceRuleDto } from '../dto/resources-rule.dto';
+import { SharedService } from 'src/shared/services/shared.service';
+import { Response } from 'express';
 
 @Injectable()
 export class ResourcesRuleService {
 
-    constructor(private prisma: PrismaService) { }
+    constructor(private prisma: PrismaService, private sharedService: SharedService) { }
 
 
     // create resources rule
-    async createResourceRule(updateResourcesRuleDto: UpdateResourceRuleDto, user: User, resourceId: string) {
+    async createResourceRule(updateResourcesRuleDto: UpdateResourceRuleDto, user: User, resourceId: string, res?: Response) {
         // Check if resource exists and belongs to the user's organization
         const resource = await this.prisma.resources.findFirst({
             where: { id: resourceId, org_id: user.org_id!, deletedAt: null },
@@ -74,6 +76,18 @@ export class ResourcesRuleService {
                     is_weekend_allowed: updateResourcesRuleDto.is_weekend_allowed,
                     availableDays: updateResourcesRuleDto.availableDays,
                 },
+            });
+            // Log resource rule creation activity
+            const ipAddress = (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '';
+            const userAgent = res?.req?.headers['user-agent'] || 'unknown';
+            await this.sharedService.logActivity(this.prisma, {
+                userId: user?.id,
+                orgId: user?.org_id || resource?.org_id || '',
+                action: newRule.createdAt.getTime() === newRule.updatedAt.getTime() ? 'RESOURCE_RULE_CREATE' : 'RESOURCE_RULE_UPDATE',
+                details: `User ${user.email} created/updated resource rule`,
+                ipAddress: ipAddress,
+                userAgent: userAgent,
+                metadata: { org_id: user?.org_id || '', role: user?.role, resource_id: resource?.id || '', resourceName: resource.name },
             });
             return newRule;
         } catch (error: any) {
