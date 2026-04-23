@@ -2,7 +2,7 @@ import { Injectable, ConflictException, UnauthorizedException, NotFoundException
 import { JWTUtils, TokenPair } from '../utils/jwt';
 import { CryptoUtils } from '../utils/crypto';
 import { RegisterDto, LoginDto, ChangePasswordDto, UpdateProfileDto } from '../dto/AuthDTO';
-import { PaymentStatus, PlanType, User } from '@prisma/client';
+import { PaymentStatus, PlanType, TransactionType, User } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import GLOBAL_CONFIG from 'src/shared/constant/global.constant';
 import { EmailService } from 'src/modules/inbox/service/email.service';
@@ -38,6 +38,7 @@ export class AuthService {
         data: {
           name: dto.name,
           plan_type: PlanType.FREE, // Default plan type for new organizations
+          credit_pool: GLOBAL_CONFIG.FREE_PLAN_CREDITS || 100, // Default credits for free plan
           settings: {
             notification_preferences: {
               email: true,
@@ -76,6 +77,35 @@ export class AuthService {
         },
       });
 
+      // Credit transaction for free plan allocation
+      await prisma.creditTransaction.create({
+        data: {
+          org_id: organization.id,
+          amount: GLOBAL_CONFIG.FREE_PLAN_CREDITS || 100,
+          type: TransactionType.TOP_UP,
+          performedBy: createdUser.id,
+          previousBalance: 0,
+          currentBalance: GLOBAL_CONFIG.FREE_PLAN_CREDITS || 100,
+          description: 'Free plan allocation',
+          user_id: createdUser.id,
+        },
+      });
+
+      // Log activity for organization creation and user registration
+      await this.sharedService.logActivity(prisma, {
+        userId: createdUser.id,
+        orgId: organization.id,
+        action: 'USER_REGISTERED',
+        details: `User ${createdUser.email} registered and organization ${organization.name} created`,
+        metadata: { plan_type: organization.plan_type, createdBy: createdUser.id, creatorName: createdUser.name, defaultCredit: GLOBAL_CONFIG.FREE_PLAN_CREDITS || 100 },
+      });
+      await this.sharedService.logActivity(prisma, {
+        userId: createdUser.id,
+        orgId: organization.id,
+        action: 'ORGANIZATION_CREATED',
+        details: `Organization ${organization.name} created with ID ${organization.id}`,
+        metadata: { plan_type: organization.plan_type, createdBy: createdUser.id, creatorName: createdUser.name, defaultCredit: GLOBAL_CONFIG.FREE_PLAN_CREDITS || 100 },
+      });
 
       return createdUser;
     });

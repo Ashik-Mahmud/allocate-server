@@ -22,3 +22,45 @@ Total Staff: তার আন্ডারে মোট কতজন স্টা
 -Last Transaction: তার একাউন্টে সর্বশেষ কবে এবং কত ক্রেডিট যোগ হয়েছে।
 
 -My Bookings/Usage: সে ক্রেডিট দিয়ে কী কী সুবিধা নিয়েছে (যেমন: কতক্ষণ রুম ব্যবহার করেছে)।
+
+System Admin Dashboard Overview: Key Metrics List
+
+1. Platform Summary (Global Counters)
+
+Total Organizations: Total number of registered companies/tenants.
+
+Total Platform Users: Combined count of all Admins and Staff members.
+
+Total Revenue: Lifetime or Monthly earnings from subscriptions and credit sales.
+
+Global Credits Sold: Total amount of credits currently circulating in the system.
+
+2. Revenue & Growth Analytics
+
+Revenue Trends: A line chart showing daily/weekly income growth.
+
+Plan Distribution: A pie chart showing the ratio of Free vs Pro/Enterprise organizations.
+
+New Sign-ups: A list or count of organizations that joined in the last 7 to 30 days.
+
+3. Tenant & Usage Monitoring
+
+Top 5 Organizations: List of organizations with the highest credit consumption or largest staff count.
+
+Expiring Subscriptions: Organizations whose paid plans are ending within the next 7 days.
+
+Inactive Organizations: Organizations that haven't performed any activity in the last 30 days.
+
+4. System Health & Security
+
+Critical Error Logs: Summary of recent backend failures or API crashes.
+
+Failed Transactions: List of credit purchase attempts that were unsuccessful.
+
+System Status: Real-time health status of the Database and API services.
+
+5. Administrative Controls (Quick Access)
+
+Global Announcement Status: View the current active notification/banner being shown to all users.
+
+Pending Support Requests: Count of organizations waiting for manual credit adjustments or help.

@@ -29,7 +29,7 @@ export class DashboardService {
 
         const orgId = user.org_id as string;
         const now = new Date();
-        const recentWindow = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+        const recentWindow = new Date(now.getTime() - 6 * 60 * 60 * 1000); // 6 hours
 
         const [organization, totalStaff, totalCreditsAssigned, lowCreditUsers, recentBookings, bookingCount, upcomingBookings] =
             await Promise.all([
