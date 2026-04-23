@@ -30,7 +30,7 @@ async function bootstrap() {
 
   // Global filters
   app.useGlobalPipes(new ZodValidationPipe());
-  app.useGlobalFilters(new ErrorHandler());
+  // app.useGlobalFilters(new ErrorHandler());
 
 
   // Swagger

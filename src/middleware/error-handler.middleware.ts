@@ -1,8 +1,9 @@
-import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
+import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { ZodValidationException } from 'nestjs-zod';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import { SharedService } from 'src/shared/services/shared.service';
 
+@Injectable()
 @Catch()
 export class ErrorHandler implements ExceptionFilter {
 

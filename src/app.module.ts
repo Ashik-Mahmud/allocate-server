@@ -4,7 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
 import { ca } from 'zod/v4/locales';
-import { APP_PIPE } from '@nestjs/core';
+import { APP_FILTER, APP_PIPE } from '@nestjs/core';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './modules/prisma/prisma.module';
@@ -16,6 +16,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { InboxModule } from './modules/inbox/inbox.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { SharedService } from './shared/services/shared.service';
+import { ErrorHandler } from './middleware/error-handler.middleware';
 
 @Module({
   imports: [
@@ -47,6 +48,10 @@ import { SharedService } from './shared/services/shared.service';
     {
       provide: APP_PIPE,
       useClass: ZodValidationPipe,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: ErrorHandler,
     },
     SharedService,
 
