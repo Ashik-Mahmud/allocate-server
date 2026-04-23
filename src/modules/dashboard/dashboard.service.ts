@@ -334,7 +334,7 @@ export class DashboardService {
                     type: 'TOP_UP',
                     createdAt: { gte: thirtyDaysAgo },
                 },
-                select: { createdAt: true, amount: true },
+                select: { createdAt: true, amount: true, price_paid: true },
                 orderBy: { createdAt: 'asc' },
             }),
             // organizations
@@ -507,7 +507,7 @@ export class DashboardService {
         );
 
         const revenueTrendDaily = buildRevenueTrend(
-            topUpRows.map((row) => ({ createdAt: row.createdAt, amount: Number(row.amount || 0) })),
+            topUpRows.map((row) => ({ createdAt: row.createdAt, amount: Number(row.price_paid || 0) })),
             30,
         );
 
@@ -534,6 +534,7 @@ export class DashboardService {
                 staffCount: org.staffCount,
             }));
 
+        // data health
         let dbStatus: 'UP' | 'DOWN' = 'UP';
         try {
             await this.prisma.$queryRaw`SELECT 1`;
@@ -558,7 +559,7 @@ export class DashboardService {
                 revenueTrends: {
                     daily: revenueTrendDaily,
                     weekly: revenueTrendWeekly,
-                },
+                }, 
                 planDistribution,
                 newSignups: {
                     last7Days: newSignups7,

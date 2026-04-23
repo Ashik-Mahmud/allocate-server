@@ -19,7 +19,7 @@ export const buildRevenueTrend = (
 
   for (let offset = days - 1; offset >= 0; offset--) {
     const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
-    d.setUTCDate(d.getUTCDate() - offset);
+    d.setUTCDate(d.getUTCDate() - offset);  // Start from today and go back 'days' number of days
     trendMap.set(toDateKey(d), 0);
   }
 
