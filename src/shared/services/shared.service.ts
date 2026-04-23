@@ -45,7 +45,8 @@ export class SharedService {
             currBalance: number;
             refId?: string;
             description?: string;
-            performedBy: string
+            performedBy: string;
+            price_paid?: number;
         }
     ) {
         return await tx.creditTransaction.create({
@@ -59,6 +60,7 @@ export class SharedService {
                 referenceId: data.refId,
                 description: data.description,
                 performedBy: data.performedBy,
+                pricePaid: data.price_paid || 0,
             },
         });
     }

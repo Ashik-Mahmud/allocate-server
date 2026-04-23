@@ -1,12 +1,16 @@
-import { Injectable } from "@nestjs/common";
-import { NotificationType, Role, User } from "@prisma/client";
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { NotificationType, Role, TransactionType, User } from "@prisma/client";
 import { PrismaService } from "src/modules/prisma/prisma.service";
-import { BroadcastAnnouncementDto, UpdateSystemSettingsDto } from "../dto/admin.dto";
+import { BroadcastAnnouncementDto, OrganizationCreditTopUpDto, OrganizationFilterDto, UpdateSystemSettingsDto } from "../dto/admin.dto";
+import { SharedService } from "src/shared/services/shared.service";
+import { EmailService } from "src/modules/inbox/service/email.service";
+import { Response } from "express";
+import { NotificationManager } from "src/modules/inbox/service/notification-manager.service";
 
 // Write admin service code
 @Injectable()
 export class AdminService {
-    constructor(private prisma: PrismaService) {
+    constructor(private prisma: PrismaService, private shared: SharedService, private emailService: EmailService, private notificationManager: NotificationManager) {
         // Initialize any necessary properties or dependencies here
     }
 
@@ -96,5 +100,169 @@ export class AdminService {
         };
     }
 
+    // Get all organizations for admin
+    async getAllOrganizations(user: User, query: OrganizationFilterDto) {
+        if (user.role !== Role.ADMIN) {
+            throw new Error('Unauthorized');
+        }
+        const { organizationId, name, verified, page, limit, search } = query;
+        const whereClause: any = {
+            ...(organizationId ? { id: organizationId } : {}),
+            ...(name ? { name: { contains: name, mode: 'insensitive' } } : {}),
+            ...(verified !== undefined ? { isVerified: verified } : {}),
+            ...(search ? { users: { OR: [{ email: { contains: search, mode: 'insensitive' } }, { name: { contains: search, mode: 'insensitive' } }] } } : {}),
+        };
+        const skip = (page - 1) * limit;
+        const [organizations, total] = await this.prisma.$transaction([
+            this.prisma.organizations.findMany({
+                where: whereClause,
+                skip,
+                take: limit,
+                include: {
+                    users: true,
+                },
+            }),
+            this.prisma.organizations.count({ where: whereClause }),
+        ]);
+        return {
+            items: organizations,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit)
+        };
+    }
+
+
+    // Get organization details by ID for admin
+    async getOrganizationDetails(user: User, orgId: string) {
+        if (user.role !== Role.ADMIN) {
+            throw new Error('Unauthorized');
+        }
+        if (!orgId) {
+            throw new Error('Organization ID is required');
+        }
+        const organization = await this.prisma.organizations.findUnique({
+            where: { id: orgId },
+            include: {
+                users: true,
+            },
+        });
+        return organization;
+    }
+
+    // Update organization verification status
+    async updateOrganizationVerificationStatus(user: User, orgId: string, verified: boolean, response: Response) {
+        if (user.role !== Role.ADMIN) {
+            throw new Error('Unauthorized');
+        }
+        if (!orgId) {
+            throw new Error('Organization ID is required');
+        }
+
+        try {
+            // check if organization exists and update
+            const updatedOrg = await this.prisma.organizations.update({
+                where: { id: orgId },
+                data: { isVerified: verified },
+            });
+
+            // log activity
+            await this.shared.logActivity(this.prisma, {
+                orgId: orgId,
+                userId: user.id,
+                action: verified ? 'ORG_VERIFIED' : 'ORG_UNVERIFIED',
+                details: `Organization ${updatedOrg.name} verification status set to ${verified}`,
+                ipAddress: response.req.ip || '',
+                userAgent: response.get('User-Agent') || '',
+                metadata: { org_id: orgId, role: user.role },
+            });
+
+            this.notificationManager.createNotification({
+                userId: user.id,
+                orgId: orgId,
+                type: NotificationType.SYSTEM_ALERT,
+                title: verified ? 'Organization Verified' : 'Organization Unverified',
+                message: `Organization ${updatedOrg.name} is now ${verified ? 'verified' : 'unverified'}`,
+                metadata: { org_id: orgId, role: user.role },
+            });
+
+            return {
+                success: true,
+                message: `Organization is now ${verified ? 'verified' : 'unverified'}`
+            };
+        } catch (error: any) {
+            if (error.code === 'P2025') {
+                throw new NotFoundException('Organization not found');
+            }
+        }
+    }
+
+    // Top up organization credits
+    async topUpOrganizationCredits(user: User, orgId: string, data: OrganizationCreditTopUpDto, response: Response) {
+        if (user.role !== Role.ADMIN) {
+            throw new Error('Unauthorized');
+        }
+        if (!orgId) {
+            throw new Error('Organization ID is required');
+        }
+        const organization = await this.prisma.organizations.findUnique({
+            where: { id: orgId },
+        });
+        if (!organization) {
+            throw new NotFoundException('Organization not found');
+        }
+        const prevBalance = Number(organization.credit_pool || 0);
+        const topUpAmount = Number(data.amount || 0);
+        const newBalance = prevBalance + topUpAmount;
+
+        const result = await this.prisma.$transaction(async (tx) => {
+            await tx.organizations.update({
+                where: { id: orgId },
+                data: { credit_pool: newBalance },
+            });
+            // Log credit transaction
+            await this.shared.createCreditTransaction(tx, {
+                orgId: orgId,
+                amount: topUpAmount,
+                type: TransactionType.TOP_UP,
+                prevBalance,
+                currBalance: newBalance,
+                performedBy: user.id,
+                description: `Admin top up of ${topUpAmount} credits to organization ${organization.name}`,
+                refId: orgId,
+                userId: user.id,
+                price_paid: data.price || 0,
+            });
+            await this.shared.logActivity(tx, {
+                orgId: orgId,
+                userId: user.id,
+                action: 'CREDIT_TOPUP',
+                details: `Organization ${organization.name} top up of ${topUpAmount} credits`,
+                ipAddress: response.req.ip || '',
+                userAgent: response.get('User-Agent') || '',
+                metadata: { org_id: orgId, role: user.role, prevBalance, newBalance, price: data.price || 0 },
+            });
+            this.notificationManager.createNotification({
+                userId: user.id,
+                orgId: orgId,
+                type: NotificationType.SYSTEM_ALERT,
+                title: 'Credits Added Successfully',
+                message: `Your organization has been credited with ${topUpAmount} credits.`,
+                metadata: { org_id: orgId, role: user.role, newBalance },
+            }).catch(err => console.error('Notification failed', err));;
+            return {
+                success: true,
+                message: `Organization credits topped up successfully`,
+                data: {
+                    prevBalance,
+                    newBalance,
+                    topUpAmount,
+                    price: data.price || 0,
+                }
+            };
+        });
+        return result;
+    }
 
 }

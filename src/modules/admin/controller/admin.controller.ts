@@ -2,13 +2,13 @@
 // Write admin controller code
 import { Request, response, Response } from 'express';
 import { AdminService } from '../service/admin.service';
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Body, Controller, Get, Param, Patch, Post, Res, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
 import { RolesGuard } from 'src/shared/guards';
 import { Roles } from 'src/shared/decorators/roles.decorator';
 import { Role, User } from '@prisma/client';
-import { BroadcastAnnouncementDto, UpdateSystemSettingsDto } from '../dto/admin.dto';
+import { BroadcastAnnouncementDto, OrganizationCreditTopUpDto, OrganizationFilterDto, UpdateSystemSettingsDto } from '../dto/admin.dto';
 import { CurrentUser } from 'src/shared/decorators/user.decorator';
 import { ResponseUtil } from 'src/utils/responses';
 
@@ -83,11 +83,18 @@ export class AdminController {
     @Get('/organizations')
     @ApiResponse({ status: 200, description: 'Organizations retrieved successfully.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
+    @ApiQuery({ name: 'verified', description: 'Filter by verification status', required: false, type: Boolean })
+    @ApiQuery({ name: 'search', description: 'Search by organization name or email', required: false, type: String })
+    @ApiQuery({ name: 'page', description: 'Page number for pagination', required: false, type: Number })
+    @ApiQuery({ name: 'limit', description: 'Number of items per page for pagination', required: false, type: Number })
+    @ApiQuery({ name: 'organizationId', description: 'Filter by organization ID', required: false, type: String })
+    @ApiQuery({ name: 'name', description: 'Filter by organization name', required: false, type: String })
     @ApiOperation({ summary: 'Get all organizations with verification status' })
-    async getAllOrganizations(@CurrentUser() user: User, @Res() response: Response) {
+    async getAllOrganizations(@CurrentUser() user: User, @Query() query: OrganizationFilterDto, @Res() response: Response) {
         // Implement logic to retrieve all organizations with their verification status here
         // You can use this.adminService to call service methods for business logic
-        response.status(200).json({ message: 'Organizations retrieved successfully', data: [] });
+        const result = await this.adminService.getAllOrganizations(user, query);
+        ResponseUtil.paginated(result.items, result.total, result.page, result.limit, response);
     }
 
     /**
@@ -103,7 +110,8 @@ export class AdminController {
     async getOrganizationDetails(@CurrentUser() user: User, @Param('orgId') orgId: string, @Res() response: Response) {
         // Implement logic to retrieve organization details by ID here
         // You can use this.adminService to call service methods for business logic
-        response.status(200).json({ message: 'Organization details retrieved successfully', data: {} });
+        const result = await this.adminService.getOrganizationDetails(user, orgId);
+        ResponseUtil.success(result, response);
     }
 
     /**
@@ -120,7 +128,8 @@ export class AdminController {
     async updateOrganizationVerificationStatus(@CurrentUser() user: User, @Param('orgId') orgId: string, @Body() body: { verified: boolean }, @Res() response: Response) {
         // Implement logic to update organization verification status here
         // You can use this.adminService to call service methods for business logic
-        response.status(200).json({ message: 'Organization verification status updated successfully' });
+        const result = await this.adminService.updateOrganizationVerificationStatus(user, orgId, body.verified, response);
+        ResponseUtil.success(result, response);
     }
 
     /**
@@ -133,10 +142,11 @@ export class AdminController {
     @ApiResponse({ status: 200, description: 'Organization credits topped up successfully.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
     @ApiOperation({ summary: 'Top up organization credits' })
-    async topUpOrganizationCredits(@CurrentUser() user: User, @Param('orgId') orgId: string, @Body() body: { credits: number }, @Res() response: Response) {
+    async topUpOrganizationCredits(@CurrentUser() user: User, @Param('orgId') orgId: string, @Body() body: OrganizationCreditTopUpDto, @Res() response: Response) {
         // Implement logic to top up organization credits here
         // You can use this.adminService to call service methods for business logic
-        response.status(200).json({ message: 'Organization credits topped up successfully' });
+        const result = await this.adminService.topUpOrganizationCredits(user, orgId, body, response);
+        ResponseUtil.success(result, response);
     }
 
     /**
