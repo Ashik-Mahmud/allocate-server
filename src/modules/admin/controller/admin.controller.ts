@@ -8,7 +8,7 @@ import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
 import { RolesGuard } from 'src/shared/guards';
 import { Roles } from 'src/shared/decorators/roles.decorator';
 import { Role, User } from '@prisma/client';
-import { AllUserFilterDto, BroadcastAnnouncementDto, OrganizationCreditTopUpDto, OrganizationFilterDto, SubscriptionTransactionFilterDto, UpdateSystemSettingsDto } from '../dto/admin.dto';
+import { AllUserFilterDto, BroadcastAnnouncementDto, OrganizationCreditTopUpDto, OrganizationFilterDto, RevenueAnalyticsFilterDto, SubscriptionTransactionFilterDto, UpdateSystemSettingsDto, UserActivityLogFilterDto } from '../dto/admin.dto';
 import { CurrentUser } from 'src/shared/decorators/user.decorator';
 import { ResponseUtil } from 'src/utils/responses';
 
@@ -185,7 +185,7 @@ export class AdminController {
     @ApiOperation({ summary: 'Reset user password' })
     async resetUserPassword(@CurrentUser() user: User, @Param('userId') userId: string, @Res() response: Response) {
         // Implement logic to reset user password here
-         const result = await this.adminService.resetUserPassword(user, userId, response);
+        const result = await this.adminService.resetUserPassword(user, userId, response);
         ResponseUtil.success(result, response);
     }
 
@@ -206,29 +206,15 @@ export class AdminController {
     @ApiOperation({ summary: 'Get organization subscription transaction history' })
     async getOrganizationSubscriptionHistory(@CurrentUser() user: User, @Query() query: SubscriptionTransactionFilterDto, @Res() response: Response) {
         // Implement logic to retrieve organization subscription transaction history here
-        const metadata ={
+        const metadata = {
             ip: response.req.ip || '',
             userAgent: response?.req?.headers['user-agent'] || 'unknown',
-        } 
+        }
         const result = await this.adminService.getOrganizationSubscriptionHistory(user, query, metadata);
         ResponseUtil.paginated(result.items, result.total, result.page, result.limit, response);
-        
+
     }
 
-    /**
-     * Get all credit transaction history for admin dashboard
-     * @param request - The incoming request object
-     * @param response - The outgoing response object
-     */
-    @Get('/credits/transactions')
-    @ApiResponse({ status: 200, description: 'Credit transaction history retrieved successfully.' })
-    @ApiResponse({ status: 403, description: 'Forbidden.' })
-    @ApiOperation({ summary: 'Get organization credit transaction history' })
-    async getOrganizationCreditTransactionHistory(@CurrentUser() user: User, @Res() response: Response) {
-        // Implement logic to retrieve organization credit transaction history here
-        // You can use this.adminService to call service methods for business logic
-        response.status(200).json({ message: 'Credit transaction history retrieved successfully', data: [] });
-    }
 
     /**
      * Get revenue analytics for admin dashboard
@@ -238,11 +224,16 @@ export class AdminController {
     @Get('/analytics/revenue')
     @ApiResponse({ status: 200, description: 'Revenue analytics retrieved successfully.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
+    @ApiQuery({ name: 'startDate', description: 'Filter by start date (ISO format)', required: false, type: String })
+    @ApiQuery({ name: 'endDate', description: 'Filter by end date (ISO format)', required: false, type: String })
+    @ApiQuery({ name: 'groupBy', description: 'Group revenue analytics by time period (e.g. day, week, month)', required: false, type: String })
+    @ApiQuery({ name: 'organizationId', description: 'Filter by organization ID', required: false, type: String })
     @ApiOperation({ summary: 'Get revenue analytics' })
-    async getRevenueAnalytics(@CurrentUser() user: User, @Res() response: Response) {
+    async getRevenueAnalytics(@CurrentUser() user: User, @Query() query: RevenueAnalyticsFilterDto, @Res() response: Response) {
         // Implement logic to retrieve revenue analytics here
         // You can use this.adminService to call service methods for business logic
-        response.status(200).json({ message: 'Revenue analytics retrieved successfully', data: {} });
+        const result = await this.adminService.getRevenueAnalytics(user, query);
+        ResponseUtil.success(result, response);
     }
 
     /**
@@ -256,10 +247,11 @@ export class AdminController {
     @ApiResponse({ status: 200, description: 'User activity logs retrieved successfully.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
     @ApiOperation({ summary: 'Get user activity logs' })
-    async getUserActivityLogs(@CurrentUser() user: User, @Param('userId') userId: string, @Res() response: Response) {
+    async getUserActivityLogs(@CurrentUser() user: User, @Param('userId') userId: string, @Query() query: UserActivityLogFilterDto, @Res() response: Response) {
         // Implement logic to retrieve user activity logs here
         // You can use this.adminService to call service methods for business logic
-        response.status(200).json({ message: 'User activity logs retrieved successfully', data: [] });
+        const result = await this.adminService.getUserActivityLogs(user, userId, query);
+        ResponseUtil.success(result, response);
     }
 
 

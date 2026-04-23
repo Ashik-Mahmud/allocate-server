@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { NotificationType, Prisma, Role, TransactionType, User } from "@prisma/client";
 import { PrismaService } from "src/modules/prisma/prisma.service";
-import { BroadcastAnnouncementDto, OrganizationCreditTopUpDto, OrganizationFilterDto, SubscriptionTransactionFilterDto, UpdateSystemSettingsDto } from "../dto/admin.dto";
+import { BroadcastAnnouncementDto, OrganizationCreditTopUpDto, OrganizationFilterDto, RevenueAnalyticsFilterDto, SubscriptionTransactionFilterDto, UpdateSystemSettingsDto, UserActivityLogFilterDto } from "../dto/admin.dto";
 import { SharedService } from "src/shared/services/shared.service";
 import { EmailService } from "src/modules/inbox/service/email.service";
 import { Response } from "express";
@@ -422,4 +422,194 @@ export class AdminService {
             totalPages: Math.ceil(total / limit),
         };
     }
+
+    // Get revenue analytics for admin dashboard
+    async getRevenueAnalytics(user: User, query: RevenueAnalyticsFilterDto) {
+        if (user.role !== Role.ADMIN) {
+            throw new Error('Unauthorized');
+        }
+        const { startDate, endDate, groupBy = 'month', organizationId } = query;
+        const normalizedGroupBy = groupBy === 'day' || groupBy === 'week' || groupBy === 'month' ? groupBy : 'month';
+
+        const dateFilter: Prisma.DateTimeFilter = {};
+        if (startDate) dateFilter.gte = new Date(startDate);
+        if (endDate) dateFilter.lte = new Date(endDate);
+
+        const revenueWhere: Prisma.CreditTransactionWhereInput = {
+            type: TransactionType.TOP_UP,
+            price_paid: { gt: 0 },
+            ...(organizationId ? { org_id: organizationId } : {}),
+            ...(Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {}),
+        };
+
+        const organizationWhere: Prisma.OrganizationsWhereInput = {
+            deletedAt: null,
+            ...(organizationId ? { id: organizationId } : {}),
+        };
+
+        const [summaryAggregate, uniquePayingOrgs, totalOrganizations, freeSubscribers, proSubscribers, enterpriseSubscribers, revenueRows] = await this.prisma.$transaction([
+            this.prisma.creditTransaction.aggregate({
+                where: revenueWhere,
+                _sum: { price_paid: true },
+                _avg: { price_paid: true },
+                _count: { id: true },
+            }),
+            this.prisma.creditTransaction.groupBy({
+                by: ['org_id'],
+                where: revenueWhere,
+            }),
+            this.prisma.organizations.count({
+                where: organizationWhere,
+            }),
+            this.prisma.organizations.count({
+                where: { ...organizationWhere, plan_type: 'FREE' },
+            }),
+            this.prisma.organizations.count({
+                where: { ...organizationWhere, plan_type: 'PRO' },
+            }),
+            this.prisma.organizations.count({
+                where: { ...organizationWhere, plan_type: 'ENTERPRISE' },
+            }),
+            this.prisma.creditTransaction.findMany({
+                where: revenueWhere,
+                select: {
+                    id: true,
+                    org_id: true,
+                    createdAt: true,
+                    price_paid: true,
+                    organization: {
+                        select: {
+                            plan_type: true,
+                        },
+                    },
+                },
+                orderBy: { createdAt: 'asc' },
+            }),
+        ]);
+
+        const getBucketStart = (date: Date) => {
+            const d = new Date(date);
+            if (normalizedGroupBy === 'day') {
+                return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+            }
+            if (normalizedGroupBy === 'week') {
+                const day = d.getUTCDay();
+                const diffToMonday = (day + 6) % 7;
+                return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - diffToMonday));
+            }
+            return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+        };
+
+        const groupedMap = new Map<string, {
+            period: Date;
+            revenue: number;
+            transactionCount: number;
+            activeOrganizations: Set<string>;
+            revenueByPlan: { free: number; pro: number; enterprise: number };
+        }>();
+
+        for (const row of revenueRows) {
+            const bucketDate = getBucketStart(row.createdAt);
+            const key = bucketDate.toISOString();
+            const amount = Number(row.price_paid || 0);
+            const planType = row.organization?.plan_type || 'FREE';
+
+            if (!groupedMap.has(key)) {
+                groupedMap.set(key, {
+                    period: bucketDate,
+                    revenue: 0,
+                    transactionCount: 0,
+                    activeOrganizations: new Set<string>(),
+                    revenueByPlan: { free: 0, pro: 0, enterprise: 0 },
+                });
+            }
+
+            const bucket = groupedMap.get(key)!;
+            bucket.revenue += amount;
+            bucket.transactionCount += 1;
+            bucket.activeOrganizations.add(row.org_id);
+
+            if (planType === 'PRO') {
+                bucket.revenueByPlan.pro += amount;
+            } else if (planType === 'ENTERPRISE') {
+                bucket.revenueByPlan.enterprise += amount;
+            } else {
+                bucket.revenueByPlan.free += amount;
+            }
+        }
+
+        const grouped = Array.from(groupedMap.values())
+            .sort((a, b) => a.period.getTime() - b.period.getTime())
+            .map((bucket) => ({
+                period: bucket.period,
+                revenue: bucket.revenue,
+                transactionCount: bucket.transactionCount,
+                activeOrganizations: bucket.activeOrganizations.size,
+                revenueByPlan: bucket.revenueByPlan,
+            }));
+
+        const paidSubscribers = proSubscribers + enterpriseSubscribers;
+        const totalRevenue = Number(summaryAggregate._sum.price_paid || 0);
+        const activePayingOrganizations = uniquePayingOrgs.length;
+
+        return {
+            filters: {
+                startDate: startDate || null,
+                endDate: endDate || null,
+                organizationId: organizationId || null,
+                groupBy: normalizedGroupBy,
+            },
+            summary: {
+                totalRevenue,
+                totalTransactions: Number(summaryAggregate._count.id || 0),
+                activePayingOrganizations,
+                avgTransactionValue: Number(summaryAggregate._avg.price_paid || 0),
+                avgRevenuePerPayingOrganization: activePayingOrganizations
+                    ? totalRevenue / activePayingOrganizations
+                    : 0,
+            },
+            subscribers: {
+                totalOrganizations: Number(totalOrganizations || 0),
+                free: Number(freeSubscribers || 0),
+                pro: Number(proSubscribers || 0),
+                enterprise: Number(enterpriseSubscribers || 0),
+                paid: Number(paidSubscribers || 0),
+            },
+            grouped,
+        };
+    }
+
+
+    // Get user activity logs for admin dashboard
+    async getUserActivityLogs(user: User, userId: string, query: UserActivityLogFilterDto) {
+        if (user.role !== Role.ADMIN) {
+            throw new Error('Unauthorized');
+        }
+        const { startDate, endDate, page = 1, limit = 10 } = query;
+        const dateFilter: Prisma.DateTimeFilter = {};
+        if (startDate) dateFilter.gte = new Date(startDate);
+        if (endDate) dateFilter.lte = new Date(endDate);
+        const whereClause: Prisma.ActivityLogWhereInput = {
+            user_id: userId,
+            ...(Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {}),
+        };
+        const skip = (Number(page) - 1) * Number(limit);
+        const [logs, total] = await this.prisma.$transaction([
+            this.prisma.activityLog.findMany({
+                where: whereClause,
+                orderBy: { createdAt: 'desc' },
+                skip: skip,
+                take: Number(limit),
+            }),
+            this.prisma.activityLog.count({ where: whereClause }),
+        ]);
+        return {
+            items: logs,
+            total,
+            page: Number(page),
+            limit: Number(limit),
+            totalPages: Math.ceil(total / limit),
+        };
+    }
+
 }

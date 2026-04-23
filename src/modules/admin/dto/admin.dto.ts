@@ -68,9 +68,26 @@ export const SubscriptionTransactionFilterSchema = z.object({
     type: z.string().optional(),
 });
 
+
+export const RevenueAnalyticsFilterSchema = z.object({
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+    groupBy: z.enum(['day', 'week', 'month']).optional(),
+    organizationId: z.string().optional(),
+});
+
+export const UserActivityLogFilterSchema = z.object({
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+    page: z.number().default(1),
+    limit: z.number().default(10),
+});
+
 export class UpdateSystemSettingsDto extends createZodDto(UpdateSystemSettingsDtoSchema) { }
 export class BroadcastAnnouncementDto extends createZodDto(BroadcastAnnouncementSchema) { }
 export class OrganizationFilterDto extends createZodDto(OrganizationFilterSchema) { }
 export class OrganizationCreditTopUpDto extends createZodDto(OrganizationCreditTopUpSchema) { }
 export class AllUserFilterDto extends createZodDto(AllUserFilterSchema) { }
 export class SubscriptionTransactionFilterDto extends createZodDto(SubscriptionTransactionFilterSchema) { }
+export class RevenueAnalyticsFilterDto extends createZodDto(RevenueAnalyticsFilterSchema) { }
+export class UserActivityLogFilterDto extends createZodDto(UserActivityLogFilterSchema) { }
