@@ -6,6 +6,7 @@ import { SharedService } from "src/shared/services/shared.service";
 import { EmailService } from "src/modules/inbox/service/email.service";
 import { Response } from "express";
 import { NotificationManager } from "src/modules/inbox/service/notification-manager.service";
+import { CryptoUtils } from "src/modules/auth/utils/crypto";
 
 // Write admin service code
 @Injectable()
@@ -265,4 +266,103 @@ export class AdminService {
         return result;
     }
 
+
+
+    // Service for get all users for admin with filters and pagination
+    async getAllUsers(user: User, query: any) {
+        if (user.role !== Role.ADMIN) {
+            throw new Error('Unauthorized');
+        }
+        const { organizationId, name, email, role, page = 1, limit = 10, search } = query;
+        const whereClause: any = {
+            ...(organizationId ? { org_id: organizationId } : {}),
+            ...(name ? { name: { contains: name, mode: 'insensitive' } } : {}),
+            ...(email ? { email: { contains: email, mode: 'insensitive' } } : {}),
+            ...(role ? { role: role } : {}),
+            ...(search ? { OR: [{ name: { contains: search, mode: 'insensitive' } }, { email: { contains: search, mode: 'insensitive' } }] } : {}),
+        };
+        const skip = (Number(page) - 1) * Number(limit);
+        const [users, total] = await this.prisma.$transaction([
+            this.prisma.user.findMany({
+                where: whereClause,
+                skip,
+                take: limit,
+                orderBy: { createdAt: 'desc' },
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    role: true,
+                    createdAt: true,
+                    org_id: true,
+                    organization: {
+                        select: {
+                            name: true,
+                            photo: true,
+                            tagline: true,
+                            isVerified: true,
+                        }
+                    }
+                }
+            }),
+            this.prisma.user.count({ where: whereClause }),
+        ]);
+        return {
+            items: users,
+            total,
+            page: Number(page),
+            limit: Number(limit),
+            totalPages: Math.ceil(total / limit),
+        };
+    }
+
+
+    // Service for resetting user password by admin
+    async resetUserPassword(user: User, userId: string, response: Response) {
+        if (user.role !== Role.ADMIN) {
+            throw new Error('Unauthorized');
+        }
+        const userToUpdate = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, org_id: true, role: true } });
+        if (!userToUpdate || !userToUpdate.org_id) {
+            throw new NotFoundException('User not found or inactive');
+        }
+        const newPassword = this.shared.generatePassword(8);
+        const hashedPassword = await CryptoUtils.hashPassword(newPassword);
+        const result = await this.prisma.$transaction(async (tx) => {
+            await tx.user.update({
+                where: { id: userId },
+                data: { password: hashedPassword },
+            });
+            await this.shared.logActivity(tx, {
+                orgId: userToUpdate?.org_id || 'SYSTEM',
+                userId: user.id,
+                action: 'PASSWORD_RESET',
+                details: `Admin reset password for user ${userToUpdate.name}`,
+                ipAddress: response.req.ip || '',
+                userAgent: response.get('User-Agent') || '',
+                metadata: { org_id: userToUpdate.org_id, role: userToUpdate.role, targeted_user_id: userToUpdate.id },
+            });
+
+            return {
+                success: true,
+                message: `Password reset for user ${userToUpdate.name} successfully`,
+                data: {
+                    name: userToUpdate.name,
+                    email: userToUpdate.email,
+                    newPassword,
+                }
+            };
+        });
+        await this.emailService.sendGlobalEmail({
+            to: userToUpdate.email,
+            name: userToUpdate.name,
+            subject: 'Your password has been reset',
+            htmlContent: `
+                    <p>Dear ${userToUpdate.name},</p>
+                    <p>This is to inform you that your password has been reset. Your new password is: <strong>${newPassword}</strong></p>
+                    <p>If you did not request this, please contact support immediately.</p>
+                `,
+        }).catch(err => console.error('Failed to send reset email:', err));;
+        return result;
+    }
 }

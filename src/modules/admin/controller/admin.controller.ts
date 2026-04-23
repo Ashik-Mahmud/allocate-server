@@ -8,7 +8,7 @@ import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
 import { RolesGuard } from 'src/shared/guards';
 import { Roles } from 'src/shared/decorators/roles.decorator';
 import { Role, User } from '@prisma/client';
-import { BroadcastAnnouncementDto, OrganizationCreditTopUpDto, OrganizationFilterDto, UpdateSystemSettingsDto } from '../dto/admin.dto';
+import { AllUserFilterDto, BroadcastAnnouncementDto, OrganizationCreditTopUpDto, OrganizationFilterDto, UpdateSystemSettingsDto } from '../dto/admin.dto';
 import { CurrentUser } from 'src/shared/decorators/user.decorator';
 import { ResponseUtil } from 'src/utils/responses';
 
@@ -157,11 +157,19 @@ export class AdminController {
     @Get('/users')
     @ApiResponse({ status: 200, description: 'Users retrieved successfully.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
+    @ApiQuery({ name: 'organizationId', description: 'Filter by organization ID', required: false, type: String })
+    @ApiQuery({ name: 'name', description: 'Filter by user name', required: false, type: String })
+    @ApiQuery({ name: 'email', description: 'Filter by user email', required: false, type: String })
+    @ApiQuery({ name: 'role', description: 'Filter by user role', required: false, type: String, enum: ['STAFF', 'ADMIN'] })
+    @ApiQuery({ name: 'page', description: 'Page number for pagination', required: false, type: Number })
+    @ApiQuery({ name: 'limit', description: 'Number of items per page for pagination', required: false, type: Number })
+    @ApiQuery({ name: 'search', description: 'Search by user name or email', required: false, type: String })
     @ApiOperation({ summary: 'Get all users' })
-    async getAllUsers(@CurrentUser() user: User, @Res() response: Response) {
+    async getAllUsers(@CurrentUser() user: User, @Query() query: AllUserFilterDto, @Res() response: Response) {
         // Implement logic to retrieve all users here
         // You can use this.adminService to call service methods for business logic
-        response.status(200).json({ message: 'Users retrieved successfully', data: [] });
+        const result = await this.adminService.getAllUsers(user, query);
+        ResponseUtil.paginated(result.items, result.total, result.page, result.limit, response);
     }
 
     /**
@@ -177,8 +185,8 @@ export class AdminController {
     @ApiOperation({ summary: 'Reset user password' })
     async resetUserPassword(@CurrentUser() user: User, @Param('userId') userId: string, @Res() response: Response) {
         // Implement logic to reset user password here
-        // You can use this.adminService to call service methods for business logic
-        response.status(200).json({ message: 'User password reset successfully' });
+         const result = await this.adminService.resetUserPassword(user, userId, response);
+        ResponseUtil.success(result, response);
     }
 
 

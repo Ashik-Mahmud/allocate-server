@@ -48,7 +48,19 @@ export const OrganizationCreditTopUpSchema = z.object({
     price: z.number().positive(),
 });
 
+
+export const AllUserFilterSchema = z.object({
+    organizationId: z.string().optional(),
+    name: z.string().optional(),
+    email: z.string().email().optional(),
+    role: z.enum(['STAFF', 'ADMIN']).optional(),
+    page: z.number().default(1),
+    limit: z.number().default(10),
+    search: z.string().optional(),
+});
+
 export class UpdateSystemSettingsDto extends createZodDto(UpdateSystemSettingsDtoSchema) { }
 export class BroadcastAnnouncementDto extends createZodDto(BroadcastAnnouncementSchema) { }
 export class OrganizationFilterDto extends createZodDto(OrganizationFilterSchema) { }
 export class OrganizationCreditTopUpDto extends createZodDto(OrganizationCreditTopUpSchema) { }
+export class AllUserFilterDto extends createZodDto(AllUserFilterSchema) { }

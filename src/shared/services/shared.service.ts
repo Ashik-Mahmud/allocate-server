@@ -64,4 +64,14 @@ export class SharedService {
             },
         });
     }
+
+    generatePassword(length: number = 12) {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+';
+        let password = '';
+        for (let i = 0; i < length; i++) {
+            const randomNum = Math.floor(Math.random() * chars.length);
+            password += chars.charAt(randomNum);
+        }
+        return password;
+    }
 }
