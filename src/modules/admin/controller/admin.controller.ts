@@ -8,7 +8,7 @@ import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
 import { RolesGuard } from 'src/shared/guards';
 import { Roles } from 'src/shared/decorators/roles.decorator';
 import { Role, User } from '@prisma/client';
-import { AllUserFilterDto, BroadcastAnnouncementDto, OrganizationCreditTopUpDto, OrganizationFilterDto, UpdateSystemSettingsDto } from '../dto/admin.dto';
+import { AllUserFilterDto, BroadcastAnnouncementDto, OrganizationCreditTopUpDto, OrganizationFilterDto, SubscriptionTransactionFilterDto, UpdateSystemSettingsDto } from '../dto/admin.dto';
 import { CurrentUser } from 'src/shared/decorators/user.decorator';
 import { ResponseUtil } from 'src/utils/responses';
 
@@ -198,11 +198,21 @@ export class AdminController {
     @Get('/subscriptions/transactions')
     @ApiResponse({ status: 200, description: 'Subscription history retrieved successfully.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
+    @ApiQuery({ name: 'organizationId', description: 'Filter by organization ID', required: false, type: String })
+    @ApiQuery({ name: 'startDate', description: 'Filter by start date (ISO format)', required: false, type: String })
+    @ApiQuery({ name: 'endDate', description: 'Filter by end date (ISO format)', required: false, type: String })
+    @ApiQuery({ name: 'page', description: 'Page number for pagination', required: false, type: Number })
+    @ApiQuery({ name: 'limit', description: 'Number of items per page for pagination', required: false, type: Number })
     @ApiOperation({ summary: 'Get organization subscription transaction history' })
-    async getOrganizationSubscriptionHistory(@CurrentUser() user: User, @Res() response: Response) {
+    async getOrganizationSubscriptionHistory(@CurrentUser() user: User, @Query() query: SubscriptionTransactionFilterDto, @Res() response: Response) {
         // Implement logic to retrieve organization subscription transaction history here
-        // You can use this.adminService to call service methods for business logic
-        response.status(200).json({ message: 'Subscription history retrieved successfully', data: [] });
+        const metadata ={
+            ip: response.req.ip || '',
+            userAgent: response?.req?.headers['user-agent'] || 'unknown',
+        } 
+        const result = await this.adminService.getOrganizationSubscriptionHistory(user, query, metadata);
+        ResponseUtil.paginated(result.items, result.total, result.page, result.limit, response);
+        
     }
 
     /**

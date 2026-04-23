@@ -13,7 +13,7 @@
 
 
 // Write admin system setting dto using zod schema
-import { z } from 'zod';
+import { string, z } from 'zod';
 import { createZodDto } from "nestjs-zod"
 import { meta } from 'zod/v4/core';
 
@@ -59,8 +59,18 @@ export const AllUserFilterSchema = z.object({
     search: z.string().optional(),
 });
 
+export const SubscriptionTransactionFilterSchema = z.object({
+    organizationId: z.string().optional(),
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+    page: z.number().default(1),
+    limit: z.number().default(10),
+    type: z.string().optional(),
+});
+
 export class UpdateSystemSettingsDto extends createZodDto(UpdateSystemSettingsDtoSchema) { }
 export class BroadcastAnnouncementDto extends createZodDto(BroadcastAnnouncementSchema) { }
 export class OrganizationFilterDto extends createZodDto(OrganizationFilterSchema) { }
 export class OrganizationCreditTopUpDto extends createZodDto(OrganizationCreditTopUpSchema) { }
 export class AllUserFilterDto extends createZodDto(AllUserFilterSchema) { }
+export class SubscriptionTransactionFilterDto extends createZodDto(SubscriptionTransactionFilterSchema) { }

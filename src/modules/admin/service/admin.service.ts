@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { NotificationType, Role, TransactionType, User } from "@prisma/client";
 import { PrismaService } from "src/modules/prisma/prisma.service";
-import { BroadcastAnnouncementDto, OrganizationCreditTopUpDto, OrganizationFilterDto, UpdateSystemSettingsDto } from "../dto/admin.dto";
+import { BroadcastAnnouncementDto, OrganizationCreditTopUpDto, OrganizationFilterDto, SubscriptionTransactionFilterDto, UpdateSystemSettingsDto } from "../dto/admin.dto";
 import { SharedService } from "src/shared/services/shared.service";
 import { EmailService } from "src/modules/inbox/service/email.service";
 import { Response } from "express";
@@ -364,5 +364,60 @@ export class AdminService {
                 `,
         }).catch(err => console.error('Failed to send reset email:', err));;
         return result;
+    }
+
+
+    // Get all subscription transaction history  for admin dashboard
+    async getOrganizationSubscriptionHistory(user: User, query: SubscriptionTransactionFilterDto, metadata: { ip: string, userAgent: string }) {
+        if (user.role !== Role.ADMIN) {
+            throw new Error('Unauthorized');
+        }
+        const { organizationId, startDate, endDate, page = 1, limit = 10, type } = query;
+        const dateFilter: any = {};
+        if (startDate) dateFilter.gte = new Date(startDate);
+        if (endDate) dateFilter.lte = new Date(endDate);
+        const whereClause: any = {
+            ...(type ? { type } : { type: TransactionType.TOP_UP }),
+            ...(organizationId ? { org_id: organizationId } : {}),
+            ...(Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {}),
+        };
+
+        const skip = (Number(page) - 1) * Number(limit);
+
+        const [transactions, total] = await this.prisma.$transaction([
+            this.prisma.creditTransaction.findMany({
+                where: whereClause,
+                skip,
+                take: Number(limit),
+                include: {
+                    organization: {
+                        select: { name: true }
+                    },
+                    user: {
+                        select: { name: true, email: true }
+                    }
+                },
+                orderBy: { createdAt: 'desc' },
+            }),
+            this.prisma.creditTransaction.count({ where: whereClause }),
+        ]);
+
+        // total revnewue calculation
+        const totalAmount = await this.prisma.creditTransaction.aggregate({
+            where: whereClause,
+            _sum: { price_paid: true }
+        });
+        return {
+            items: [
+                {
+                    transactions,
+                    totalRevenue: totalAmount._sum.price_paid || 0,
+                }
+            ],
+            total,
+            page: Number(page),
+            limit: Number(limit),
+            totalPages: Math.ceil(total / limit),
+        };
     }
 }
