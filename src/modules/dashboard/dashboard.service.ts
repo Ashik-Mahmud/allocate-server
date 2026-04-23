@@ -295,33 +295,40 @@ export class DashboardService {
             globalAnnouncementStatus,
             pendingSupportRequestsCount,
         ] = await Promise.all([
+            // totalOrganizations
             this.prisma.organizations.count({ where: { deletedAt: null } }),
+            //totalPlatformUsers
             this.prisma.user.count({
                 where: {
                     deletedAt: null,
                     role: { in: [Role.ADMIN, Role.STAFF] },
                 },
             }),
+            // globalCreditsSoldAgg - lifetime
             this.prisma.creditTransaction.aggregate({
                 where: { type: 'TOP_UP' },
-                _sum: { amount: true },
+                _sum: { price_paid: true },
             }),
+            // monthlyCreditRevenueAgg - last 30 days
             this.prisma.creditTransaction.aggregate({
                 where: {
                     type: 'TOP_UP',
                     createdAt: { gte: thirtyDaysAgo },
                 },
-                _sum: { amount: true },
+                _sum: { price_paid: true },
             }),
+            // subscriptionCompletedCount
             this.prisma.subscription.count({
                 where: { payment_status: PaymentStatus.COMPLETED },
             }),
+            // paidSubscriptionCompletedCount
             this.prisma.subscription.count({
                 where: {
                     payment_status: PaymentStatus.COMPLETED,
                     plan_name: { in: [PlanType.PRO, PlanType.ENTERPRISE] },
                 },
             }),
+            // topUpRows
             this.prisma.creditTransaction.findMany({
                 where: {
                     type: 'TOP_UP',
@@ -330,6 +337,7 @@ export class DashboardService {
                 select: { createdAt: true, amount: true },
                 orderBy: { createdAt: 'asc' },
             }),
+            // organizations
             this.prisma.organizations.findMany({
                 where: { deletedAt: null },
                 select: {
@@ -347,18 +355,21 @@ export class DashboardService {
                     },
                 },
             }),
+            // newSignups7
             this.prisma.organizations.count({
                 where: {
                     deletedAt: null,
                     createdAt: { gte: sevenDaysAgo },
                 },
             }),
+            // newSignups30
             this.prisma.organizations.count({
                 where: {
                     deletedAt: null,
                     createdAt: { gte: thirtyDaysAgo },
                 },
             }),
+            // expiringSubscriptions
             this.prisma.subscription.findMany({
                 where: {
                     is_active: true,
@@ -379,11 +390,13 @@ export class DashboardService {
                 },
                 orderBy: { end_date: 'asc' },
             }),
+            // activeOrgIdsByActivity
             this.prisma.activityLog.findMany({
                 where: { createdAt: { gte: thirtyDaysAgo } },
                 select: { org_id: true },
                 distinct: ['org_id'],
             }),
+            // errorLogs
             this.prisma.activityLog.findMany({
                 where: {
                     OR: [
@@ -404,6 +417,7 @@ export class DashboardService {
                     user_id: true,
                 },
             }),
+            // failedTransactions
             this.prisma.subscription.findMany({
                 where: {
                     payment_status: { in: [PaymentStatus.FAILED, PaymentStatus.OVERDUE] },
@@ -421,6 +435,7 @@ export class DashboardService {
                     },
                 },
             }),
+            // supportRequests
             this.prisma.systemSettings.findUnique({
                 where: { id: 'default' },
                 select: {
@@ -430,6 +445,7 @@ export class DashboardService {
                     updatedAt: true,
                 },
             }),
+            // pendingSupportRequests
             this.prisma.activityLog.count({
                 where: {
                     action: { contains: 'SUPPORT_REQUEST_PENDING', mode: 'insensitive' },
@@ -531,12 +547,12 @@ export class DashboardService {
                 totalOrganizations,
                 totalPlatformUsers,
                 totalRevenue: {
-                    lifetimeCreditSales: Number(globalCreditsSoldAgg._sum.amount || 0),
-                    monthlyCreditSales: Number(monthlyCreditRevenueAgg._sum.amount || 0),
+                    lifetimeCreditSales: Number(globalCreditsSoldAgg._sum.price_paid || 0),
+                    monthlyCreditSales: Number(monthlyCreditRevenueAgg._sum.price_paid || 0),
                     completedSubscriptionSalesCount: subscriptionCompletedCount,
                     completedPaidSubscriptionSalesCount: paidSubscriptionCompletedCount,
                 },
-                globalCreditsSold: Number(globalCreditsSoldAgg._sum.amount || 0),
+                globalCreditsSold: Number(globalCreditsSoldAgg._sum.price_paid || 0),
             },
             revenueAndGrowth: {
                 revenueTrends: {

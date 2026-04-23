@@ -155,6 +155,7 @@ model CreditTransaction {
   org_id          String
   user_id         String
   amount          Float // +50.00 or -10.00
+  price_paid      Float? // Actual amount paid by the organization for this transaction (relevant for TOP_UP and DEDUCT)
   type            TransactionType // Enum: SPEND, ALLOCATE, REFUND
   previousBalance Float
   currentBalance  Float
@@ -277,6 +278,8 @@ enum NotificationType {
 }
 
 enum TransactionType {
+  // Free Credit Allocation
+  FREE_ALLOCATION // When system allocates free credits to new organizations or users
   // Admin to Staff
   ALLOCATE      // When admin allocates credits to staff
   REVOKE        // When admin revokes credits from staff

@@ -82,7 +82,7 @@ export class AuthService {
         data: {
           org_id: organization.id,
           amount: GLOBAL_CONFIG.FREE_PLAN_CREDITS || 100,
-          type: TransactionType.TOP_UP,
+          type: TransactionType.FREE_ALLOCATION,
           performedBy: createdUser.id,
           previousBalance: 0,
           currentBalance: GLOBAL_CONFIG.FREE_PLAN_CREDITS || 100,
