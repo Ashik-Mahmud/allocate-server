@@ -457,6 +457,9 @@ export class AdminService {
             this.prisma.creditTransaction.groupBy({
                 by: ['org_id'],
                 where: revenueWhere,
+                orderBy:{
+                    org_id: 'asc'
+                }
             }),
             this.prisma.organizations.count({
                 where: organizationWhere,
