@@ -60,7 +60,7 @@ export class SharedService {
                 referenceId: data.refId,
                 description: data.description,
                 performedBy: data.performedBy,
-                pricePaid: data.price_paid || 0,
+                price_paid: data.price_paid || 0,
             },
         });
     }

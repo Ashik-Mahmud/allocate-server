@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { NotificationType, Role, TransactionType, User } from "@prisma/client";
+import { NotificationType, Prisma, Role, TransactionType, User } from "@prisma/client";
 import { PrismaService } from "src/modules/prisma/prisma.service";
 import { BroadcastAnnouncementDto, OrganizationCreditTopUpDto, OrganizationFilterDto, SubscriptionTransactionFilterDto, UpdateSystemSettingsDto } from "../dto/admin.dto";
 import { SharedService } from "src/shared/services/shared.service";
@@ -391,7 +391,9 @@ export class AdminService {
                 take: Number(limit),
                 include: {
                     organization: {
-                        select: { name: true }
+                        select: {
+                            name: true, id: true,
+                        }
                     },
                     user: {
                         select: { name: true, email: true }

@@ -7,29 +7,29 @@ datasource db {
 }
 
 model User {
-  id                 String         @id @default(cuid())
-  email              String         @unique
+  id                 String              @id @default(cuid())
+  email              String              @unique
   password           String
   name               String
   photo              String?
   personal_credits   Int?
-  role               Role           @default(ORG_ADMIN)
+  role               Role                @default(ORG_ADMIN)
   last_login         DateTime?
-  is_verified        Boolean?       @default(false)
-  verification_token String?        @unique
+  is_verified        Boolean?            @default(false)
+  verification_token String?             @unique
   token_expiry       DateTime?
   deletedAt          DateTime?
-  createdAt          DateTime?      @default(now())
-  updatedAt          DateTime?      @updatedAt
+  createdAt          DateTime?           @default(now())
+  updatedAt          DateTime?           @updatedAt
   org_id             String?
-  organization       Organizations? @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  organization       Organizations?      @relation(fields: [org_id], references: [id], onDelete: Cascade)
   notifications      Notification[]
-  bookings           Bookings[]     @relation("BookingUser")
-  createdBookings    Bookings[]     @relation("BookingCreator")
+  bookings           Bookings[]          @relation("BookingUser")
+  createdBookings    Bookings[]          @relation("BookingCreator")
+  creditTransactions CreditTransaction[]
 
   @@index([email, org_id])
   @@map("users")
-  creditTransactions CreditTransaction[]
 }
 
 model Organizations {
@@ -46,8 +46,8 @@ model Organizations {
   address        Json?
   business_email String?
   needUpdateOrg  Boolean?        @default(true)
-  settings       Json?            @default("{\"notificationPreference\":{\"email\":true,\"sms\":false,\"push\":false, \"inApp\":true}}") // For future extensibility (e.g. notification preferences, etc.)
-  isVerified      Boolean?        @default(false)
+  settings       Json?           @default("{\"notificationPreference\":{\"email\":true,\"sms\":false,\"push\":false, \"inApp\":true}}") // For future extensibility (e.g. notification preferences, etc.)
+  isVerified     Boolean?        @default(false)
   deletedAt      DateTime?
   createdAt      DateTime?       @default(now())
   updatedAt      DateTime?       @updatedAt
@@ -61,6 +61,7 @@ model Organizations {
 
   @@index([name, id])
   @@map("organizations")
+  creditTransactions CreditTransaction[]
 }
 
 model Resources {
@@ -162,10 +163,15 @@ model CreditTransaction {
   referenceId     String? // Booking ID or Top-up ID
   description     String?
   performedBy     String // Admin ID who performed the action
+  payment_gateway String? // e.g. "Stripe", "PayPal" (relevant for TOP_UP transactions)
+  transaction_id  String? // ID from the payment gateway (relevant for TOP_UP transactions)
+  currency        String? // e.g. "USD" (relevant for TOP_UP transactions)
+  status          String? // e.g. "COMPLETED", "PENDING", "FAILED" (relevant for TOP_UP transactions)
   createdAt       DateTime        @default(now())
 
   booking Bookings? @relation(fields: [referenceId], references: [id], onDelete: Cascade)
   user    User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  organization Organizations @relation(fields: [org_id], references: [id], onDelete: Cascade)
 
   @@index([org_id, user_id])
   @@map("credit_transactions")
@@ -179,8 +185,8 @@ model Notification {
   title        String
   message      String
   is_read      Boolean          @default(false)
-  reference_id String?  // e.g. Booking ID, Credit Transaction ID, etc.
-  metadata     Json?    // Additional data related to the notification
+  reference_id String? // e.g. Booking ID, Credit Transaction ID, etc.
+  metadata     Json? // Additional data related to the notification
 
   user         User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
   organization Organizations @relation(fields: [org_id], references: [id], onDelete: Cascade)
@@ -201,7 +207,7 @@ model ActivityLog {
   userAgent String
   metadata  Json?
   createdAt DateTime @default(now())
-  details String?
+  details   String?
 
   @@index([org_id, user_id])
   @@map("activity_logs")
@@ -256,44 +262,44 @@ enum NotificationType {
   BOOKING_REQUESTED
   BOOKING_CONFIRMED
   BOOKING_REJECTED
-  BOOKING_REMINDER 
+  BOOKING_REMINDER
   BOOKING_CANCELLED
 
   // Credit Related
   CREDIT_RECEIVED
-  CREDIT_REVOKED 
-  LOW_CREDIT_WARNING 
+  CREDIT_REVOKED
+  LOW_CREDIT_WARNING
 
   // Invitation & Staff
   INVITATION_RECEIVED
-  STAFF_JOINED 
+  STAFF_JOINED
 
   // Subscription (Paid Feature)
-  SUBSCRIPTION_EXPIRING 
-  SUBSCRIPTION_EXPIRED 
+  SUBSCRIPTION_EXPIRING
+  SUBSCRIPTION_EXPIRED
 
   // System
   SYSTEM_ALERT
-  MAINTENANCE_NOTICE 
+  MAINTENANCE_NOTICE
 }
 
 enum TransactionType {
   // Free Credit Allocation
   FREE_ALLOCATION // When system allocates free credits to new organizations or users
   // Admin to Staff
-  ALLOCATE      // When admin allocates credits to staff
-  REVOKE        // When admin revokes credits from staff
+  ALLOCATE // When admin allocates credits to staff
+  REVOKE // When admin revokes credits from staff
 
   // Staff Usage
-  SPEND         // When staff spend credits
-  REFUND        // When staff are refunded credits
+  SPEND // When staff spend credits
+  REFUND // When staff are refunded credits
 
   // Organization Pool (System Admin to Org Admin)
-  TOP_UP        // When system admin adds credits to an organization's main pool
-  DEDUCT        // When credits are deducted from an organization's pool for a specific reason
+  TOP_UP // When system admin adds credits to an organization's main pool
+  DEDUCT // When credits are deducted from an organization's pool for a specific reason
 
   // Bonus/System
-  ADJUSTMENT    // When the balance needs to be adjusted due to an error or other reason
+  ADJUSTMENT // When the balance needs to be adjusted due to an error or other reason
 }
 
 enum Role {
