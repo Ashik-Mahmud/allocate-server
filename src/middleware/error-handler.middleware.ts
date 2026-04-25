@@ -39,7 +39,7 @@ export class ErrorHandler implements ExceptionFilter {
     else if (exception.constructor.name === 'ThrottlerException') {
 
       status = HttpStatus.TOO_MANY_REQUESTS;
-      message = 'Too many registration attempts. Please try again in a minute.';
+      message = 'Too many registration/login attempts. Please try again in a minute.';
     }
     // 2. Handle standard NestJS HttpExceptions
     else if (exception instanceof HttpException) {
