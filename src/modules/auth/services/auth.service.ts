@@ -2,7 +2,7 @@ import { Injectable, ConflictException, UnauthorizedException, NotFoundException
 import { JWTUtils, TokenPair } from '../utils/jwt';
 import { CryptoUtils } from '../utils/crypto';
 import { RegisterDto, LoginDto, ChangePasswordDto, UpdateProfileDto } from '../dto/AuthDTO';
-import { PaymentStatus, PlanType, TransactionType, User } from '@prisma/client';
+import { PaymentStatus, PlanType, Role, TransactionType, User } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import GLOBAL_CONFIG from 'src/shared/constant/global.constant';
 import { EmailService } from 'src/modules/inbox/service/email.service';
@@ -150,12 +150,12 @@ export class AuthService {
     }
 
     // Check if organization exists 
-    if (!user?.org_id && !user?.organization) {
+    if (!user?.org_id && !user?.organization && user?.role !== Role.ADMIN) {
       throw new UnauthorizedException('User organization not found');
     }
 
     // Check if organization is active
-    if (!user?.organization?.is_active) {
+    if (!user?.organization?.is_active && user?.role !== Role.ADMIN) {
       throw new UnauthorizedException('Your organization has been suspended. Please contact support.');
     }
 
