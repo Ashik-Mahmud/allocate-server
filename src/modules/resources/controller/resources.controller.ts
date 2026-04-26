@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
 import { ClientGuard, RolesGuard, SubscriptionGuard, UserVerificationGuard } from 'src/shared/guards';
@@ -90,7 +90,7 @@ export class ResourcesController {
 
     @UseGuards(ClientGuard, SubscriptionGuard)
     @SubscriptionPlans(PlanType.FREE, PlanType.PRO, PlanType.ENTERPRISE)
-    @Patch('delete/:id')
+    @Delete('delete/:id')
     @ApiOperation({ summary: 'Delete a resource (ORG_ADMIN only)' })
     @ApiResponse({ status: 200, description: 'Resource deleted successfully' })
     @ApiResponse({ status: 401, description: 'Unauthorized - Token required' })

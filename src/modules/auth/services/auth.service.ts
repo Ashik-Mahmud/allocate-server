@@ -17,7 +17,7 @@ export class AuthService {
     private sharedService: SharedService
   ) { }
 
-  async register(dto: RegisterDto): Promise<TokenPair & { user: Partial<User> }> {
+  async register(dto: RegisterDto): Promise<TokenPair & { user: Partial<User> & { needUpdateOrg: boolean } }> {
 
     // Check if user already exists
     const existingUser = await this.prisma.user.findUnique({
@@ -63,6 +63,12 @@ export class AuthService {
           name: true,
           role: true,
           org_id: true,
+          is_verified: true,
+          organization: {
+            select: {
+              needUpdateOrg: true,
+            },
+          },
         },
       });
 
@@ -128,7 +134,17 @@ export class AuthService {
       console.error('Failed to send welcome email:', error);
     }
 
-    return { ...tokens, user };
+    return {
+      ...tokens, user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        org_id: user.org_id,
+        needUpdateOrg: user?.organization?.needUpdateOrg || false,
+        is_verified: user.is_verified,
+      }
+    };
   }
 
   // login
@@ -195,6 +211,7 @@ export class AuthService {
         role: user.role,
         org_id: user.org_id,
         needUpdateOrg: user?.organization?.needUpdateOrg || false,
+        is_verified: user.is_verified,
       },
     };
   }
@@ -291,6 +308,10 @@ export class AuthService {
         role: true,
         createdAt: true,
         updatedAt: true,
+        photo: true,
+        org_id: true,
+        organization: true,
+        is_verified: true,
       },
     });
 
