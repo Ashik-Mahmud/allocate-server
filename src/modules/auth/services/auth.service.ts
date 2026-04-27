@@ -310,6 +310,8 @@ export class AuthService {
         updatedAt: true,
         photo: true,
         org_id: true,
+        last_login: true,
+        personal_credits: true,
         organization: true,
         is_verified: true,
       },
@@ -365,7 +367,7 @@ export class AuthService {
       const expiryDate = new Date(Date.now() + GLOBAL_CONFIG.VERIFICATION_TOKEN_EXPIRY_MINUTES * 60 * 1000);
 
       // Update user with verification token
-      await this.prisma.user.update({
+      const user = await this.prisma.user.update({
         where: { email },
         data: {
           verification_token: verificationToken,
@@ -373,8 +375,9 @@ export class AuthService {
         },
       })
       const verificationLink = `${process.env.WEB_APP_LINK}/verify-email?token=${verificationToken}`;
-      await this.emailService.sendVerifyEmail(email, name, verificationLink, GLOBAL_CONFIG.VERIFICATION_TOKEN_EXPIRY_MINUTES);
+      await this.emailService.sendVerifyEmail(email, user.name, verificationLink, GLOBAL_CONFIG.VERIFICATION_TOKEN_EXPIRY_MINUTES);
     } catch (error: any) {
+      console.log(error, 'error')
       throw new InternalServerErrorException('Failed to send verification email');
     }
 
@@ -382,6 +385,8 @@ export class AuthService {
 
   // verify email
   async verifyEmail(token: string, user: User): Promise<void> {
+
+    console.log(token)
     const dbUser = await this.prisma.user.findUnique({
       where: { verification_token: token },
       select: { id: true, deletedAt: true, is_verified: true, token_expiry: true },
@@ -402,6 +407,7 @@ export class AuthService {
       where: { id: dbUser.id },
       data: { is_verified: true, verification_token: null, token_expiry: null },
     });
+
   }
 
   // logout

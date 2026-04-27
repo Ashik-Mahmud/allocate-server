@@ -72,12 +72,7 @@ const withDefaults = <T extends BaseTemplateOptions>(options: T): Required<BaseT
 });
 
 const escapeHtml = (value: string): string =>
-    value
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/\"/g, '&quot;')
-        .replace(/'/g, '&#39;');
+    value?.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;');
 
 const buildLayout = (
     options: Required<BaseTemplateOptions>,
