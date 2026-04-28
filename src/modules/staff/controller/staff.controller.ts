@@ -78,7 +78,7 @@ export class StaffController {
     @ApiResponse({ status: 401, description: 'Unauthorized.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
     @ApiOperation({ summary: 'Get a specific staff member by ID (Organization Admin Only)' })
-    async getStaffById(@Query('id') id: string, @CurrentUser() user: User, @Res() res: Response) {
+    async getStaffById(@Param('id') id: string, @CurrentUser() user: User, @Res() res: Response) {
         // Implement logic to retrieve a staff member by ID
         const staff = await this.staffService.getStaffById(id, user);
         return ResponseUtil.success(staff || null, res);

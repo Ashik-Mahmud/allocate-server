@@ -179,6 +179,7 @@ export class StaffService {
 
     // Get a specific staff member by ID
     async getStaffById(id: string, user: User) {
+        console.log(id, 'id')
         const staff = await this.prisma.user.findFirst({
             where: { id, deletedAt: null, org_id: user.org_id, role: { in: [Role.STAFF, Role.ORG_ADMIN] } },
             select: {
@@ -188,6 +189,13 @@ export class StaffService {
                 role: true,
                 photo: true,
                 createdAt: true,
+                org_id: true,
+                organization: true,
+                is_verified: true,
+                creditTransactions: true,
+                personal_credits: true,
+                last_login: true,
+                updatedAt: true,
             },
         });
         if (!staff) {
@@ -205,7 +213,7 @@ export class StaffService {
         if (!staff) {
             throw new NotFoundException('Staff member not found');
         }
-        if (email && email !== staff.email ) {
+        if (email && email !== staff.email) {
             const existingUser = await this.prisma.user.findUnique({
                 where: { email, },
             });
