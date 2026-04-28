@@ -27,7 +27,7 @@ import { createZodDto } from "nestjs-zod"
 export const CreateStaffSchema = z.object({
   email: z.string().email(),
   name: z.string().min(1, 'Name is required'),
-  password: z.string().min(1, 'Password is required'),
+  password: z.string().optional(),
   photo: z.string().optional(),
   org_id: z.string().optional(),
 });
@@ -35,7 +35,7 @@ export const CreateStaffSchema = z.object({
 export const UpdateStaffSchema = z.object({
   email: z.string().email().optional(),
   name: z.string().min(1, 'Name is required').optional(),
-  password: z.string().min(1, 'Password is required').optional(),
+  password: z.string().optional(),
   photo: z.string().optional(),
   org_id: z.string().optional(),
 });

@@ -69,7 +69,8 @@ export class StaffService {
 
 
         // Hashed password 
-        const hashedPassword = await CryptoUtils.hashPassword(password);
+        const tempPassword = password || this.sharedService.generatePassword();
+        const hashedPassword = await CryptoUtils.hashPassword(tempPassword);
 
 
         // Create the staff member
@@ -105,7 +106,7 @@ export class StaffService {
             await this.emailService.sendStaffInviteEmail({
                 to: email,
                 staffName: name,
-                tempPassword: password,
+                tempPassword: tempPassword,
                 webAppLink: process.env.WEB_APP_LINK || 'http://localhost:3000',
                 organizationName: staff?.organization?.name || 'Our Organization',
                 invitedBy: user?.name,
@@ -158,6 +159,16 @@ export class StaffService {
                     role: true,
                     photo: true,
                     createdAt: true,
+                    personal_credits: true,
+                    organization: {
+                        select: {
+                            name: true,
+                        },
+                    },
+                    is_verified: true,
+                    last_login: true,
+                    org_id: true,
+
                 },
             }),
             this.prisma.user.count({ where: whereClause }),
@@ -194,7 +205,7 @@ export class StaffService {
         if (!staff) {
             throw new NotFoundException('Staff member not found');
         }
-        if (email && email !== staff.email) {
+        if (email && email !== staff.email ) {
             const existingUser = await this.prisma.user.findUnique({
                 where: { email, },
             });
@@ -305,7 +316,7 @@ export class StaffService {
         // Send email notification about account deletion
         try {
             await this.emailService.sendStaffDeletionEmail(
-                deletedStaff.email,
+                staff.email,
                 deletedStaff.name,
                 deletedStaff.organization?.name || 'Our Organization',
             );
@@ -625,6 +636,7 @@ export class StaffService {
         const page = Number(query.page) || 1;
         const limit = Number(query.limit) || 10;
         const search = query.search || '';
+        const staffId = query.staff_id || '';
 
         if (!orgId) {
             throw new BadRequestException('User does not belong to any organization');
@@ -633,6 +645,7 @@ export class StaffService {
         const whereClause: Prisma.CreditTransactionWhereInput = {
             org_id: orgId,
             type: { in: [TransactionType.ALLOCATE, TransactionType.SPEND, TransactionType.REVOKE] },
+            ...(staffId ? { user_id: staffId } : {}),
             ...(search ? {
                 OR: [
                     { description: { contains: search, mode: 'insensitive' } },

@@ -4,7 +4,7 @@
 import { Request, response, Response } from 'express';
 
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Body, Controller, Get, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
 import { ClientGuard, RolesGuard, SubscriptionGuard, UserVerificationGuard } from 'src/shared/guards';
 import { Roles } from 'src/shared/decorators/roles.decorator';
@@ -38,9 +38,10 @@ export class StaffController {
     @ApiResponse({ status: 400, description: 'Bad Request.' })
     @ApiResponse({ status: 401, description: 'Unauthorized.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
-    async create(@Body() createStaffDto: CreateStaffDto, @CurrentUser() user: User, @Res() response: Response) {
+    @HttpCode(HttpStatus.CREATED)
+    async create(@Body() createStaffDto: CreateStaffDto, @CurrentUser() user: User, @Res({ passthrough: true }) response: Response) {
         const staff = await this.staffService.createStaff(createStaffDto, user, response);
-        return ResponseUtil.success(staff);
+        return ResponseUtil.success(staff, response);
     }
 
 
@@ -96,7 +97,7 @@ export class StaffController {
     @ApiResponse({ status: 401, description: 'Unauthorized.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
     @ApiOperation({ summary: 'Update a staff member\'s information (Organization Admin Only)' })
-    async updateStaff(@Query('id') id: string, @Body() updateStaffDto: UpdateStaffDto, @CurrentUser() user: User, @Res() res: Response) {
+    async updateStaff(@Param('id') id: string, @Body() updateStaffDto: UpdateStaffDto, @CurrentUser() user: User, @Res() res: Response) {
         // Implement logic to update a staff member's information
         const staff = await this.staffService.updateStaff(id, updateStaffDto, user, res);
         return ResponseUtil.success(staff, res);
@@ -110,14 +111,14 @@ export class StaffController {
      * @returns The deleted staff member
      */
 
-    @Patch(":id/delete")
+    @Delete(":id/delete")
     @ApiParam({ name: 'id', description: 'The ID of the staff member to delete', type: String })
     @ApiResponse({ status: 200, description: 'Staff member deleted successfully.' })
     @ApiResponse({ status: 401, description: 'Unauthorized.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
     @ApiOperation({ summary: 'Delete a staff member (Organization Admin Only)' })
 
-    async deleteStaff(@Query('id') id: string, @CurrentUser() user: User, @Res() res: Response) {
+    async deleteStaff(@Param('id') id: string, @CurrentUser() user: User, @Res() res: Response) {
         // Implement logic to delete a staff member
         const staff = await this.staffService.deleteStaff(id, user, res);
         return ResponseUtil.success(staff, res);
