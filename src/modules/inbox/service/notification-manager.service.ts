@@ -6,6 +6,7 @@ import {
     NotificationPayload,
     NotificationDispatchResult,
 } from 'src/utils/notification-dispatcher';
+import { Prisma } from '@prisma/client';
 
 /**
  * Notification Manager Service
@@ -116,24 +117,33 @@ export class NotificationManager {
     /**
      * Get inbox messages for a user
      */
-    async getInboxMessages(userId: string, page: number = 1, limit: number = 10) {
+    async getInboxMessages(userId: string, query: { page?: number; limit?: number; is_read?: string; search?: string }) {
+        const { page = 1, limit = 10, is_read, search } = query;
         const skip = Number((page - 1) * limit);
-        await this.prisma.notification.findMany({
-            where: { user_id: userId },
-            orderBy: { createdAt: 'desc' },
-            skip: skip,
-            take: limit,
-        });
+        const take = Number(limit);
+
+        const whereClause: Prisma.NotificationWhereInput = { user_id: userId };
+
+        if (is_read !== undefined) {
+            whereClause.is_read = is_read === 'true';
+        }
+
+        if (search) {
+            whereClause.OR = [
+                { title: { contains: search , mode: 'insensitive' } },
+                { message: { contains: search , mode: 'insensitive' } },
+            ];
+        }
+
         const [messages, total] = await this.prisma.$transaction([
             this.prisma.notification.findMany({
-                where: { user_id: userId },
+                where: whereClause,
                 orderBy: { createdAt: 'desc' },
                 skip: skip,
-                take: limit,
+                take: take,
             }),
-            this.prisma.notification.count({ where: { user_id: userId } }),
+            this.prisma.notification.count({ where: whereClause }),
         ]);
-
 
 
         return {

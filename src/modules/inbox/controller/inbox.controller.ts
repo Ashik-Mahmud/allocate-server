@@ -33,13 +33,15 @@ export class InboxController {
     @ApiResponse({ status: 403, description: 'Forbidden.' })
     @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number for pagination' })
     @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of items per page' })
+    @ApiQuery({ name: 'is_read', required: false, type: String, description: 'Filter notifications by read status' })
+    @ApiQuery({ name: 'search', required: false, type: String, description: 'Search term to filter notifications by title or message' })
     @ApiOperation({ summary: 'Get Inbox Messages', description: 'Retrieve inbox messages for the authenticated user.' })
-    async getInboxMessages(@CurrentUser() user: User, @Res() response: Response, @Query() query: { page?: number; limit?: number }) {
+    async getInboxMessages(@CurrentUser() user: User, @Res() response: Response, @Query() query: { page?: number; limit?: number; is_read?: string; search?: string }) {
         // Implement logic to get inbox messages for the authenticated user here
         // You can use this.inboxService to call service methods for business logic
         // const messages = await this.inboxService.getInboxMessages(user.id);
         // response.status(200).json(messages);
-        const result = await this.notificationManager.getInboxMessages(user.id, query.page, query.limit);
+        const result = await this.notificationManager.getInboxMessages(user.id, query);
         return ResponseUtil.paginated(result.items, result.total, result.page, result.limit, response);
     }
 
