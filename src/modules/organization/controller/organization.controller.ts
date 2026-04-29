@@ -56,20 +56,20 @@ export class OrganizationController {
 
     @UseGuards(RolesGuard)
     @Roles(Role.ORG_ADMIN, Role.ADMIN,)
-    @Patch('profile/:id')
+    @Patch('profile')
     @ApiQuery({ name: 'clientId', required: true, description: 'Select Organization Client' })
     @ApiOperation({ summary: 'Update organization details (Admin and Client)' })
     @ApiResponse({ status: 200, description: 'Organization updated successfully' })
     @ApiResponse({ status: 401, description: 'Unauthorized - Token required' })
     @ApiResponse({ status: 403, description: 'Forbidden - Admin or Client role required' })
     async updateOrganization(
-        @Param('id') id: string,
+        @CurrentUser() currentUser: User,
         @Body() updateOrganizationDto: UpdateOrganizationDto,
         @Query('clientId') clientId: string,
         @Res() res: Response
     ) {
         // Logic to update an organization will go here
-        const organization = await this.service.updateOrganization(id, updateOrganizationDto, clientId, res);
+        const organization = await this.service.updateOrganization(currentUser.id, updateOrganizationDto, clientId, res);
         return ResponseUtil.success(organization, res);
 
     }

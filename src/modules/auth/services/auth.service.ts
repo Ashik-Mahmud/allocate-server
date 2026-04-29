@@ -171,7 +171,7 @@ export class AuthService {
     }
 
     // Check if organization is active
-    if (!user?.organization?.is_active && user?.role !== Role.ADMIN) {
+    if (!user?.organization?.is_active && user?.role !== Role.ADMIN && user?.role !== Role.ORG_ADMIN) {
       throw new UnauthorizedException('Your organization has been suspended. Please contact support.');
     }
 

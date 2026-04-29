@@ -66,20 +66,24 @@ export class OrganizationService {
     // Update organization details
     async updateOrganization(id: string, updateOrganizationDto: UpdateOrganizationDto, clientId: string, response: Response) {
         // check if clientId is provided in the query parameters
-        if (!clientId) {
-            throw new Error(`Client with ID ${clientId} not found`);
+
+        console.log(updateOrganizationDto, 'updateOrganizationDto')
+      
+        const targetedUserId = id || clientId ;
+        if (!targetedUserId) {
+            throw new Error(`Client with ID ${targetedUserId} not found`);
         }
         // check if client exists in the database
         const client = await this.prisma.user.findUnique({
-            where: { id: clientId },
+            where: { id: targetedUserId },
             select: { org_id: true, name: true, email: true, organization: { select: { id: true, name: true } } },
         });
 
-        if (!client) {
-            throw new Error('Client not found');
+        if (!client || !client.organization || !client?.org_id) {
+            throw new Error('Client not found or client is not associated with any organization');
         }
 
-        if (client.org_id !== id) {
+        if (client.org_id !== client?.org_id) {
             throw new ForbiddenException('Client is not authorized to update this organization');
         }
 
@@ -89,8 +93,8 @@ export class OrganizationService {
         const currentChangedValues = Object.values(updateOrganizationDto).join(', ');
         const details = `Organization updated: ${client?.organization?.name || ''}. Changed fields: ${changedFields}. Previous values: ${JSON.stringify(previousFields)}. Current values: ${currentChangedValues}`;
         await this.sharedService.logActivity(this.prisma, {
-            userId: clientId,
-            orgId: client.org_id,
+            userId: targetedUserId,
+            orgId: client?.org_id || '',
             action: 'ORGANIZATION_UPDATE',
             details: details,
             ipAddress: (response?.req?.headers['x-forwarded-for'] as string) || response?.req?.ip || response?.req?.connection?.remoteAddress || '',
@@ -103,8 +107,9 @@ export class OrganizationService {
         });
         // Update organization
         return await this.prisma.organizations.update({
-            where: { id },
+            where: { id: client?.org_id },
             data: {
+                needUpdateOrg: false,
                 ...updateOrganizationDto,
             },
         });
