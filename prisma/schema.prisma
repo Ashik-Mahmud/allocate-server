@@ -12,7 +12,7 @@ model User {
   password           String
   name               String
   photo              String?
-  personal_credits   Int?
+  personal_credits   Int?                @default(0) // Credits allocated to the user by the organization admin  
   role               Role                @default(ORG_ADMIN)
   last_login         DateTime?
   is_verified        Boolean?            @default(false)
@@ -33,35 +33,35 @@ model User {
 }
 
 model Organizations {
-  id             String          @id @default(cuid())
-  name           String
-  slug           String?         @unique
-  org_type       String?
-  tagline        String?
-  photo          String?
-  plan_type      PlanType?       @default(FREE)
-  credit_pool    Int?            @default(100)
-  is_active      Boolean?        @default(true)
-  timezone       String          @default("UTC")
-  address        Json?
-  business_email String?
-  needUpdateOrg  Boolean?        @default(true)
-  settings       Json?           @default("{\"notificationPreference\":{\"email\":true,\"sms\":false,\"push\":false, \"inApp\":true}}") // For future extensibility (e.g. notification preferences, etc.)
-  isVerified     Boolean?        @default(false)
-  deletedAt      DateTime?
-  createdAt      DateTime?       @default(now())
-  updatedAt      DateTime?       @updatedAt
-  users          User[]
-  resources      Resources[]
-  subscriptions  Subscription[]
-  resourcesRules ResourcesRule[]
-  notifications  Notification[]
-  invitations    Invitation[]
-  bookings       Bookings[]
+  id                 String              @id @default(cuid())
+  name               String
+  slug               String?             @unique
+  org_type           String?
+  tagline            String?
+  photo              String?
+  plan_type          PlanType?           @default(FREE)
+  credit_pool        Int?                @default(100)
+  is_active          Boolean?            @default(true)
+  timezone           String              @default("UTC")
+  address            Json?
+  business_email     String?
+  needUpdateOrg      Boolean?            @default(true)
+  settings           Json?               @default("{\"notificationPreference\":{\"email\":true,\"sms\":false,\"push\":false, \"inApp\":true}}") // For future extensibility (e.g. notification preferences, etc.)
+  isVerified         Boolean?            @default(false)
+  deletedAt          DateTime?
+  createdAt          DateTime?           @default(now())
+  updatedAt          DateTime?           @updatedAt
+  users              User[]
+  resources          Resources[]
+  subscriptions      Subscription[]
+  resourcesRules     ResourcesRule[]
+  notifications      Notification[]
+  invitations        Invitation[]
+  bookings           Bookings[]
+  creditTransactions CreditTransaction[]
 
   @@index([name, id])
   @@map("organizations")
-  creditTransactions CreditTransaction[]
 }
 
 model Resources {
@@ -169,8 +169,8 @@ model CreditTransaction {
   status          String? // e.g. "COMPLETED", "PENDING", "FAILED" (relevant for TOP_UP transactions)
   createdAt       DateTime        @default(now())
 
-  booking Bookings? @relation(fields: [referenceId], references: [id], onDelete: Cascade)
-  user    User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  booking      Bookings?     @relation(fields: [referenceId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
   organization Organizations @relation(fields: [org_id], references: [id], onDelete: Cascade)
 
   @@index([org_id, user_id])

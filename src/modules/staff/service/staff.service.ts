@@ -337,6 +337,8 @@ export class StaffService {
     // Manage/Assign credits to a staff member
     async manageSingleStaffCredits(id: string, manageCreditsDto: ManageCreditsDto, user: User, res: Response) {
         const { credits } = manageCreditsDto;
+     
+      
         if (!id) throw new BadRequestException('Staff ID is required');
         const staff = await this.prisma.user.findFirst({
             where: { id, deletedAt: null, org_id: user.org_id, role: { in: [Role.STAFF, Role.ORG_ADMIN] } },
@@ -384,16 +386,18 @@ export class StaffService {
                     },
                 });
                 // creadit transaction log
-                await this.sharedService.createCreditTransaction(this.prisma, {
+                await this.sharedService.createCreditTransaction(tx, {
                     userId: staff.id,
                     orgId: staff.org_id || '',
                     amount: credits,
                     type: TransactionType.ALLOCATE,
                     prevBalance: Number(staff.personal_credits || 0),
                     currBalance: Number(staff.personal_credits || 0) + credits,
-                    refId: `credit-${Date.now()}`,
-                    description: `Assigned ${credits} credits to staff member with email ${staff.email} by ${user.name}`,
-                    performedBy: user.id,
+                   // refId: `credit-${Date.now()}`,
+                    description: `Assigned ${credits} credits to staff member with email ${staff.email} by ${user.email}`,
+                    performedBy: user.id, 
+                    price_paid: 0, // Assuming no price for internal credit allocation, adjust if needed
+
                 });
 
                 return updatedStaff;

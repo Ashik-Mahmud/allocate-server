@@ -49,6 +49,7 @@ export class SharedService {
             price_paid?: number;
         }
     ) {
+
         return await tx.creditTransaction.create({
             data: {
                 user_id: data?.userId || data.performedBy,
@@ -57,7 +58,7 @@ export class SharedService {
                 type: data.type,
                 currentBalance: data.currBalance,
                 previousBalance: data.prevBalance,
-                referenceId: data.refId,
+                referenceId: data.refId ,
                 description: data.description,
                 performedBy: data.performedBy,
                 price_paid: data.price_paid || 0,
