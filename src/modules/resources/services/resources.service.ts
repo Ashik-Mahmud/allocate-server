@@ -11,6 +11,7 @@ import {
 import { UpdateOrganizationDto } from 'src/modules/organization/dto/organization.dto';
 import { SharedService } from 'src/shared/services/shared.service';
 import { Response } from 'express';
+import { is } from 'zod/v4/locales';
 
 @Injectable()
 export class ResourcesService {
@@ -252,7 +253,15 @@ export class ResourcesService {
         };
 
         // Build sort order
-        const orderBy = { [sortBy || 'createdAt']: sortOrder || 'desc' };
+        const orderBy: Prisma.ResourcesOrderByWithRelationInput[] = [
+            sortBy
+                ? ({ [sortBy]: sortOrder || 'desc' } as Prisma.ResourcesOrderByWithRelationInput)
+                : { createdAt: sortOrder || 'desc' },
+
+           // If is_maintenance is true then show those in the end
+            { is_maintenance: 'asc' },
+            
+        ];
 
         // Calculate pagination
         const skip = (page - 1) * query.limit;
@@ -275,6 +284,7 @@ export class ResourcesService {
                         is_available: true,
                         is_active: true,
                         is_maintenance: true,
+                        photo: true,
                         metadata: true,
                         createdAt: true,
                         updatedAt: true,

@@ -71,9 +71,10 @@ model Resources {
   name           String
   type           String
   hourly_rate    Decimal
+  photo          String?
   metadata       Json
-  is_available   Boolean
-  is_active      Boolean
+  is_available   Boolean  // Indicates if the resource is currently available for booking (e.g. not under maintenance)
+  is_active      Boolean  // Indicates if the resource is active in the system (e.g. not archived or deleted)
   is_maintenance Boolean
   deletedAt      DateTime?
   createdAt      DateTime        @default(now())
