@@ -179,7 +179,22 @@ export class StaffService {
 
     // Get a specific staff member by ID
     async getStaffById(id: string, user: User) {
-        console.log(id, 'id')
+
+
+        if (!user?.org_id) {
+            throw new ForbiddenException('You must belong to an organization to view staff details');
+        }
+        const organization = await this.prisma.organizations.findUnique({
+            where: { id: user?.org_id },
+            select: { plan_type: true }
+        });
+
+        const isPaidPlan = (organization?.plan_type === PlanType.PRO || organization?.plan_type === PlanType.ENTERPRISE) && user.role === Role.ORG_ADMIN;
+        const isAdmin = user.role === Role.ADMIN;
+
+        const shouldShowTransactions = isAdmin || isPaidPlan;
+        console.log(shouldShowTransactions, 'shouldShowTransactions')
+        // show the creditTransaction only for PAID plan users or if the user is admin
         const staff = await this.prisma.user.findFirst({
             where: { id, deletedAt: null, org_id: user.org_id, role: { in: [Role.STAFF, Role.ORG_ADMIN] } },
             select: {
@@ -192,16 +207,20 @@ export class StaffService {
                 org_id: true,
                 organization: true,
                 is_verified: true,
-                creditTransactions: true,
                 personal_credits: true,
                 last_login: true,
                 updatedAt: true,
+                // credit transactions are only visible to the organization admin or if the organization is on a paid plan
+                creditTransactions: shouldShowTransactions ? true : false,
             },
         });
         if (!staff) {
             throw new NotFoundException('Staff member not found');
         }
-        return staff;
+        return {
+            ...staff,
+            creditTransactions: shouldShowTransactions ? staff?.creditTransactions : [],
+        };
     }
 
     // Update a staff member's information
@@ -337,8 +356,8 @@ export class StaffService {
     // Manage/Assign credits to a staff member
     async manageSingleStaffCredits(id: string, manageCreditsDto: ManageCreditsDto, user: User, res: Response) {
         const { credits } = manageCreditsDto;
-     
-      
+
+
         if (!id) throw new BadRequestException('Staff ID is required');
         const staff = await this.prisma.user.findFirst({
             where: { id, deletedAt: null, org_id: user.org_id, role: { in: [Role.STAFF, Role.ORG_ADMIN] } },
@@ -393,9 +412,9 @@ export class StaffService {
                     type: TransactionType.ALLOCATE,
                     prevBalance: Number(staff.personal_credits || 0),
                     currBalance: Number(staff.personal_credits || 0) + credits,
-                   // refId: `credit-${Date.now()}`,
+                    // refId: `credit-${Date.now()}`,
                     description: `Assigned ${credits} credits to staff member with email ${staff.email} by ${user.email}`,
-                    performedBy: user.id, 
+                    performedBy: user.id,
                     price_paid: 0, // Assuming no price for internal credit allocation, adjust if needed
 
                 });
@@ -500,8 +519,8 @@ export class StaffService {
                     type: TransactionType.REVOKE,
                     prevBalance: Number(staff.personal_credits || 0),
                     currBalance: Number(staff.personal_credits || 0) - credits,
-                    refId: `credit-${Date.now()}`,
-                    description: `Revoked ${credits} credits from staff member with email ${staff.email} by ${user.name}`,
+                    //   refId: `credit-${Date.now()}`,
+                    description: `Revoked ${credits} credits from staff member with email ${staff.email} by ${user.email}`,
                     performedBy: user.id,
                 });
                 return updatedStaff;

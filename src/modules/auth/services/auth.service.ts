@@ -2,7 +2,7 @@ import { Injectable, ConflictException, UnauthorizedException, NotFoundException
 import { JWTUtils, TokenPair } from '../utils/jwt';
 import { CryptoUtils } from '../utils/crypto';
 import { RegisterDto, LoginDto, ChangePasswordDto, UpdateProfileDto } from '../dto/AuthDTO';
-import { PaymentStatus, PlanType, Role, TransactionType, User } from '@prisma/client';
+import { PaymentStatus, PlanType, Prisma, Role, TransactionType, User } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import GLOBAL_CONFIG from 'src/shared/constant/global.constant';
 import { EmailService } from 'src/modules/inbox/service/email.service';
@@ -298,7 +298,23 @@ export class AuthService {
     });
   }
 
-  async getProfile(userId: string): Promise<Partial<User>> {
+  async getProfile(userId: string, role: Role): Promise<Partial<User>> {
+
+    const selectOrgFieldsForStaff: Prisma.OrganizationsSelect = {
+      business_email: true,
+      id: true,
+      name: true,
+      settings: true,
+      address: true,
+      org_type: true,
+      slug: true,
+      tagline: true,
+      isVerified: true,
+      is_active: true,
+      photo: true,
+      timezone: true,
+      needUpdateOrg: true
+    }
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -312,7 +328,7 @@ export class AuthService {
         org_id: true,
         last_login: true,
         personal_credits: true,
-        organization: true,
+        organization: role === Role.STAFF ? { select: selectOrgFieldsForStaff } : true,
         is_verified: true,
       },
     });

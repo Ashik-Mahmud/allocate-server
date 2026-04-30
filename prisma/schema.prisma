@@ -155,11 +155,11 @@ model CreditTransaction {
   id              String          @id @default(uuid())
   org_id          String
   user_id         String
-  amount          Float // +50.00 or -10.00
-  price_paid      Float? // Actual amount paid by the organization for this transaction (relevant for TOP_UP and DEDUCT)
+  amount          Float           @default(0) // +50.00 or -10.00 
+  price_paid      Float?          @default(0) // Actual amount paid by the organization for this transaction (relevant for TOP_UP and DEDUCT)
   type            TransactionType // Enum: SPEND, ALLOCATE, REFUND
-  previousBalance Float
-  currentBalance  Float
+  previousBalance Float           @default(0) // Balance before the transaction
+  currentBalance  Float           @default(0) // Balance after the transaction
   referenceId     String? // Booking ID or Top-up ID
   description     String?
   performedBy     String // Admin ID who performed the action
