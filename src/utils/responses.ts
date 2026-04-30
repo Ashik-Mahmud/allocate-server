@@ -4,6 +4,7 @@ export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
   timestamp: string;
+  metadata?: { [key: string]: any };
 }
 
 export interface PaginatedResponse<T> extends ApiResponse<T[]> {
@@ -16,11 +17,12 @@ export interface PaginatedResponse<T> extends ApiResponse<T[]> {
 }
 
 export class ResponseUtil {
-  static success<T>(data: T, res?: Response): ApiResponse<T> {
+  static success<T>(data: T, res?: Response, metadata: { [key: string]: any } = {}): ApiResponse<T> {
     const response = {
       success: true,
       data,
       timestamp: new Date().toISOString(),
+      metadata,
     };
 
     if (res) {
@@ -36,6 +38,7 @@ export class ResponseUtil {
     page: number,
     limit: number,
     res?: Response,
+    metadata: { [key: string]: any } = {},
   ): PaginatedResponse<T> {
     const totalPages = Math.ceil(total / limit);
     const response = {
@@ -48,6 +51,7 @@ export class ResponseUtil {
         totalPages,
       },
       timestamp: new Date().toISOString(),
+      metadata,
     };
 
     if (res) {

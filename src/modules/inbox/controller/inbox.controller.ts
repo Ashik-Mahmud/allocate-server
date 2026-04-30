@@ -42,7 +42,7 @@ export class InboxController {
         // const messages = await this.inboxService.getInboxMessages(user.id);
         // response.status(200).json(messages);
         const result = await this.notificationManager.getInboxMessages(user.id, query);
-        return ResponseUtil.paginated(result.items, result.total, result.page, result.limit, response);
+        return ResponseUtil.paginated(result.items, result.total, result.page, result.limit, response, result?.metadata);
     }
 
 

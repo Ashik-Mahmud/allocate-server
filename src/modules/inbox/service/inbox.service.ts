@@ -28,8 +28,7 @@ export class InboxService {
                 reference_id: data.refId,
             },
         });
-
-        // রিয়েল-টাইমে পাঠানোর জন্য Socket.io বা Firebase কল করুন এখানে
+ 
         // this.socketService.sendToUser(data.userId, notification);
 
         return notification;

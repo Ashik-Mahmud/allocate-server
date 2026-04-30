@@ -135,7 +135,7 @@ export class NotificationManager {
             ];
         }
 
-        const [messages, total] = await this.prisma.$transaction([
+        const [messages, total, unreadCount] = await this.prisma.$transaction([
             this.prisma.notification.findMany({
                 where: whereClause,
                 orderBy: { createdAt: 'desc' },
@@ -143,6 +143,7 @@ export class NotificationManager {
                 take: take,
             }),
             this.prisma.notification.count({ where: whereClause }),
+            this.prisma.notification.count({ where: { user_id: userId, is_read: false } }), // For unread count
         ]);
 
 
@@ -152,6 +153,9 @@ export class NotificationManager {
             page: page,
             limit: limit,
             totalPages: Math.ceil(total / limit),
+            metadata:{
+                unreadCount
+            }
         };
     }
 

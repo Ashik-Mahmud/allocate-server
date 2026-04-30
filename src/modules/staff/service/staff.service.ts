@@ -193,7 +193,6 @@ export class StaffService {
         const isAdmin = user.role === Role.ADMIN;
 
         const shouldShowTransactions = isAdmin || isPaidPlan;
-        console.log(shouldShowTransactions, 'shouldShowTransactions')
         // show the creditTransaction only for PAID plan users or if the user is admin
         const staff = await this.prisma.user.findFirst({
             where: { id, deletedAt: null, org_id: user.org_id, role: { in: [Role.STAFF, Role.ORG_ADMIN] } },
@@ -622,7 +621,7 @@ export class StaffService {
                     // Log the activity
                     const ipAddress = (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '';
                     const userAgent: string = res.req.headers['user-agent'] || 'unknown';
-                    await this.sharedService.logActivity(this.prisma, {
+                    await this.sharedService.logActivity(tx, {
                         userId: user.id,
                         orgId: orgId,
                         action: 'MANAGE_CREDITS',
@@ -633,15 +632,15 @@ export class StaffService {
                     });
 
                     // creadit transaction log
-                    await this.sharedService.createCreditTransaction(this.prisma, {
+                    await this.sharedService.createCreditTransaction(tx, {
                         userId: staff.id,
                         orgId: orgId,
                         amount: sc.credits,
                         type: TransactionType.ALLOCATE,
                         prevBalance: Number(staff.personal_credits || 0),
                         currBalance: Number(staff.personal_credits || 0) + sc.credits,
-                        refId: `credit-${Date.now()}`,
-                        description: `Assigned ${sc.credits} credits to staff member with email ${staff.email} by ${user.name}`,
+                       // refId: `credit-${Date.now()}`,
+                        description: `Assigned ${sc.credits} credits to staff member with email ${staff.email} by ${user.email}`,
                         performedBy: user.id,
                     });
 
@@ -667,7 +666,7 @@ export class StaffService {
         const page = Number(query.page) || 1;
         const limit = Number(query.limit) || 10;
         const search = query.search || '';
-        const staffId = query.staff_id || '';
+        const type = query.type || '';
 
         if (!orgId) {
             throw new BadRequestException('User does not belong to any organization');
@@ -675,18 +674,18 @@ export class StaffService {
 
         const whereClause: Prisma.CreditTransactionWhereInput = {
             org_id: orgId,
-            type: { in: [TransactionType.ALLOCATE, TransactionType.SPEND, TransactionType.REVOKE] },
-            ...(staffId ? { user_id: staffId } : {}),
+            ...(type ? { type: type as TransactionType } : {}),
             ...(search ? {
                 OR: [
                     { description: { contains: search, mode: 'insensitive' } },
                     { referenceId: { contains: search, mode: 'insensitive' } },
-                    { user: { name: { contains: search, mode: 'insensitive' } } }
+                    { user: { name: { contains: search, mode: 'insensitive' } } },
+                    { user: { email: { contains: search, mode: 'insensitive' } } },
                 ],
             } : {}),
         };
 
-        const [items, total] = await this.prisma.$transaction([
+        const [items, total, allowcatedCredits, spentCredits, revokedCredits, activeStaffCount] = await this.prisma.$transaction([
             this.prisma.creditTransaction.findMany({
                 where: whereClause,
                 include: {
@@ -703,14 +702,148 @@ export class StaffService {
                 orderBy: { createdAt: 'desc' },
             }),
             this.prisma.creditTransaction.count({ where: whereClause }),
+            // so far allowcated credits for the staff member
+            this.prisma.creditTransaction.aggregate({
+                where: {
+                    org_id: orgId,
+                    type: TransactionType.ALLOCATE,
+                },
+                _sum: {
+                    amount: true,
+                },
+            }),
+            // total spent credits for the staff member
+            this.prisma.creditTransaction.aggregate({
+                where: {
+                    org_id: orgId,
+                    type: TransactionType.SPEND,
+                },
+                _sum: {
+                    amount: true,
+                },
+            }),
+            // total revoked credits for the staff member
+            this.prisma.creditTransaction.aggregate({
+                where: {
+                    org_id: orgId,
+                    type: TransactionType.REVOKE,
+                },
+                _sum: {
+                    amount: true,
+                },
+            }),
+
+            // Active staff members in the organization for filter dropdown
+            this.prisma.user.count({
+                where: {
+                    org_id: orgId,
+                    deletedAt: null,
+                    role: { in: [Role.STAFF, Role.ORG_ADMIN] }
+                }
+            })
         ]);
 
         return {
-            items,
+            items: [
+                {
+                    items,
+                    allowcatedCredits: allowcatedCredits._sum.amount || 0,
+                    spentCredits: spentCredits._sum.amount || 0,
+                    revokedCredits: revokedCredits._sum.amount || 0,
+                    activeStaffCount
+                }
+            ],
             total,
             page,
             limit,
             totalPages: Math.ceil(total / limit),
+        };
+    }
+
+    // Get staff credit logs history
+    async getStaffCreditLogsForFreeUser(user: User, res: Response) {
+
+        const orgId = user?.org_id;
+        if (!orgId) {
+            throw new BadRequestException('User does not belong to any organization');
+        }
+
+        const whereClause: Prisma.CreditTransactionWhereInput = {
+            org_id: orgId,
+            type: { in: [TransactionType.ALLOCATE, TransactionType.SPEND, TransactionType.REVOKE] },
+        };
+
+        const [items, total, allowcatedCredits, spentCredits, revokedCredits, activeStaffCount] = await this.prisma.$transaction([
+            this.prisma.creditTransaction.findMany({
+                where: whereClause,
+                include: {
+                    user: {
+                        select: {
+                            name: true,
+                            email: true,
+                            photo: true
+                        }
+                    }
+                },
+                take: 5,
+                orderBy: { createdAt: 'desc' },
+            }),
+            this.prisma.creditTransaction.count({ where: whereClause }),
+            // so far allowcated credits for the staff member
+            this.prisma.creditTransaction.aggregate({
+                where: {
+                    org_id: orgId,
+                    type: TransactionType.ALLOCATE,
+                },
+                _sum: {
+                    amount: true,
+                },
+            }),
+            // total spent credits for the staff member
+            this.prisma.creditTransaction.aggregate({
+                where: {
+                    org_id: orgId,
+                    type: TransactionType.SPEND,
+                },
+                _sum: {
+                    amount: true,
+                },
+            }),
+            // total revoked credits for the staff member
+            this.prisma.creditTransaction.aggregate({
+                where: {
+                    org_id: orgId,
+                    type: TransactionType.REVOKE,
+                },
+                _sum: {
+                    amount: true,
+                },
+            }),
+
+            // Active staff members in the organization for filter dropdown
+            this.prisma.user.count({
+                where: {
+                    org_id: orgId,
+                    deletedAt: null,
+                    role: { in: [Role.STAFF, Role.ORG_ADMIN] }
+                }
+            })
+        ]);
+
+        return {
+            items: [
+                {
+                    items,
+                    allowcatedCredits: allowcatedCredits._sum.amount || 0,
+                    spentCredits: spentCredits._sum.amount || 0,
+                    revokedCredits: revokedCredits._sum.amount || 0,
+                    activeStaffCount
+                }
+            ],
+            total,
+            page: 1,
+            limit: 5,
+            totalPages: Math.ceil(total / 5),
         };
     }
 

@@ -8,8 +8,8 @@ import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post
 import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
 import { ClientGuard, RolesGuard, SubscriptionGuard, UserVerificationGuard } from 'src/shared/guards';
 import { Roles } from 'src/shared/decorators/roles.decorator';
-import { PlanType, Role, User } from '@prisma/client';
-import { CurrentUser } from 'src/shared/decorators/user.decorator';
+import { PlanType, Role, TransactionType, User } from '@prisma/client';
+import { CurrentUser, CurrentUserType } from 'src/shared/decorators/user.decorator';
 import { StaffService } from '../service/staff.service';
 import { CreateStaffDto, ManageCreditsDto, ManageMultipleStaffCreditsDto, UpdateStaffDto } from '../dto/staff.dto';
 import { ResponseUtil } from 'src/utils/responses';
@@ -198,19 +198,24 @@ export class StaffController {
      */
 
     @Get("credits/logs")
-    @UseGuards(SubscriptionGuard)
-    @SubscriptionPlans(PlanType.PRO, PlanType.ENTERPRISE)
     @ApiResponse({ status: 200, description: 'Staff credit logs history retrieved successfully.' })
     @ApiResponse({ status: 401, description: 'Unauthorized.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
     @ApiOperation({ summary: 'Get the staff credit logs history (Organization Admin Only)' })
     @ApiQuery({ name: 'page', required: false, type: Number })
     @ApiQuery({ name: 'limit', required: false, type: Number })
-    @ApiQuery({name: 'search', required: false, type: String, description: 'Search by resource name or action type'})
-    async getStaffCreditLogs(@CurrentUser() user: User, @Res() res: Response, @Query() query: CreditLogsFilterDto) {
+    @ApiQuery({ name: 'search', required: false, type: String, description: 'Search by resource name or action type' })
+    @ApiQuery({ name: 'type', required: false, enum: TransactionType, description: 'Filter by transaction type (ALLOCATE, SPEND, REVOKE)' })
+    async getStaffCreditLogs(@CurrentUser() user: User & CurrentUserType, @Res() res: Response, @Query() query: CreditLogsFilterDto) {
         // Implement logic to get the staff credit logs history
-        const report = await this.staffService.getStaffCreditLogs(user, query, res);
-        return ResponseUtil.success(report, res);
+        let report;
+        if (user.plan_type === PlanType.FREE) {
+            report = await this.staffService.getStaffCreditLogsForFreeUser(user, res);
+        } else {
+            report = await this.staffService.getStaffCreditLogs(user, query, res);
+        }
+
+        return ResponseUtil.paginated(report.items, report.total, report.page, report.limit, res);
     }
 
 }
