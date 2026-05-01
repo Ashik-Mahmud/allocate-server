@@ -31,7 +31,7 @@ export const CreateBookingSchema = z.object({
     start_time: z.string().min(1, 'Start time is required'),
     end_time: z.string().min(1, 'End time is required'),
     notes: z.string().optional(), // Optional notes field for additional booking information
-    metadata: z.record(z.string(), z.any()).optional(), // Optional metadata field for additional booking information
+   // metadata: z.record(z.string(), z.any()).optional(), // Optional metadata field for additional booking information
 });
 
 // DTO for updating a booking

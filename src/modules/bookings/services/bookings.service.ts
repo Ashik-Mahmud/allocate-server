@@ -21,13 +21,14 @@ export class BookingsService {
 
     // Create a booking for a resource
     async createBooking(currentUser: User, createBookingDto: CreateBookingDto, res: Response) {
-        const { user_id, resource_id, start_time, end_time, notes, metadata } = createBookingDto;
+        const { user_id, resource_id, start_time, end_time, notes } = createBookingDto;
 
         // basic time variables for later use
         const startTime = new Date(start_time);
         const endTime = new Date(end_time);
         const now = new Date();
         const userId = user_id || currentUser.id
+          const ipAddress = (res.req?.headers['x-forwarded-for'] as string) || res.req?.ip || res.req?.connection?.remoteAddress || '';
 
         // If the start time is in the past or end time is before start time, throw an error
         if (startTime < now || endTime <= startTime) {
@@ -150,7 +151,16 @@ export class BookingsService {
                     end_time: endTime,
                     total_cost: totalCost,
                     notes,
-                    metadata,
+                    metadata: {
+                        hourly_rate: hourlyRate,
+                        resource_name: resource.name,
+                        resource_type: resource.type,
+                        user_name: user.name,
+                        user_email: user.email,
+                        ipAdress: ipAddress,
+                        userAgent: res.req?.headers['user-agent'] || '',
+                        duration_hours: hoursDifference,
+                    },
                     created_by: currentUser.id,
                     status: bookingStatus,
                 },
@@ -180,7 +190,7 @@ export class BookingsService {
             });
 
             // Deduct credits from user
-            if (bookingStatus === 'CONFIRMED') {
+            if (bookingStatus === BookingStatus.CONFIRMED) {
                 if (Number(user.personal_credits || 0) < totalCost) {
                     throw new BadRequestException('Not enough credits to confirm this booking');
                 }
@@ -195,7 +205,7 @@ export class BookingsService {
             }
 
             // Send notification 
-            const ipAddress = (res.req?.headers['x-forwarded-for'] as string) || res.req?.ip || res.req?.connection?.remoteAddress || '';
+          
             await this.bookingUtilService.handlePostBookingActions(booking, tx, currentUser, {
                 ipAddress: ipAddress,
                 userAgent: res.req?.headers['user-agent'] || '',
@@ -423,7 +433,7 @@ export class BookingsService {
 
 
     // Get my booking history
-    async getMyBookingsHistory(user: User, query: MyBookingsHistoryQueryDto) {
+    async getMyBookingsHistoryService(user: User, query: MyBookingsHistoryQueryDto) {
 
         const page = Number(query.page) || 1;
         const limit = Number(query.limit) || 10;

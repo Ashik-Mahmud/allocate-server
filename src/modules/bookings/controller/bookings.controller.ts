@@ -110,16 +110,17 @@ export class BookingsController {
     @UseGuards(RolesGuard)
     @Roles(Role.STAFF, Role.ORG_ADMIN) // Allow both ORG_MEMBER and ORG_ADMIN to view bookings
     @Get('my-bookings')
-    @ApiOperation({ summary: 'Get all bookings for the current user\'s organization (STAFF and ORG_ADMIN roles)' })
-    @ApiResponse({ status: 200, description: 'Bookings retrieved successfully' })
-    @ApiResponse({ status: 401, description: 'Unauthorized - Token required' })
-    @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
     @ApiQuery({ name: 'status', enum: ['PENDING', 'CONFIRMED', 'REJECTED', 'CANCELLED', 'COMPLETED'], required: false, description: 'Filter bookings by status' })
     @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
     @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10, max: 100)' })
     @ApiQuery({ name: 'search', required: false, type: String, description: 'Search by resource name or type' })
-    async getMyBookingsHistory(@CurrentUser() currentUser: User, @Query('query') query: MyBookingsHistoryQueryDto, @Res() res: Response) {
-        const result = await this.service.getMyBookingsHistory(currentUser, query);
+    @ApiOperation({ summary: 'Get all bookings for the current user\'s organization (STAFF and ORG_ADMIN roles)' })
+    @ApiResponse({ status: 200, description: 'Bookings retrieved successfully' })
+    @ApiResponse({ status: 401, description: 'Unauthorized - Token required' })
+    @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+
+    async getMyBookingsHistory(@CurrentUser() currentUser: User, @Query() query:  MyBookingsHistoryQueryDto, @Res() res: Response) {
+        const result = await this.service.getMyBookingsHistoryService(currentUser, query);
         return ResponseUtil.paginated(result.items, result.total, result.page, result.limit, res);
     }
 
