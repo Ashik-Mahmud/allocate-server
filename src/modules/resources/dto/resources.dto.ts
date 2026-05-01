@@ -36,9 +36,24 @@ export const ListResourcesQuerySchema = z.object({
     limit: z.coerce.number().min(1, 'Limit must be at least 1').max(100, 'Limit cannot exceed 100').default(10),
     search: z.string().optional(),
     type: z.string().optional(),
-    is_available: z.enum(['true', 'false']).optional().transform((val) => val === 'true' ? true : val === 'false' ? false : undefined),
-    is_active: z.enum(['true', 'false']).optional().transform((val) => val === 'true' ? true : val === 'false' ? false : undefined),
-    is_maintenance: z.enum(['true', 'false']).optional().transform((val) => val === 'true' ? true : val === 'false' ? false : undefined),
+    is_available: z
+        .preprocess((val) => String(val).toLowerCase(), // Force to lowercase string first
+            z.enum(['true', 'false'])
+        )
+        .optional()
+        .transform((val) => val === 'true' ? true : val === 'false' ? false : undefined),
+    is_active: z
+        .preprocess((val) => String(val).toLowerCase(), // Force to lowercase string first
+            z.enum(['true', 'false'])
+        )
+        .optional()
+        .transform((val) => val === 'true' ? true : val === 'false' ? false : undefined),
+    is_maintenance: z
+        .preprocess((val) => String(val).toLowerCase(), // Force to lowercase string first
+            z.enum(['true', 'false'])
+        )
+        .optional()
+        .transform((val) => val === 'true' ? true : val === 'false' ? false : undefined),
     sortBy: z.enum(['name', 'hourly_rate', 'createdAt']).default('createdAt'),
     sortOrder: z.enum(['asc', 'desc']).default('desc'),
 });

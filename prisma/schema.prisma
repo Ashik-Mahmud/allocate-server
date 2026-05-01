@@ -73,9 +73,9 @@ model Resources {
   hourly_rate    Decimal
   photo          String?
   metadata       Json
-  is_available   Boolean  // Indicates if the resource is currently available for booking (e.g. not under maintenance)
-  is_active      Boolean  // Indicates if the resource is active in the system (e.g. not archived or deleted)
-  is_maintenance Boolean
+  is_available   Boolean         @default(true) // Indicates if the resource is currently available for booking (e.g. not under maintenance)
+  is_active      Boolean         @default(true) // Indicates if the resource is active in the system (e.g. not archived or deleted)
+  is_maintenance Boolean         @default(false)
   deletedAt      DateTime?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt

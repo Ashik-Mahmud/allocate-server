@@ -212,7 +212,7 @@ export class ResourcesService {
                 userAgent: userAgent,
                 metadata: { org_id: user?.org_id || '', role: user?.role, resource_id: resource?.id || '', resourceName: resource.name },
             });
-            
+
             return deletedResource;
         } catch (error) {
             if (error instanceof ForbiddenException || error instanceof NotFoundException) throw error;
@@ -227,6 +227,7 @@ export class ResourcesService {
             throw new ForbiddenException('User organization not found');
         }
 
+        console.log(is_active, is_maintenance)
         const organization = await this.prisma.organizations.findUnique({
             where: { id: user.org_id },
             select: { id: true, is_active: true },
@@ -258,9 +259,9 @@ export class ResourcesService {
                 ? ({ [sortBy]: sortOrder || 'desc' } as Prisma.ResourcesOrderByWithRelationInput)
                 : { createdAt: sortOrder || 'desc' },
 
-           // If is_maintenance is true then show those in the end
+            // If is_maintenance is true then show those in the end
             { is_maintenance: 'asc' },
-            
+
         ];
 
         // Calculate pagination
@@ -321,7 +322,106 @@ export class ResourcesService {
             throw new InternalServerErrorException('Failed to fetch resources');
         }
     }
+    // Service method to list resources with pagination, search, and filtering
+    async listBrowseResources(user: User, query: ListResourcesQueryDto) {
+        const { page, limit, search, type, is_available, is_active, is_maintenance, sortBy, sortOrder } = query;
+        if (!user.org_id) {
+            throw new ForbiddenException('User organization not found');
+        }
 
+        const organization = await this.prisma.organizations.findUnique({
+            where: { id: user.org_id },
+            select: { id: true, is_active: true },
+        });
+        // Check if organization is active before allowing access to resources
+        if (!organization || organization.is_active === false) {
+            throw new ForbiddenException('Your organization is not active. Please contact support.');
+        }
+
+        // Build where conditions
+        const whereConditions: Prisma.ResourcesWhereInput = {
+            org_id: user.org_id,
+            deletedAt: null,
+            is_active: true,
+            is_maintenance: false,
+            ...(type && { type: { contains: type, mode: 'insensitive' } }),
+            ...(is_available !== undefined && { is_available }),
+            ...(is_active !== undefined && { is_active }),
+            ...(is_maintenance !== undefined && { is_maintenance }),
+            ...(search && {
+                OR: [
+                    { name: { contains: search, mode: 'insensitive' } },
+                    { type: { contains: search, mode: 'insensitive' } },
+                ],
+            }),
+        };
+
+        // Build sort order
+        const orderBy: Prisma.ResourcesOrderByWithRelationInput[] = [
+            sortBy
+                ? ({ [sortBy]: sortOrder || 'desc' } as Prisma.ResourcesOrderByWithRelationInput)
+                : { createdAt: sortOrder || 'desc' },
+
+        ];
+
+        // Calculate pagination
+        const skip = (page - 1) * query.limit;
+
+        try {
+            const [total, resources] = await Promise.all([
+                this.prisma.resources.count({ where: whereConditions }),
+                this.prisma.resources.findMany({
+                    where: whereConditions,
+                    orderBy,
+                    skip: skip,
+                    take: limit,
+
+                    select: {
+                        id: true,
+                        org_id: true,
+                        name: true,
+                        type: true,
+                        hourly_rate: true,
+                        is_available: true,
+                        is_active: true,
+                        is_maintenance: true,
+                        photo: true,
+                        metadata: true,
+                        createdAt: true,
+                        updatedAt: true,
+
+                        organization: {
+                            select: {
+                                id: true,
+                                name: true,
+                                org_type: true,
+                                credit_pool: true,
+                                photo: true,
+                                slug: true,
+                            },
+                        },
+
+                        resourcesRules: true, // Include resource rules in the response
+                        _count: {
+                            select: {
+                                bookings: true,
+                            },
+                        },
+                    },
+
+                }),
+            ]);
+            return {
+                items: resources,
+                total,
+                page: query.page,
+                limit: query.limit,
+                totalPages: Math.ceil(total / query.limit),
+            };
+        } catch (error) {
+            throw new InternalServerErrorException('Failed to fetch resources');
+        }
+    }
     // Service method to get a single resource by ID
     async getResourceById(user: User, resourceId: string) {
         if (!user.org_id) {

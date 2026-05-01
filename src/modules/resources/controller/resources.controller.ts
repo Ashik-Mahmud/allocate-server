@@ -111,7 +111,7 @@ export class ResourcesController {
      * @return - A success response containing paginated array of resources if the operation is successful.
      */
     @UseGuards(RolesGuard)
-    @Roles(Role.ORG_ADMIN, Role.STAFF)
+    @Roles(Role.ORG_ADMIN)
     @Get('list')
     @ApiOperation({ summary: 'List resources with pagination, search, and filtering' })
     @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
@@ -130,6 +130,30 @@ export class ResourcesController {
         const result = await this.service.listResources(currentUser, query);
         return ResponseUtil.paginated(result.items, result.total, result.page, result.limit, res);
     }
+
+    /**
+     * This controller will get list of all resources in the browse resources page based on all the filters and search query
+     * @visibleTo - All authenticated users (ORG_ADMIN, STAFF, and CLIENT roles)
+     * @return - A success response containing array of resources if the operation is successful.
+     */
+        @UseGuards(RolesGuard)
+        @Roles(Role.ORG_ADMIN, Role.STAFF)
+        @Get('browse-all')
+        @ApiOperation({ summary: 'Get all resources with filters and search (for browse resources page)' })
+        @ApiQuery({ name: 'search', required: false, type: String, description: 'Search by resource name or type' })
+        @ApiQuery({ name: 'type', required: false, type: String, description: 'Filter by resource type' })
+        @ApiQuery({ name: 'is_available', required: false, type: String, enum: ['true', 'false'], description: 'Filter by availability' })
+        @ApiQuery({ name: 'is_active', required: false, type: String, enum: ['true', 'false'], description: 'Filter by active status' })
+        @ApiQuery({ name: 'is_maintenance', required: false, type: String, enum: ['true', 'false'], description: 'Filter by maintenance status' })
+        @ApiQuery({ name: 'sortBy', required: false, type: String, enum: ['name', 'hourly_rate', 'createdAt'], description: 'Sort field (default: createdAt)' })
+        @ApiQuery({ name: 'sortOrder', required: false, type: String, enum: ['asc', 'desc'], description: 'Sort order (default: desc)' })
+        @ApiResponse({ status: 200, description: 'Resources fetched successfully' })
+        @ApiResponse({ status: 400, description: 'Invalid query parameters' })
+        @ApiResponse({ status: 401, description: 'Unauthorized - Token required' })
+        async getAllResources(@CurrentUser() currentUser: User, @Query() query: ListResourcesQueryDto, @Res() res: Response) {
+            const result = await this.service.listBrowseResources(currentUser, query);
+            return ResponseUtil.success(result.items, res);
+        }
 
 
     /**
