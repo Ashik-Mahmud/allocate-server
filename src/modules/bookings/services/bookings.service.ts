@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { Bookings, BookingStatus, NotificationType, PlanType, Prisma, Role, User } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
-import { CreateBookingDto } from '../dto/bookings.dto';
+import { CreateBookingDto, UpdateBookingStatusDto } from '../dto/bookings.dto';
 import GLOBAL_CONFIG from 'src/shared/constant/global.constant';
 import { AllBookingsQueryDto, BookingStatsQueryDto, MyBookingsHistoryQueryDto } from '../dto/booking-filter.dto';
 import { BookingCalendarData } from '../interfaces/booking.interface';
@@ -226,7 +226,9 @@ export class BookingsService {
 
 
     // Update booking status (e.g. cancel a booking)
-    async updateBookingStatus(user: User, bookingId: string, status: BookingStatus, cancelReason?: string, res?: Response): Promise<Bookings | void> {
+    async updateBookingStatus(user: User, bookingId: string, updateBookingStatusDto: UpdateBookingStatusDto, res?: Response): Promise<Bookings | void> {
+
+        const { status, cancellation_reason } = updateBookingStatusDto;
 
         const booking = await this.prisma.bookings.findUnique({
             where: { id: bookingId, deletedAt: null },
@@ -300,11 +302,11 @@ export class BookingsService {
                 },
                 notifications: {
                     staff: {
-                        message: `Your booking for {{resourceName}} is now {{status}}. ${cancelReason ? `Reason: ${cancelReason}` : ''}`,
+                        message: `Your booking for {{resourceName}} is now {{status}}. ${cancellation_reason ? `Reason: ${cancellation_reason}` : ''}`,
                     },
                     orgAdmin: {
                         enabled: user.role !== Role.ORG_ADMIN || booking.user_id !== user.id,
-                        message: `Booking for {{resourceName}} by {{requesterName}} is now {{status}}. ${cancelReason ? `Reason: ${cancelReason}` : ''}`,
+                        message: `Booking for {{resourceName}} by {{requesterName}} is now {{status}}. ${cancellation_reason ? `Reason: ${cancellation_reason}` : ''}`,
                     },
                 },
                 creditTransaction: {
@@ -337,7 +339,7 @@ export class BookingsService {
                 where: { id: bookingId },
                 data: {
                     status: finalStatus,
-                    ...(finalStatus === BookingStatus.CANCELLED && cancelReason ? { cancellation_reason: cancelReason } : {}),
+                    ...(finalStatus === BookingStatus.CANCELLED && cancellation_reason ? { cancellation_reason: cancellation_reason } : {}),
                 },
             });
         });

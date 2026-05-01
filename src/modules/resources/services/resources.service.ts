@@ -368,7 +368,7 @@ export class ResourcesService {
         const skip = (page - 1) * query.limit;
 
         try {
-            const [total, resources] = await Promise.all([
+            const [total, resources, categories] = await Promise.all([
                 this.prisma.resources.count({ where: whereConditions }),
                 this.prisma.resources.findMany({
                     where: whereConditions,
@@ -388,7 +388,7 @@ export class ResourcesService {
                         photo: true,
                         metadata: true,
                         createdAt: true,
-                        updatedAt: true,
+                        updatedAt: true,         
 
                         organization: {
                             select: {
@@ -410,12 +410,28 @@ export class ResourcesService {
                     },
 
                 }),
+                // get availablel resources categories in array format
+                    this.prisma.resources.findMany({
+                        where: {
+                            org_id: user.org_id,
+                            deletedAt: null,
+                            is_active: true,
+                            is_maintenance: false,
+                        },
+                        select: {
+                            type: true,
+                        },
+                    }),
+                 
             ]);
             return {
                 items: resources,
                 total,
                 page: query.page,
                 limit: query.limit,
+                metadata: {
+                    categories: Array.from(new Set(categories.map(c => c.type))), // Get unique categories
+                },
                 totalPages: Math.ceil(total / query.limit),
             };
         } catch (error) {

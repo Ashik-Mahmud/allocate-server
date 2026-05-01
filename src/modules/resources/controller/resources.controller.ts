@@ -152,7 +152,7 @@ export class ResourcesController {
         @ApiResponse({ status: 401, description: 'Unauthorized - Token required' })
         async getAllResources(@CurrentUser() currentUser: User, @Query() query: ListResourcesQueryDto, @Res() res: Response) {
             const result = await this.service.listBrowseResources(currentUser, query);
-            return ResponseUtil.success(result.items, res);
+            return ResponseUtil.success(result.items, res, result.metadata);
         }
 
 

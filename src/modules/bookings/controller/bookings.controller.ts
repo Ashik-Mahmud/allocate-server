@@ -62,20 +62,13 @@ export class BookingsController {
     @ApiResponse({ status: 401, description: 'Unauthorized - Token required' })
     @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
     @ApiQuery({ name: 'bookingId', type: 'string', description: 'ID of the booking to update' })
-    
-    @ApiQuery({
-        name: 'status',
-        enum: ['PENDING', 'CONFIRMED', 'REJECTED', 'CANCELLED', 'COMPLETED'],
-        description: 'New status for the booking'
-    })
     async updateBookingStatus(
         @CurrentUser() currentUser: User,
         @Query('bookingId') bookingId: string,
-        @Query('status') status: BookingStatus,
-        @Body() cancellationReasonDto: UpdateBookingStatusDto, // Optional cancellation reason when status is CANCELLED
+        @Body() updateBookingStatusDto: UpdateBookingStatusDto, // Optional cancellation reason when status is CANCELLED
         @Res() res: Response
     ) {
-        const result = await this.service.updateBookingStatus(currentUser, bookingId, status, cancellationReasonDto.cancellation_reason, res);
+        const result = await this.service.updateBookingStatus(currentUser, bookingId, updateBookingStatusDto, res);
         return ResponseUtil.success(result, res);
     }
 

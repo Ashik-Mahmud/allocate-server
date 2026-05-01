@@ -45,6 +45,7 @@ export const UpdateBookingSchema = z.object({
 // DTO for booking status update
 export const UpdateBookingStatusSchema = z.object({
     cancellation_reason: z.string().optional(), // Optional cancellation reason when status is CANCELLED
+    status: z.enum(['PENDING', 'CONFIRMED', 'REJECTED', 'CANCELLED', 'COMPLETED']).optional(),
 });
 
 export class CreateBookingDto extends createZodDto(CreateBookingSchema) { }
