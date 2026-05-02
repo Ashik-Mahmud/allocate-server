@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { Bookings, BookingStatus, NotificationType, PlanType, Prisma, Role, User } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
-import { CreateBookingDto, UpdateBookingStatusDto } from '../dto/bookings.dto';
+import { CreateBookingDto, UpdateBookingDto, UpdateBookingStatusDto } from '../dto/bookings.dto';
 import GLOBAL_CONFIG from 'src/shared/constant/global.constant';
 import { AllBookingsQueryDto, BookingStatsQueryDto, MyBookingsHistoryQueryDto } from '../dto/booking-filter.dto';
 import { BookingCalendarData } from '../interfaces/booking.interface';
@@ -9,6 +9,7 @@ import { getWeekKey } from '../utils/helper';
 import { NotificationManager } from 'src/modules/inbox/service/notification-manager.service';
 import { BookingUtilService } from './bookingUtil.service';
 import { Response } from 'express';
+import { SharedService } from 'src/shared/services/shared.service';
 
 @Injectable()
 export class BookingsService {
@@ -16,7 +17,8 @@ export class BookingsService {
     constructor(
         private prisma: PrismaService,
         private notificationManager: NotificationManager,
-        private bookingUtilService: BookingUtilService
+        private bookingUtilService: BookingUtilService,
+        private sharedService: SharedService
     ) { }
 
     // Create a booking for a resource
@@ -28,7 +30,7 @@ export class BookingsService {
         const endTime = new Date(end_time);
         const now = new Date();
         const userId = user_id || currentUser.id
-          const ipAddress = (res.req?.headers['x-forwarded-for'] as string) || res.req?.ip || res.req?.connection?.remoteAddress || '';
+        const ipAddress = (res.req?.headers['x-forwarded-for'] as string) || res.req?.ip || res.req?.connection?.remoteAddress || '';
 
         // If the start time is in the past or end time is before start time, throw an error
         if (startTime < now || endTime <= startTime) {
@@ -205,7 +207,7 @@ export class BookingsService {
             }
 
             // Send notification 
-          
+
             await this.bookingUtilService.handlePostBookingActions(booking, tx, currentUser, {
                 ipAddress: ipAddress,
                 userAgent: res.req?.headers['user-agent'] || '',
@@ -356,6 +358,52 @@ export class BookingsService {
 
     }
 
+    // Update booking notes 
+    async updateBookingDetails(user: User, bookingId: string, updateBookingDto: UpdateBookingDto, res?: Response): Promise<Bookings> {
+
+        const booking = await this.prisma.bookings.findUnique({
+            where: { id: bookingId, deletedAt: null },
+            include: { user: true }
+        });
+
+        if (!booking) {
+            throw new NotFoundException('Booking not found');
+        }
+
+        if (booking.user_id !== user.id) {
+            throw new ForbiddenException('You are not authorized to update this booking');
+        }
+
+        // dont allow user to update notes if the booking is already cancelled or completed and rejected 
+        if (booking.status !== BookingStatus.PENDING && booking.status !== BookingStatus.CONFIRMED) {
+            throw new BadRequestException('You cannot update a booking that is not pending or confirmed');
+        }
+
+        this.sharedService.logActivity(this.prisma, {
+            action: 'BOOKING_UPDATED',
+            details: `Booking #${booking.id} for ${booking.resource_id || 'resource'} updated by ${user.name}`,
+            metadata: {
+                previous_notes: booking.notes,
+                new_notes: updateBookingDto.notes,
+                booking_status: booking.status,
+                bookingId: booking.id,
+                resourceId: booking.resource_id || 'resource',
+            },
+            orgId: booking.org_id,
+            userId: user.id,
+            ipAddress: (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '',
+            userAgent: res?.req?.headers['user-agent'] || '',
+        });
+
+
+        return await this.prisma.bookings.update({
+            where: { id: bookingId },
+            data: {
+                notes: updateBookingDto.notes,
+                //metadata: updateBookingDto.metadata ? { ...booking.metadata, ...updateBookingDto.metadata } : booking.metadata,
+            },
+        });
+    }
 
     // Get available slots for a resource within a date 
     async getAvailableSlotsByResource(resourceId: string, date: string) {

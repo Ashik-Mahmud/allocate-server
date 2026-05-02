@@ -6,7 +6,7 @@ import { RolesGuard, SubscriptionGuard, UserVerificationGuard } from 'src/shared
 import { Roles } from 'src/shared/decorators/roles.decorator';
 import { BookingStatus, PlanType, Role, User } from '@prisma/client';
 import { CurrentUser } from 'src/shared/decorators/user.decorator';
-import { CreateBookingDto, UpdateBookingStatusDto } from '../dto/bookings.dto';
+import { CreateBookingDto, UpdateBookingDto, UpdateBookingStatusDto } from '../dto/bookings.dto';
 import { ResponseUtil } from 'src/utils/responses';
 import { Response } from 'express';
 import { AllBookingsQueryDto, BookingStatsQueryDto, MyBookingsHistoryQueryDto } from '../dto/booking-filter.dto';
@@ -71,6 +71,34 @@ export class BookingsController {
         const result = await this.service.updateBookingStatus(currentUser, bookingId, updateBookingStatusDto, res);
         return ResponseUtil.success(result, res);
     }
+
+
+    /**
+     * This controller is handling update booking details including only notes 
+     * @param currentUser - The current authenticated user
+     * @param bookingId - The ID of the booking to update
+     * @param updateBookingDetailsDto - DTO for updating booking details (currently only notes)
+     * @param res - Response object
+     * @returns - Success response with updated booking data or error response
+     */
+        @UseGuards(RolesGuard)
+        @Roles(Role.STAFF, Role.ORG_ADMIN) // Allow both ORG_MEMBER and ORG_ADMIN to update bookings
+        @Patch('details')
+        @ApiOperation({ summary: 'Update booking details (currently only notes) (STAFF and ORG_ADMIN roles)' })
+        @ApiResponse({ status: 200, description: 'Booking details updated successfully' })
+        @ApiResponse({ status: 400, description: 'Bad Request - Invalid input data' })
+        @ApiResponse({ status: 401, description: 'Unauthorized - Token required' })
+        @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+        @ApiQuery({ name: 'bookingId', type: 'string', description: 'ID of the booking to update' })
+        async updateBookingDetails(
+            @CurrentUser() currentUser: User,
+            @Query('bookingId') bookingId: string,
+            @Body() updateBookingDetailsDto: UpdateBookingDto, // Optional cancellation reason when status is CANCELLED
+            @Res() res: Response
+        ) {
+            const result = await this.service.updateBookingDetails(currentUser, bookingId, updateBookingDetailsDto, res);
+            return ResponseUtil.success(result, res);
+        }
 
 
     /**
