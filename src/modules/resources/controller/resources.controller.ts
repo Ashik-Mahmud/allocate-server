@@ -81,6 +81,30 @@ export class ResourcesController {
     }
 
     /**
+     * This controller will mark resource as under maintenance which will make the resource unavailable for booking and also cancel all upcoming bookings for that resource and notify users about it.
+     * @param resourcesService - The service that will handle the business logic for resource related operations.
+     * @param id - The ID of the resource to be marked as under maintenance.
+     * @visibleTo - ORG_ADMIN role only
+     * @return - A success response confirming the resource is marked as under maintenance if the operation is successful.
+     */
+        @UseGuards(ClientGuard, SubscriptionGuard)
+        @SubscriptionPlans(PlanType.FREE, PlanType.PRO, PlanType.ENTERPRISE)
+        @Patch(':id/maintenance')
+        @ApiOperation({ summary: 'Mark resource as under maintenance (ORG_ADMIN only)' })
+        @ApiResponse({ status: 200, description: 'Resource marked as under maintenance successfully' })
+        @ApiResponse({ status: 401, description: 'Unauthorized - Token required' })
+        @ApiResponse({ status: 403, description: 'Forbidden - Admin or Client role required' })
+        async markResourceUnderMaintenance(
+            @CurrentUser() currentUser: User,
+            @Param('id') id: string,
+            @Res() res: Response
+        ) {
+            // Logic to mark resource as under maintenance will go here
+            const resource = await this.service.markResourceUnderMaintenance(currentUser, id, res);
+            return ResponseUtil.success(resource, res);
+        }
+
+    /**
      * This controller will handle deleting a resource endpoint which will allow clients to delete a resource under their organization.
      * @param resourcesService - The service that will handle the business logic for resource related operations.
      * @param id - The ID of the resource to be deleted.

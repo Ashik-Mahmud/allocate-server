@@ -1,5 +1,5 @@
-import { ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
-import { PlanType, Prisma, User } from '@prisma/client';
+import { BadRequestException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { BookingStatus, NotificationType, PlanType, Prisma, TransactionType, User } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import { CreateResourceDto, UpdateResourceDto, ListResourcesQueryDto } from '../dto/resources.dto';
 import {
@@ -12,11 +12,12 @@ import { UpdateOrganizationDto } from 'src/modules/organization/dto/organization
 import { SharedService } from 'src/shared/services/shared.service';
 import { Response } from 'express';
 import { is } from 'zod/v4/locales';
+import { NotificationManager } from 'src/modules/inbox/service/notification-manager.service';
 
 @Injectable()
 export class ResourcesService {
 
-    constructor(private prisma: PrismaService, private sharedService: SharedService) { }
+    constructor(private prisma: PrismaService, private sharedService: SharedService, private notificationManager: NotificationManager) { }
 
     // Service method to create a resource
     async createResource(user: User, createResourceDto: CreateResourceDto, res?: Response) {
@@ -130,6 +131,8 @@ export class ResourcesService {
                 },
             });
 
+            // If Resource is marked as under maintenance, cancel all upcoming bookings and notify users about it
+
             // Log resource update activity
             const ipAddress = (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '';
             const userAgent = res?.req?.headers['user-agent'] || 'unknown';
@@ -151,6 +154,211 @@ export class ResourcesService {
         }
 
     }
+
+    // Service to Mark resource as under maintenance
+    async markResourceUnderMaintenance(user: User, resourceId: string, res?: Response) {
+        if (!user.org_id) {
+            throw new ForbiddenException('User organization not found');
+        }
+
+        try {
+            const resource = await this.prisma.resources.findFirst({
+                where: {
+                    id: resourceId,
+                    org_id: user.org_id,
+                    deletedAt: null,
+                },
+                include: {
+                    organization: true,
+
+                },
+            });
+
+            if (!resource) {
+                throw new NotFoundException('Resource not found in your organization');
+            }
+
+            if (resource.organization.is_active === false) {
+                throw new ForbiddenException('Your organization is not active. Please contact support.');
+            }
+            // Log resource update activity
+            const ipAddress = (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '';
+            const userAgent = res?.req?.headers['user-agent'] || 'unknown';
+            // If Resource is marked as under maintenance, cancel all upcoming bookings and notify users about it   
+            const result = await this.prisma.$transaction(async (tx) => {
+                if (!resource.is_maintenance) {
+
+                    const allBookings = await tx.bookings.findMany({
+                        where: {
+                            resource_id: resourceId,
+                            org_id: user?.org_id!,
+                            deletedAt: null,
+                            end_time: { gte: new Date() },
+                            status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING] },
+                        },
+                        include: {
+                            user: { select: { email: true, name: true, id: true, personal_credits: true } }
+                        },
+                    });
+                    if (allBookings.length > 0) {
+                        const bookingPromises = allBookings.map(async (booking) => {
+                            const isConfirmed = booking.status === BookingStatus.CONFIRMED;
+                            const bookingCost = Number(booking.total_cost || 0);
+
+                            // Booking cancellation update
+                            await tx.bookings.update({
+                                where: { id: booking.id },
+                                data: {
+                                    status: BookingStatus.CANCELLED,
+                                    cancellation_reason: 'Resource under maintenance',
+                                },
+                            });
+
+                            // Refund logic (for confirmed bookings only)
+                            if (isConfirmed && bookingCost > 0) {
+
+                                const userRecord = await tx.user.findUnique({
+                                    where: { id: booking.user_id },
+                                    select: { personal_credits: true }
+                                });
+
+                                const prevBalance = (userRecord?.personal_credits || 0);
+                                await tx.user.update({
+                                    where: { id: booking.user_id },
+                                    data: {
+                                        personal_credits: {
+                                            increment: bookingCost
+                                        },
+                                    },
+                                });
+
+                                await this.sharedService.createCreditTransaction(tx, {
+                                    userId: booking.user_id,
+                                    orgId: booking.org_id,
+                                    amount: bookingCost,
+                                    type: TransactionType.REFUND,
+                                    prevBalance: prevBalance,
+                                    currBalance: prevBalance + bookingCost,
+                                    description: `Maintenance refund for resource: ${resource.name}`,
+                                    performedBy: user.email,
+                                    refId: booking.id,
+                                });
+                            }
+
+                            // Send notification to user about booking cancellation
+                            this.notificationManager.send({
+                                userId: booking.user_id,
+                                orgId: booking.org_id,
+                                type: NotificationType.BOOKING_CANCELLED,
+                                title: 'Booking Cancelled',
+                                message: `Your booking for ${resource.name} is cancelled due to maintenance.${isConfirmed ? ` ${bookingCost} credits refunded.` : ''}`,
+                                referenceId: booking.id,
+                                userEmail: booking.user.email,
+                                userName: booking.user.name,
+                                emailSubject: 'Booking Cancelled',
+                            }).catch(err => console.error("Notification Error:", err));
+                        });
+
+                        await Promise.all(bookingPromises);
+                    }
+
+                    // Mark resource as under maintenance
+                    const updatedResource = await tx.resources.update({
+                        where: { id: resourceId },
+                        data: {
+                            is_maintenance: true,
+                        },
+                    });
+                    // Log resource update activity
+                    await this.sharedService.logActivity(tx, {
+                        userId: user?.id,
+                        orgId: user?.org_id || resource?.org_id || '',
+                        action: 'RESOURCE_UNDER_MAINTENANCE',
+                        details: `User ${user.email} marked resource under maintenance`,
+                        ipAddress: ipAddress,
+                        userAgent: userAgent,
+                        metadata: {
+                            org_id: user?.org_id || '',
+                            role: user?.role,
+                            resource_id: resource?.id || ''
+                        },
+                    });
+                    return updatedResource;
+
+                } else {
+                    // If resource is marked as available again, notify users about it
+                    const affectedUsers = await tx.user.findMany({
+                        where: {
+                            org_id: user?.org_id!,
+                            deletedAt: null,
+                        },
+                        include: {
+                            bookings: {
+                                where: {
+                                    resource_id: resourceId,
+                                    status: BookingStatus.CANCELLED, // Only notify users whose bookings were cancelled due to maintenance
+                                    cancellation_reason: 'Resource under maintenance', // Ensure we are only notifying users whose bookings were cancelled due to this maintenance
+                                    end_time: { gte: new Date() },
+                                },
+                            },
+                        }
+                    });
+
+                    const notificationPromises = affectedUsers.map(u =>
+                        this.notificationManager.send({
+                            userId: u.id,
+                            orgId: u.org_id!,
+                            type: NotificationType.RESOURCE_AVAILABLE,
+                            title: `Resource Available: ${resource.name}`,
+                            message: `Good news! ${resource.name} is back online. You can now re-book your preferred slots.`,
+                            referenceId: resource.id,
+                            userEmail: u.email,
+                            userName: u.name,
+                            emailSubject: 'Resource Back Online',
+
+                        })
+                    );
+
+                    await Promise.all(notificationPromises);
+
+
+                    // Mark resource as available again
+                    const updatedResource = await tx.resources.update({
+                        where: { id: resourceId },
+                        data: {
+                            is_maintenance: false,
+                        },
+                    });
+                    // Log resource update activity
+                    await this.sharedService.logActivity(tx, {
+                        userId: user?.id,
+                        orgId: user?.org_id || resource?.org_id || '',
+                        action: 'RESOURCE_AVAILABLE',
+                        details: `User ${user.email} marked resource available`,
+                        ipAddress: ipAddress,
+                        userAgent: userAgent,
+                        metadata: {
+                            org_id: user?.org_id || '',
+                            role: user?.role,
+                            resource_id: resource?.id || ''
+                        },
+                    });
+                    return updatedResource;
+
+                }
+
+            });
+
+
+            return result;
+
+
+        } catch (error) {
+            if (error instanceof ForbiddenException || error instanceof NotFoundException) throw error;
+            throw new InternalServerErrorException('Something went wrong during update');
+        }
+    }
+
 
     // Service method to delete a resource
     async deleteResource(user: User, resourceId: string, res?: Response) {
@@ -388,7 +596,7 @@ export class ResourcesService {
                         photo: true,
                         metadata: true,
                         createdAt: true,
-                        updatedAt: true,         
+                        updatedAt: true,
 
                         organization: {
                             select: {
@@ -411,18 +619,18 @@ export class ResourcesService {
 
                 }),
                 // get availablel resources categories in array format
-                    this.prisma.resources.findMany({
-                        where: {
-                            org_id: user.org_id,
-                            deletedAt: null,
-                            is_active: true,
-                            is_maintenance: false,
-                        },
-                        select: {
-                            type: true,
-                        },
-                    }),
-                 
+                this.prisma.resources.findMany({
+                    where: {
+                        org_id: user.org_id,
+                        deletedAt: null,
+                        is_active: true,
+                        is_maintenance: false,
+                    },
+                    select: {
+                        type: true,
+                    },
+                }),
+
             ]);
             return {
                 items: resources,
@@ -464,6 +672,14 @@ export class ResourcesService {
                             bookings: true,
                         },
                     },
+                    bookings: {
+                        select: {
+                            id: true,
+                            start_time: true,
+                            end_time: true,
+                            status: true,
+                        }
+                    }
                 },
             });
 
