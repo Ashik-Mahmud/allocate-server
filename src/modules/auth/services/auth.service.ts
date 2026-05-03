@@ -313,7 +313,8 @@ export class AuthService {
       is_active: true,
       photo: true,
       timezone: true,
-      needUpdateOrg: true
+      needUpdateOrg: true,
+      plan_type: true,
     }
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
