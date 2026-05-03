@@ -7,6 +7,7 @@ export type CurrentUserType = {
     role: string;
     org_id: string;
     plan_type?: string;
+    timezone?: string;
 }
 
 export const CurrentUser = createParamDecorator(

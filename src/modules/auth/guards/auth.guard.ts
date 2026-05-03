@@ -8,7 +8,7 @@ export class AuthGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
     private prisma: PrismaService,
-  ) {}
+  ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -21,7 +21,7 @@ export class AuthGuard implements CanActivate {
     try {
       const payload = JWTUtils.verifyToken(token);
 
-   
+
 
       if (payload.type !== 'access') {
         throw new UnauthorizedException('Invalid token type');
@@ -30,7 +30,7 @@ export class AuthGuard implements CanActivate {
       // Verify user still exists and is active
       const user = await this.prisma.user.findUnique({
         where: { id: payload.userId },
-        select: { id: true, email: true, role: true, deletedAt: true, org_id: true, organization: { select: { plan_type: true } } },
+        select: { id: true, email: true, role: true, deletedAt: true, org_id: true, organization: { select: { plan_type: true, timezone: true } } },
       });
 
       if (!user || user.deletedAt) {
@@ -43,6 +43,7 @@ export class AuthGuard implements CanActivate {
         role: user.role,
         org_id: user.org_id,
         plan_type: user?.organization?.plan_type,
+        timezone: user?.organization?.timezone
       };
 
       return true;

@@ -406,79 +406,72 @@ export class BookingsService {
     }
 
     // Get available slots for a resource within a date 
-    async getAvailableSlotsByResource(resourceId: string, date: string) {
-        const resource = await this.prisma.resources.findUnique({
-            where: { id: resourceId },
-            include: { resourcesRules: true }
-        });
+  async getAvailableSlotsByResource(resourceId: string, date: string) {
+    const resource = await this.prisma.resources.findUnique({
+        where: { id: resourceId },
+        include: { resourcesRules: true }
+    });
 
-        if (!resource) {
-            throw new NotFoundException('Resource not found');
-        }
+    if (!resource) throw new NotFoundException('Resource not found');
 
-        const rules = resource.resourcesRules[0];
+    const rules = resource.resourcesRules[0];
+    const availableDays = (rules?.availableDays as string[]) || [];
 
-        const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date(date));
-        const availableDays = (rules?.availableDays as string[]) || [];
-        // check if resource is available on the requested day
-        if (availableDays?.length > 0 && !availableDays?.includes(dayName)) {
-            throw new BadRequestException(`Resource is not available on ${dayName}`);
-        }
-
-        // opening and closing hours
-        const workStart = new Date(`${date}T${String(rules.opening_hours || 9).padStart(2, '0')}:00:00.000Z`);
-        const workEnd = new Date(`${date}T${String(rules.closing_hours || 18).padStart(2, '0')}:00:00.000Z`);
-
-        // slot duration and buffer time in milliseconds
-        const slotDurationMs = (rules.slot_duration_min || 30) * 60 * 1000;
-        const bufferMs = (rules.buffer_time || 0) * 60 * 60 * 1000;
-
-        const bookings = await this.prisma.bookings.findMany({
-            where: {
-                resource_id: resourceId,
-                status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING] },
-                deletedAt: null,
-                start_time: { gte: workStart, lte: workEnd }
-            }
-        });
-
-        const availableSlots: { start: string; end: string }[] = [];
-        let currentSlotStart = new Date(workStart);
-        const now = new Date();
-
-        while (currentSlotStart.getTime() + slotDurationMs <= workEnd.getTime()) {
-            const currentSlotEnd = new Date(currentSlotStart.getTime() + slotDurationMs);
-
-            // Deducted past slots and slots that are in buffer time from now to avoid showing them as available
-            if (currentSlotStart < now) {
-                currentSlotStart = currentSlotEnd;
-                continue;
-            }
-
-            // Overlap and buffer check
-            const isOccupied = bookings.some(booking => {
-                const bStart = new Date(booking.start_time.getTime() - bufferMs);
-                const bEnd = new Date(booking.end_time.getTime() + bufferMs);
-                return (currentSlotStart < bEnd && currentSlotEnd > bStart);
-            });
-
-            if (!isOccupied) {
-                availableSlots.push({
-                    start: currentSlotStart.toISOString(),
-                    end: currentSlotEnd.toISOString()
-                });
-            }
-
-            currentSlotStart = currentSlotEnd;
-        }
-
-        return {
-            date,
-            day: dayName,
-            availableSlots
-        };
+ 
+    const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date(date));
+    
+    if (availableDays.length > 0 && !availableDays.includes(dayName)) {
+        throw new BadRequestException(`Resource is not available on ${dayName}`);
     }
 
+    const workStart = new Date(`${date}T${String(rules.opening_hours || 9).padStart(2, '0')}:00:00`);
+    const workEnd = new Date(`${date}T${String(rules.closing_hours || 18).padStart(2, '0')}:00:00`);
+
+    const slotDurationMs = (rules.slot_duration_min || 30) * 60 * 1000;
+    const bufferMs = (rules.buffer_time || 0) * 60 * 60 * 1000;
+
+    
+    const bookings = await this.prisma.bookings.findMany({
+        where: {
+            resource_id: resourceId,
+            status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING] },
+            deletedAt: null,
+            start_time: { lte: workEnd },
+            end_time: { gte: workStart }
+        }
+    });
+
+    const availableSlots: { start: string; end: string }[] = [];
+    let currentSlotStart = new Date(workStart);
+    const now = new Date();
+
+    while (currentSlotStart.getTime() + slotDurationMs <= workEnd.getTime()) {
+        const currentSlotEnd = new Date(currentSlotStart.getTime() + slotDurationMs);
+
+        if (currentSlotStart < now) {
+            currentSlotStart = new Date(currentSlotStart.getTime() + slotDurationMs);
+            continue;
+        }
+
+        const isOccupied = bookings.some(booking => {
+            const bStartWithBuffer = booking.start_time.getTime() - bufferMs;
+            const bEndWithBuffer = booking.end_time.getTime() + bufferMs;
+            
+            return (currentSlotStart.getTime() < bEndWithBuffer && currentSlotEnd.getTime() > bStartWithBuffer);
+        });
+
+        if (!isOccupied) {
+            availableSlots.push({
+                start: currentSlotStart.toLocaleString(), 
+                end: currentSlotEnd.toLocaleString()
+            });
+        }
+
+        currentSlotStart = new Date(currentSlotStart.getTime() + slotDurationMs);
+    }
+
+    return { date, day: dayName, availableSlots };
+}
 
     // Get my booking history
     async getMyBookingsHistoryService(user: User, query: MyBookingsHistoryQueryDto) {
@@ -604,15 +597,14 @@ export class BookingsService {
 
     // Get all bookings for a resource for a specific month and year (for ORG_ADMIN and STAFF)
     async getBookingsByResourceAndMonth(user: User, resourceId: string, month: number, year: number) {
-
         if (!user.org_id) {
             throw new BadRequestException('User does not belong to any organization');
         }
 
+        // Calculate the start and end dates for the given month and year
         const startDate = new Date(year, month - 1, 1);
-        const endDate = new Date(year, month, 0);
+        const endDate = new Date(year, month, 0); // মাসের শেষ দিন
 
-        // check if resource exists and belongs to user's organization
         const resource = await this.prisma.resources.findUnique({
             where: { id: resourceId },
             include: { resourcesRules: true }
@@ -621,14 +613,21 @@ export class BookingsService {
         if (!resource) {
             throw new NotFoundException('Resource not found');
         }
+
         const rules = resource.resourcesRules[0];
         const calendarData: BookingCalendarData[] = [];
 
-        // loop through each day in the month
-        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-            const dateStr = d.toISOString().split('T')[0];
-            const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
+        // Loop through each day of the month to get available slots and booking status
+        let currentLoopDate = new Date(startDate);
 
+        while (currentLoopDate <= endDate) {
+            // Format the date to YYYY-MM-DD for querying
+            const yyyy = currentLoopDate.getFullYear();
+            const mm = String(currentLoopDate.getMonth() + 1).padStart(2, '0');
+            const dd = String(currentLoopDate.getDate()).padStart(2, '0');
+            const dateStr = `${yyyy}-${mm}-${dd}`;
+
+            const dayName = currentLoopDate.toLocaleDateString('en-US', { weekday: 'long' });
 
             let slots: { start: string; end: string }[] = [];
             let status = 'AVAILABLE';
@@ -637,18 +636,13 @@ export class BookingsService {
                 const result = await this.getAvailableSlotsByResource(resourceId, dateStr);
                 slots = result.availableSlots;
 
-                // Add the status logic based on available slots and resource rules
                 if (slots.length === 0) {
-                    // check if it's off day based on resource rules
                     const isAvailableDay = (rules?.availableDays as string[])?.includes(dayName);
                     status = isAvailableDay ? 'FULLY_BOOKED' : 'OFF_DAY';
                 } else {
-                    // check if all slots are booked
                     status = 'PARTIALLY_BOOKED';
-                    // you can calculate maxSlots and compare if needed
                 }
             } catch (error) {
-                // if getAvailableSlotsByResource throws an error (e.g., for off-days)
                 status = 'OFF_DAY';
             }
 
@@ -659,13 +653,13 @@ export class BookingsService {
                 slots: slots,
                 status: status
             });
+
+            // পরবর্তী দিনের জন্য ডেট আপডেট করা
+            currentLoopDate.setDate(currentLoopDate.getDate() + 1);
         }
-
-
 
         return { resourceId, month, year, calendar: calendarData };
     }
-
 
     // Get booking statistics (for ORG_ADMIN)
     async getBookingStats(user: User, query: BookingStatsQueryDto) {
