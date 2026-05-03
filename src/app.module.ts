@@ -17,7 +17,8 @@ import { InboxModule } from './modules/inbox/inbox.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { SharedService } from './shared/services/shared.service';
 import { ErrorHandler } from './middleware/error-handler.middleware';
-
+import { SchedulerModule } from './modules/scheduler/scheduler.module';
+import { ScheduleModule } from '@nestjs/schedule';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -41,6 +42,8 @@ import { ErrorHandler } from './middleware/error-handler.middleware';
     AdminModule,
     InboxModule,
     DashboardModule,
+    ScheduleModule.forRoot(),
+    SchedulerModule,
   ],
   controllers: [AppController],
   providers: [

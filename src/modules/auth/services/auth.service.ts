@@ -2,7 +2,7 @@ import { Injectable, ConflictException, UnauthorizedException, NotFoundException
 import { JWTUtils, TokenPair } from '../utils/jwt';
 import { CryptoUtils } from '../utils/crypto';
 import { RegisterDto, LoginDto, ChangePasswordDto, UpdateProfileDto } from '../dto/AuthDTO';
-import { PaymentStatus, PlanType, Prisma, Role, TransactionType, User } from '@prisma/client';
+import { BookingStatus, PaymentStatus, PlanType, Prisma, Role, TransactionType, User } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import GLOBAL_CONFIG from 'src/shared/constant/global.constant';
 import { EmailService } from 'src/modules/inbox/service/email.service';
@@ -298,7 +298,7 @@ export class AuthService {
     });
   }
 
-  async getProfile(userId: string, role: Role): Promise<Partial<User>> {
+  async getProfile(userId: string, role: Role) {
 
     const selectOrgFieldsForStaff: Prisma.OrganizationsSelect = {
       business_email: true,
@@ -338,7 +338,33 @@ export class AuthService {
       throw new NotFoundException('User not found');
     }
 
-    return user;
+    const nextBooking = await this.prisma.bookings.findFirst({
+      where: {
+        user_id: userId,
+        status: BookingStatus.CONFIRMED,
+        start_time: { gt: new Date() }
+      },
+      orderBy: { start_time: 'asc' },
+      select: {
+        start_time: true,
+        id: true,
+        resource: {
+          select:
+          {
+            name: true,
+            type: true,
+            photo: true,
+            hourly_rate: true,
+            metadata: true,
+            id: true
+          }
+        }
+      }
+    });
+    return {
+      ...user,
+      ...(nextBooking && { nextBooking }),
+    };
   }
 
   // update profile
