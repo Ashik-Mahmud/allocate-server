@@ -7,6 +7,7 @@ import { EmailService } from "src/modules/inbox/service/email.service";
 import { Response } from "express";
 import { NotificationManager } from "src/modules/inbox/service/notification-manager.service";
 import { CryptoUtils } from "src/modules/auth/utils/crypto";
+import { getDateKeyInTimezone, getEndOfDayUtc, getMonthKeyInTimezone, getStartOfDayUtc, getWeekKeyInTimezone, resolveUserTimezone } from "src/shared/utils/timezone.util";
 
 // Write admin service code
 @Injectable()
@@ -373,9 +374,10 @@ export class AdminService {
             throw new Error('Unauthorized');
         }
         const { organizationId, startDate, endDate, page = 1, limit = 10, type } = query;
+        const timezone = resolveUserTimezone(user as any);
         const dateFilter: any = {};
-        if (startDate) dateFilter.gte = new Date(startDate);
-        if (endDate) dateFilter.lte = new Date(endDate);
+        if (startDate) dateFilter.gte = getStartOfDayUtc(startDate, timezone);
+        if (endDate) dateFilter.lte = getEndOfDayUtc(endDate, timezone);
         const whereClause: any = {
             ...(type ? { type } : { type: TransactionType.TOP_UP }),
             ...(organizationId ? { org_id: organizationId } : {}),
@@ -430,10 +432,11 @@ export class AdminService {
         }
         const { startDate, endDate, groupBy = 'month', organizationId } = query;
         const normalizedGroupBy = groupBy === 'day' || groupBy === 'week' || groupBy === 'month' ? groupBy : 'month';
+        const timezone = resolveUserTimezone(user as any);
 
         const dateFilter: Prisma.DateTimeFilter = {};
-        if (startDate) dateFilter.gte = new Date(startDate);
-        if (endDate) dateFilter.lte = new Date(endDate);
+        if (startDate) dateFilter.gte = getStartOfDayUtc(startDate, timezone);
+        if (endDate) dateFilter.lte = getEndOfDayUtc(endDate, timezone);
 
         const revenueWhere: Prisma.CreditTransactionWhereInput = {
             type: TransactionType.TOP_UP,
@@ -490,21 +493,18 @@ export class AdminService {
             }),
         ]);
 
-        const getBucketStart = (date: Date) => {
-            const d = new Date(date);
+        const getBucketKey = (date: Date) => {
             if (normalizedGroupBy === 'day') {
-                return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+                return getDateKeyInTimezone(date, timezone);
             }
             if (normalizedGroupBy === 'week') {
-                const day = d.getUTCDay();
-                const diffToMonday = (day + 6) % 7;
-                return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - diffToMonday));
+                return getWeekKeyInTimezone(date, timezone);
             }
-            return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+            return getMonthKeyInTimezone(date, timezone);
         };
 
         const groupedMap = new Map<string, {
-            period: Date;
+            period: string;
             revenue: number;
             transactionCount: number;
             activeOrganizations: Set<string>;
@@ -512,14 +512,13 @@ export class AdminService {
         }>();
 
         for (const row of revenueRows) {
-            const bucketDate = getBucketStart(row.createdAt);
-            const key = bucketDate.toISOString();
+            const key = getBucketKey(row.createdAt);
             const amount = Number(row.price_paid || 0);
             const planType = row.organization?.plan_type || 'FREE';
 
             if (!groupedMap.has(key)) {
                 groupedMap.set(key, {
-                    period: bucketDate,
+                    period: key,
                     revenue: 0,
                     transactionCount: 0,
                     activeOrganizations: new Set<string>(),
@@ -542,7 +541,7 @@ export class AdminService {
         }
 
         const grouped = Array.from(groupedMap.values())
-            .sort((a, b) => a.period.getTime() - b.period.getTime())
+            .sort((a, b) => a.period.localeCompare(b.period))
             .map((bucket) => ({
                 period: bucket.period,
                 revenue: bucket.revenue,
@@ -589,9 +588,10 @@ export class AdminService {
             throw new Error('Unauthorized');
         }
         const { startDate, endDate, page = 1, limit = 10 } = query;
+        const timezone = resolveUserTimezone(user as any);
         const dateFilter: Prisma.DateTimeFilter = {};
-        if (startDate) dateFilter.gte = new Date(startDate);
-        if (endDate) dateFilter.lte = new Date(endDate);
+        if (startDate) dateFilter.gte = getStartOfDayUtc(startDate, timezone);
+        if (endDate) dateFilter.lte = getEndOfDayUtc(endDate, timezone);
         const whereClause: Prisma.ActivityLogWhereInput = {
             user_id: userId,
             ...(Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {}),

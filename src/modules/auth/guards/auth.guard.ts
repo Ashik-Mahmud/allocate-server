@@ -2,6 +2,7 @@ import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from
 import { Reflector } from '@nestjs/core';
 import { JWTUtils } from '../utils/jwt';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
+import { resolveUserTimezone } from 'src/shared/utils/timezone.util';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -30,12 +31,21 @@ export class AuthGuard implements CanActivate {
       // Verify user still exists and is active
       const user = await this.prisma.user.findUnique({
         where: { id: payload.userId },
-        select: { id: true, email: true, role: true, deletedAt: true, org_id: true, organization: { select: { plan_type: true, timezone: true } } },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          deletedAt: true,
+          org_id: true,
+          organization: { select: { plan_type: true, timezone: true } },
+        },
       });
 
       if (!user || user.deletedAt) {
         throw new UnauthorizedException('User not found or inactive');
       }
+
+      const resolvedTimezone = resolveUserTimezone({ organization: user.organization });
 
       request.user = {
         id: user.id,
@@ -43,7 +53,7 @@ export class AuthGuard implements CanActivate {
         role: user.role,
         org_id: user.org_id,
         plan_type: user?.organization?.plan_type,
-        timezone: user?.organization?.timezone
+        timezone: resolvedTimezone,
       };
 
       return true;

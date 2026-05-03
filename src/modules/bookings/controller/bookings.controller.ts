@@ -5,7 +5,7 @@ import { BookingsService } from '../services/bookings.service';
 import { RolesGuard, SubscriptionGuard, UserVerificationGuard } from 'src/shared/guards';
 import { Roles } from 'src/shared/decorators/roles.decorator';
 import { BookingStatus, PlanType, Role, User } from '@prisma/client';
-import { CurrentUser } from 'src/shared/decorators/user.decorator';
+import { CurrentUser, CurrentUserType } from 'src/shared/decorators/user.decorator';
 import { CreateBookingDto, UpdateBookingDto, UpdateBookingStatusDto } from '../dto/bookings.dto';
 import { ResponseUtil } from 'src/utils/responses';
 import { Response } from 'express';
@@ -119,11 +119,12 @@ export class BookingsController {
     @ApiParam({ name: 'resourceId', type: 'string', description: 'ID of the resource to check availability for' })
     @ApiQuery({ name: 'date', type: 'string', description: 'Date  to check availability for (e.g. "2024-01-01")' })
     async getAvailableSlots(
+        @CurrentUser() currentUser: User & CurrentUserType,
         @Param('resourceId') resourceId: string,
         @Query('date') date: string,
         @Res() res: Response
     ) {
-        const result = await this.service.getAvailableSlotsByResource(resourceId, date);
+        const result = await this.service.getAvailableSlotsByResource(resourceId, date, currentUser?.timezone);
         return ResponseUtil.success(result, res);
     }
 

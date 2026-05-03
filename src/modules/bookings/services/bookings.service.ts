@@ -5,11 +5,22 @@ import { CreateBookingDto, UpdateBookingDto, UpdateBookingStatusDto } from '../d
 import GLOBAL_CONFIG from 'src/shared/constant/global.constant';
 import { AllBookingsQueryDto, BookingStatsQueryDto, MyBookingsHistoryQueryDto } from '../dto/booking-filter.dto';
 import { BookingCalendarData } from '../interfaces/booking.interface';
-import { getWeekKey } from '../utils/helper';
 import { NotificationManager } from 'src/modules/inbox/service/notification-manager.service';
 import { BookingUtilService } from './bookingUtil.service';
 import { Response } from 'express';
 import { SharedService } from 'src/shared/services/shared.service';
+import {
+    getDateKeyInTimezone,
+    getEndOfDayUtc,
+    getMonthKeyInTimezone,
+    getStartOfDayUtc,
+    getWeekKeyInTimezone,
+    getWeekdayInTimezone,
+    parseDateTimeInTimezone,
+    resolveTimezone,
+    resolveUserTimezone,
+    formatInTimezone,
+} from 'src/shared/utils/timezone.util';
 
 @Injectable()
 export class BookingsService {
@@ -24,10 +35,11 @@ export class BookingsService {
     // Create a booking for a resource
     async createBooking(currentUser: User, createBookingDto: CreateBookingDto, res: Response) {
         const { user_id, resource_id, start_time, end_time, notes } = createBookingDto;
+        const timezone = resolveUserTimezone(currentUser as any);
 
         // basic time variables for later use
-        const startTime = new Date(start_time);
-        const endTime = new Date(end_time);
+        const startTime = parseDateTimeInTimezone(start_time, timezone);
+        const endTime = parseDateTimeInTimezone(end_time, timezone);
         const now = new Date();
         const userId = user_id || currentUser.id
         const ipAddress = (res.req?.headers['x-forwarded-for'] as string) || res.req?.ip || res.req?.connection?.remoteAddress || '';
@@ -72,7 +84,7 @@ export class BookingsService {
 
             if (rules) {
                 // check if weekend is allow 
-                const bookingDay = startTime.toLocaleDateString('en-US', { weekday: 'long' });
+                const bookingDay = getWeekdayInTimezone(startTime, timezone);
                 const isWeekend = GLOBAL_CONFIG.WEEKEND_DAYS.includes(bookingDay);
                 if (isWeekend && !rules.is_weekend_allowed) {
                     throw new BadRequestException('Booking is not allowed on weekends');
@@ -406,26 +418,34 @@ export class BookingsService {
     }
 
     // Get available slots for a resource within a date 
-  async getAvailableSlotsByResource(resourceId: string, date: string) {
+  async getAvailableSlotsByResource(resourceId: string, date: string, timezone?: string) {
     const resource = await this.prisma.resources.findUnique({
         where: { id: resourceId },
-        include: { resourcesRules: true }
+        include: {
+            resourcesRules: true,
+            organization: {
+                select: {
+                    timezone: true,
+                },
+            },
+        }
     });
 
     if (!resource) throw new NotFoundException('Resource not found');
 
+    const resolvedTimezone = resolveTimezone(timezone, resource.organization?.timezone, process.env.DEFAULT_TIMEZONE, 'UTC');
     const rules = resource.resourcesRules[0];
     const availableDays = (rules?.availableDays as string[]) || [];
 
  
-    const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date(date));
+    const dayName = getWeekdayInTimezone(date, resolvedTimezone);
     
     if (availableDays.length > 0 && !availableDays.includes(dayName)) {
         throw new BadRequestException(`Resource is not available on ${dayName}`);
     }
 
-    const workStart = new Date(`${date}T${String(rules.opening_hours || 9).padStart(2, '0')}:00:00`);
-    const workEnd = new Date(`${date}T${String(rules.closing_hours || 18).padStart(2, '0')}:00:00`);
+    const workStart = parseDateTimeInTimezone(`${date}T${String(rules?.opening_hours || 9).padStart(2, '0')}:00:00`, resolvedTimezone);
+    const workEnd = parseDateTimeInTimezone(`${date}T${String(rules?.closing_hours || 18).padStart(2, '0')}:00:00`, resolvedTimezone);
 
     const slotDurationMs = (rules.slot_duration_min || 30) * 60 * 1000;
     const bufferMs = (rules.buffer_time || 0) * 60 * 60 * 1000;
@@ -462,15 +482,15 @@ export class BookingsService {
 
         if (!isOccupied) {
             availableSlots.push({
-                start: currentSlotStart.toLocaleString(), 
-                end: currentSlotEnd.toLocaleString()
+                start: formatInTimezone(currentSlotStart, resolvedTimezone, { dateStyle: 'short', timeStyle: 'short' }),
+                end: formatInTimezone(currentSlotEnd, resolvedTimezone, { dateStyle: 'short', timeStyle: 'short' })
             });
         }
 
         currentSlotStart = new Date(currentSlotStart.getTime() + slotDurationMs);
     }
 
-    return { date, day: dayName, availableSlots };
+    return { date, day: dayName, timezone: resolvedTimezone, availableSlots };
 }
 
     // Get my booking history
@@ -535,11 +555,11 @@ export class BookingsService {
         const limit = Number(query.limit) || 10;
         const skip = (page - 1) * limit;
         const { status, search, userId, resourceId, dateRange } = query;
+        const timezone = resolveUserTimezone(user as any);
 
-        const [startDate, endDate] = dateRange ? dateRange.split(' to ').map(dateStr => new Date(dateStr)) : [null, null];
-        if (startDate && endDate) {
-            endDate.setHours(23, 59, 59, 999);
-        }
+        const [startRaw, endRaw] = dateRange ? dateRange.split(' to ') : [null, null];
+        const startDate = startRaw ? getStartOfDayUtc(startRaw, timezone) : null;
+        const endDate = endRaw ? getEndOfDayUtc(endRaw, timezone) : null;
 
         if (!user.org_id) {
             throw new BadRequestException('User does not belong to any organization');
@@ -601,9 +621,11 @@ export class BookingsService {
             throw new BadRequestException('User does not belong to any organization');
         }
 
+        const timezone = resolveUserTimezone(user as any);
+
         // Calculate the start and end dates for the given month and year
-        const startDate = new Date(year, month - 1, 1);
-        const endDate = new Date(year, month, 0); // মাসের শেষ দিন
+        const startDate = new Date(Date.UTC(year, month - 1, 1));
+        const endDate = new Date(Date.UTC(year, month, 0));
 
         const resource = await this.prisma.resources.findUnique({
             where: { id: resourceId },
@@ -622,18 +644,18 @@ export class BookingsService {
 
         while (currentLoopDate <= endDate) {
             // Format the date to YYYY-MM-DD for querying
-            const yyyy = currentLoopDate.getFullYear();
-            const mm = String(currentLoopDate.getMonth() + 1).padStart(2, '0');
-            const dd = String(currentLoopDate.getDate()).padStart(2, '0');
+            const yyyy = currentLoopDate.getUTCFullYear();
+            const mm = String(currentLoopDate.getUTCMonth() + 1).padStart(2, '0');
+            const dd = String(currentLoopDate.getUTCDate()).padStart(2, '0');
             const dateStr = `${yyyy}-${mm}-${dd}`;
 
-            const dayName = currentLoopDate.toLocaleDateString('en-US', { weekday: 'long' });
+            const dayName = getWeekdayInTimezone(dateStr, timezone);
 
             let slots: { start: string; end: string }[] = [];
             let status = 'AVAILABLE';
 
             try {
-                const result = await this.getAvailableSlotsByResource(resourceId, dateStr);
+                const result = await this.getAvailableSlotsByResource(resourceId, dateStr, timezone);
                 slots = result.availableSlots;
 
                 if (slots.length === 0) {
@@ -654,8 +676,8 @@ export class BookingsService {
                 status: status
             });
 
-            // পরবর্তী দিনের জন্য ডেট আপডেট করা
-            currentLoopDate.setDate(currentLoopDate.getDate() + 1);
+    
+            currentLoopDate.setUTCDate(currentLoopDate.getUTCDate() + 1);
         }
 
         return { resourceId, month, year, calendar: calendarData };
@@ -664,6 +686,7 @@ export class BookingsService {
     // Get booking statistics (for ORG_ADMIN)
     async getBookingStats(user: User, query: BookingStatsQueryDto) {
         const { startDate, endDate, groupBy } = query;
+        const timezone = resolveUserTimezone(user as any);
 
         if (!user.org_id) {
             throw new BadRequestException('User does not belong to any organization');
@@ -682,7 +705,10 @@ export class BookingsService {
             org_id: user.org_id,
             deletedAt: null,
             ...(startDate && endDate ? {
-                start_time: { gte: new Date(startDate), lte: new Date(endDate) },
+                start_time: {
+                    gte: getStartOfDayUtc(startDate, timezone),
+                    lte: getEndOfDayUtc(endDate, timezone),
+                },
             } : {}),
         };
 
@@ -699,15 +725,14 @@ export class BookingsService {
                 const grouped = new Map<string, { count: number; totalCost: number }>();
 
                 for (const booking of bookings) {
-                    const bookingDate = new Date(booking.start_time);
                     let key: string;
 
                     if (groupBy === 'day') {
-                        key = bookingDate.toISOString().split('T')[0];
+                        key = getDateKeyInTimezone(booking.start_time, timezone);
                     } else if (groupBy === 'month') {
-                        key = `${bookingDate.getUTCFullYear()}-${String(bookingDate.getUTCMonth() + 1).padStart(2, '0')}`;
+                        key = getMonthKeyInTimezone(booking.start_time, timezone);
                     } else {
-                        key = getWeekKey(bookingDate);
+                        key = getWeekKeyInTimezone(booking.start_time, timezone);
                     }
 
                     const current = grouped.get(key) || { count: 0, totalCost: 0 };

@@ -4,8 +4,8 @@ import { PrismaService } from 'src/modules/prisma/prisma.service';
 import {
     buildPlanDistribution,
     buildRevenueTrend,
-    startOfUtcDay,
 } from './dashboard.utils';
+import { getWeekKeyInTimezone, resolveUserTimezone } from 'src/shared/utils/timezone.util';
 
 @Injectable()
 export class DashboardService {
@@ -272,6 +272,8 @@ export class DashboardService {
             throw new ForbiddenException('System admin overview is available for admins only');
         }
 
+        const timezone = resolveUserTimezone(user as any);
+
         const now = new Date();
         const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -509,20 +511,18 @@ export class DashboardService {
         const revenueTrendDaily = buildRevenueTrend(
             topUpRows.map((row) => ({ createdAt: row.createdAt, amount: Number(row.price_paid || 0) })),
             30,
+            timezone,
         );
 
         const weeklyBuckets = new Map<string, number>();
         for (const point of revenueTrendDaily) {
-            const d = new Date(`${point.date}T00:00:00.000Z`);
-            const weekStart = startOfUtcDay(d);
-            weekStart.setUTCDate(weekStart.getUTCDate() - weekStart.getUTCDay());
-            const key = weekStart.toISOString().slice(0, 10);
+            const key = getWeekKeyInTimezone(point.date, timezone);
             weeklyBuckets.set(key, Number((weeklyBuckets.get(key) || 0) + point.amount));
         }
 
         const revenueTrendWeekly = Array.from(weeklyBuckets.entries())
             .sort(([a], [b]) => a.localeCompare(b))
-            .map(([weekStart, amount]) => ({ weekStart, amount }));
+            .map(([weekKey, amount]) => ({ weekKey, amount }));
 
         const activeOrgIdsSet = new Set(activeOrgIdsByActivity.map((row) => row.org_id));
         const inactiveOrganizations = organizationsWithStats

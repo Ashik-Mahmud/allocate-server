@@ -3,28 +3,27 @@ export type RevenueTrendPoint = {
   amount: number;
 };
 
-export const toDateKey = (input: Date): string => {
-  const year = input.getUTCFullYear();
-  const month = String(input.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(input.getUTCDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+import { getDateKeyInTimezone, getStartOfDayUtc } from 'src/shared/utils/timezone.util';
+
+export const toDateKey = (input: Date, timezone: string = 'UTC'): string =>
+  getDateKeyInTimezone(input, timezone);
 
 export const buildRevenueTrend = (
   rows: Array<{ createdAt: Date; amount: number }>,
   days: number,
+  timezone: string = 'UTC',
 ): RevenueTrendPoint[] => {
-  const today = new Date();
+  const today = getStartOfDayUtc(new Date(), timezone);
   const trendMap = new Map<string, number>();
 
   for (let offset = days - 1; offset >= 0; offset--) {
-    const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
-    d.setUTCDate(d.getUTCDate() - offset);  // Start from today and go back 'days' number of days
-    trendMap.set(toDateKey(d), 0);
+    const d = new Date(today);
+    d.setUTCDate(d.getUTCDate() - offset); // Start from today and go back 'days' number of days
+    trendMap.set(toDateKey(d, timezone), 0);
   }
 
   for (const row of rows) {
-    const key = toDateKey(new Date(row.createdAt));
+    const key = toDateKey(new Date(row.createdAt), timezone);
     if (!trendMap.has(key)) {
       continue;
     }
@@ -47,4 +46,4 @@ export const buildPlanDistribution = (
 };
 
 export const startOfUtcDay = (date: Date): Date =>
-  new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  getStartOfDayUtc(date, 'UTC');

@@ -3,6 +3,7 @@ import { Bookings, BookingStatus, NotificationType, Prisma, TransactionType, Use
 import { NotificationManager } from "src/modules/inbox/service/notification-manager.service";
 import { getBookingMessage } from "../constant/BookingMessages";
 import { SharedService } from "src/shared/services/shared.service";
+import { formatInTimezone, resolveUserTimezone } from "src/shared/utils/timezone.util";
 
 type BookingUtilServiceOthersOptions = {
     cancelReason?: string;
@@ -55,6 +56,8 @@ export class BookingUtilService {
         currentUser: User,
         options?: BookingUtilServiceOthersOptions,
     ) {
+        const timezone = resolveUserTimezone(currentUser as any);
+
         // Find Organization Admin
         const orgAdmin = await tx.user.findFirst({
             where: { org_id: booking.org_id, role: 'ORG_ADMIN', deletedAt: null },
@@ -68,16 +71,16 @@ export class BookingUtilService {
             resourceName,
             requesterName,
             actorName: currentUser.name,
-            startTime: booking?.start_time ? new Date(booking.start_time).toLocaleString() : undefined,
-            endTime: booking?.end_time ? new Date(booking.end_time).toLocaleString() : undefined,
+            startTime: booking?.start_time ? formatInTimezone(booking.start_time, timezone, { dateStyle: 'medium', timeStyle: 'short' }) : undefined,
+            endTime: booking?.end_time ? formatInTimezone(booking.end_time, timezone, { dateStyle: 'medium', timeStyle: 'short' }) : undefined,
             cancelReason: options?.cancelReason,
         });
         const defaultAdminMessage = getBookingMessage(notificationType, 'ORG_ADMIN', {
             resourceName,
             requesterName,
             actorName: currentUser.name,
-            startTime: booking?.start_time ? new Date(booking.start_time).toLocaleString() : undefined,
-            endTime: booking?.end_time ? new Date(booking.end_time).toLocaleString() : undefined,
+            startTime: booking?.start_time ? formatInTimezone(booking.start_time, timezone, { dateStyle: 'medium', timeStyle: 'short' }) : undefined,
+            endTime: booking?.end_time ? formatInTimezone(booking.end_time, timezone, { dateStyle: 'medium', timeStyle: 'short' }) : undefined,
             cancelReason: options?.cancelReason,
         });
 
