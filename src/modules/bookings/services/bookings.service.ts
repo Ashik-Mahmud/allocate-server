@@ -47,7 +47,7 @@ export class BookingsService {
         const ipAddress = (res.req?.headers['x-forwarded-for'] as string) || res.req?.ip || res.req?.connection?.remoteAddress || '';
 
         // check if the resource count more than the subscription limit for the organization but Org is free plan then throw an error
-        const resourceCount = await this.prisma.resources.count({ where: { org_id: currentUser?.org_id, isActive: true } });
+        const resourceCount = await this.prisma.resources.count({ where: { org_id: currentUser?.org_id, is_active: true } });
         const currentPlan = currentUser?.plan_type as PlanType || PlanType.FREE;
 
         if (isSubscriptionLimitReached(currentPlan, 'MAX_RESOURCES', resourceCount)) {

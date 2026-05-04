@@ -238,7 +238,7 @@ export class DashboardService {
                     name: true,
                     type: true,
                     photo: true,
-                    isOccupied: true,
+                    is_occupied: true,
                     _count: {
                         select: {
                             bookings: {
@@ -297,7 +297,7 @@ export class DashboardService {
             name: res.name,
             type: res.type,
             image: res.photo,
-            isOccupied: res.isOccupied,
+            isOccupied: res.is_occupied,
             usageCount: res._count.bookings,
         })) || [];
 
