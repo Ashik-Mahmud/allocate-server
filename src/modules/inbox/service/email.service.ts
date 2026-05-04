@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { sendEmailTo } from "../utils/SendEmail.config";
 import {
     buildAnnouncementEmailTemplate,
+    buildCreditResetEmailTemplate,
     buildForgotPasswordEmailTemplate,
     buildStaffInviteEmailTemplate,
     buildUpgradePlanEmailTemplate,
@@ -171,6 +172,14 @@ export class EmailService {
         switch (templateId) {
             case 'upgrade_plan_reminder':
                 return buildUpgradePlanEmailTemplate({
+                    name: options.name,
+                    title: options.subject,
+                    heading: options.subject,
+                    message: options.htmlContent,
+                    metadata: options.metadata,
+                });
+            case 'credit_reset':
+                return buildCreditResetEmailTemplate({
                     name: options.name,
                     title: options.subject,
                     heading: options.subject,

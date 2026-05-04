@@ -262,6 +262,7 @@ export const buildUpgradePlanEmailTemplate = (rawOptions: AnnouncementOptions): 
     const options = withDefaults(rawOptions);
     const subject = `Boost your workflow with Pro Features! ✨`;
     const billingUrl = `${options.appUrl}/dashboard/billing`;
+    const frozenCredits = options.metadata?.frozenCredits ?? 0;
 
     const htmlContent = buildLayout(
         options,
@@ -272,6 +273,14 @@ export const buildUpgradePlanEmailTemplate = (rawOptions: AnnouncementOptions): 
         <h1 style="color: #1a1a1a; font-size: 26px; margin-bottom: 10px;">Scale Your Organization Faster</h1>
         <p style="color: #666666; font-size: 16px;">Hi ${options.name}, move beyond the limits and unlock the full potential of <strong>${options?.metadata?.orgName}</strong>.</p>
     </div>
+
+    ${frozenCredits > 0 ? `
+    <div style="background-color: #fff4e5; border: 1px dashed #ff9800; border-radius: 12px; padding: 15px; margin: 20px 0; text-align: center;">
+        <span style="font-size: 18px;">❄️</span> 
+        <strong style="color: #e65100;">You have ${frozenCredits} credits frozen!</strong><br/>
+        <span style="font-size: 14px; color: #666;">Upgrade to Pro now to instantly unlock and use your remaining credits.</span>
+    </div>
+    ` : ''}
 
     <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; margin: 25px 0;">
         <div style="background-color: #173b7a; color: #ffffff; padding: 15px; text-align: center; font-weight: bold;">
@@ -328,6 +337,77 @@ export const buildUpgradePlanEmailTemplate = (rawOptions: AnnouncementOptions): 
 
     <div style="border-top: 1px solid #eeeeee; padding-top: 20px; color: #777; font-size: 13px; line-height: 1.5;">
         <p>Questions? Reply to this email or contact our Priority Support team (available for Pro users).</p>
+    </div>
+    `
+    );
+
+    return { subject, htmlContent };
+};
+
+// reset credits email template
+export const buildCreditResetEmailTemplate = (rawOptions: AnnouncementOptions): EmailTemplate => {
+    const options = withDefaults(rawOptions);
+    const subject = `Your ${options?.metadata?.orgName} credits have been refilled! 🚀`;
+    const billingUrl = `${options.appUrl}/dashboard/billing`;
+    
+    // Metadata থেকে ডাটা নেওয়া
+    const orgName = options?.metadata?.orgName || 'Your Organization';
+    const newLimit = options?.metadata?.newCreditLimit || 100;
+    const frozenCredits = options?.metadata?.frozenCredits || 0;
+
+    const htmlContent = buildLayout(
+        options,
+        'Monthly Credits Refilled',
+        `New month, new opportunities for ${orgName}!`,
+        `
+    <div style="text-align: center; padding: 10px 0;">
+        <h1 style="color: #1a1a1a; font-size: 24px; margin-bottom: 10px;">Your Credits are Ready!</h1>
+        <p style="color: #666666; font-size: 16px;">Hi ${options.name}, we've just refilled your monthly credits. You're all set to manage your bookings and resources.</p>
+    </div>
+
+    <!-- Credit Status Card -->
+    <div style="background-color: #f4f7fa; border-radius: 12px; padding: 25px; margin: 20px 0; border: 1px solid #e0e6ed; text-align: center;">
+        <div style="color: #173b7a; font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">
+            Current Balance
+        </div>
+        <div style="font-size: 48px; font-weight: 800; color: #173b7a; margin-bottom: 5px;">
+            ${newLimit}
+        </div>
+        <div style="color: #5a7184; font-size: 14px;">
+            Credits available for this month
+        </div>
+    </div>
+
+    ${frozenCredits > 0 ? `
+    <div style="background-color: #fff4e5; border-left: 4px solid #ff9800; padding: 15px; margin: 20px 0; text-align: left;">
+        <strong style="color: #e65100; font-size: 15px;">❄️ Important: You have ${frozenCredits} credits frozen</strong>
+        <p style="margin: 5px 0 0; font-size: 13px; color: #666; line-height: 1.4;">
+            Since you are on the Free Tier, your excess credits are locked. 
+            <strong>Upgrade to Pro</strong> to unlock them and increase your monthly limit to 1,000!
+        </p>
+    </div>
+    ` : ''}
+
+    <div style="margin: 25px 0; text-align: center;">
+        <p style="color: #666666; font-size: 15px; line-height: 1.6; margin-bottom: 20px;">
+            Don't let your resources sit idle. Use your credits to schedule appointments, manage staff, and streamline your operations.
+        </p>
+        
+        <div style="margin-top: 30px;">
+            <a href="${options.appUrl}/dashboard" 
+               style="display:inline-block; padding:14px 30px; border-radius:8px; background:#173b7a; color:#ffffff; text-decoration:none; font-weight:bold; font-size: 16px; margin-right: 10px;">
+                Go to Dashboard
+            </a>
+            
+            <a href="${billingUrl}" 
+               style="display:inline-block; padding:14px 30px; border-radius:8px; background:#ffffff; color:#173b7a; text-decoration:none; font-weight:bold; font-size: 16px; border: 2px solid #173b7a;">
+                Upgrade Plan
+            </a>
+        </div>
+    </div>
+
+    <div style="border-top: 1px solid #eeeeee; padding-top: 20px; color: #999; font-size: 12px; text-align: center;">
+        <p>This is an automated notification regarding your monthly credit reset policy.</p>
     </div>
     `
     );

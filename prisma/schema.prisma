@@ -41,6 +41,7 @@ model Organizations {
   photo              String?
   plan_type          PlanType?           @default(FREE)
   credit_pool        Int?                @default(100)
+  frozen_credits     Int?                @default(0) // Credits that are reserved for upcoming bookings but not yet spent
   is_active          Boolean?            @default(true)
   timezone           String              @default("UTC")
   address            Json?
@@ -109,18 +110,19 @@ model ResourcesRule {
 }
 
 model Subscription {
-  id             String         @id @default(cuid())
-  org_id         String
-  organization   Organizations  @relation(fields: [org_id], references: [id], onDelete: Cascade)
-  plan_name      PlanType
-  start_date     DateTime
-  end_date       DateTime?
-  payment_status PaymentStatus?
-  is_active      Boolean?       @default(true)
+  id                 String         @id @default(cuid())
+  org_id             String
+  organization       Organizations  @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  plan_name          PlanType
+  start_date         DateTime
+  end_date           DateTime?
+  payment_status     PaymentStatus?
+  is_active          Boolean?       @default(true)
   last_reminder_sent DateTime?
-  deletedAt      DateTime?
-  createdAt      DateTime?      @default(now())
-  updatedAt      DateTime?      @updatedAt
+
+  deletedAt DateTime?
+  createdAt DateTime? @default(now())
+  updatedAt DateTime? @updatedAt
 
   @@index([org_id])
   @@map("subscriptions")
@@ -287,7 +289,7 @@ enum NotificationType {
   UPGRADE_PLAN_REMINDER
   SUBSCRIPTION_RENEWED
   SUBSCRIPTION_CANCELLED
-  
+  CREDIT_RESET
 
   // System
   SYSTEM_ALERT
