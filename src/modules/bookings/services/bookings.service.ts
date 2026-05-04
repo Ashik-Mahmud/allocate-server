@@ -21,6 +21,8 @@ import {
     resolveUserTimezone,
     formatInTimezone,
 } from 'src/shared/utils/timezone.util';
+import { CurrentUserType } from 'src/shared/decorators/user.decorator';
+import { buildSubscriptionLimitMessage, getSubscriptionLimits, isSubscriptionLimitReached } from 'src/shared/constant/subscription.constant';
 
 @Injectable()
 export class BookingsService {
@@ -33,7 +35,7 @@ export class BookingsService {
     ) { }
 
     // Create a booking for a resource
-    async createBooking(currentUser: User, createBookingDto: CreateBookingDto, res: Response) {
+    async createBooking(currentUser: User & CurrentUserType, createBookingDto: CreateBookingDto, res: Response) {
         const { user_id, resource_id, start_time, end_time, notes } = createBookingDto;
         const timezone = resolveUserTimezone(currentUser as any);
 
@@ -44,10 +46,22 @@ export class BookingsService {
         const userId = user_id || currentUser.id
         const ipAddress = (res.req?.headers['x-forwarded-for'] as string) || res.req?.ip || res.req?.connection?.remoteAddress || '';
 
+        // check if the resource count more than the subscription limit for the organization but Org is free plan then throw an error
+        const resourceCount = await this.prisma.resources.count({ where: { org_id: currentUser?.org_id, isActive: true } });
+        const currentPlan = currentUser?.plan_type as PlanType || PlanType.FREE;
+
+        if (isSubscriptionLimitReached(currentPlan, 'MAX_RESOURCES', resourceCount)) {
+            const { MAX_RESOURCES } = getSubscriptionLimits(currentPlan);
+            throw new ForbiddenException(
+                `Your organization is over the ${currentPlan} plan limit. This limit is ${MAX_RESOURCES} resources. Please upgrade to Pro to continue booking.`
+            );
+        }
+
         // If the start time is in the past or end time is before start time, throw an error
         if (startTime < now || endTime <= startTime) {
             throw new BadRequestException('Invalid time slot. Start time must be in the future.');
         }
+
 
         return await this.prisma.$transaction(async (tx) => {
 
@@ -415,80 +429,80 @@ export class BookingsService {
     }
 
     // Get available slots for a resource within a date 
-  async getAvailableSlotsByResource(resourceId: string, date: string, timezone?: string) {
-    const resource = await this.prisma.resources.findUnique({
-        where: { id: resourceId },
-        include: {
-            resourcesRules: true,
-            organization: {
-                select: {
-                    timezone: true,
+    async getAvailableSlotsByResource(resourceId: string, date: string, timezone?: string) {
+        const resource = await this.prisma.resources.findUnique({
+            where: { id: resourceId },
+            include: {
+                resourcesRules: true,
+                organization: {
+                    select: {
+                        timezone: true,
+                    },
                 },
-            },
-        }
-    });
-
-    if (!resource) throw new NotFoundException('Resource not found');
-
-    const resolvedTimezone = resolveTimezone(timezone, resource.organization?.timezone, process.env.DEFAULT_TIMEZONE, 'UTC');
-    const rules = resource.resourcesRules[0];
-    const availableDays = (rules?.availableDays as string[]) || [];
-
- 
-    const dayName = getWeekdayInTimezone(date, resolvedTimezone);
-    
-    if (availableDays.length > 0 && !availableDays.includes(dayName)) {
-        throw new BadRequestException(`Resource is not available on ${dayName}`);
-    }
-
-    const workStart = parseDateTimeInTimezone(`${date}T${String(rules?.opening_hours).padStart(2, '0')}:00:00`, resolvedTimezone);
-    const workEnd = parseDateTimeInTimezone(`${date}T${String(rules?.closing_hours || 18).padStart(2, '0')}:00:00`, resolvedTimezone);
-
-    const slotDurationMs = (rules.slot_duration_min || 30) * 60 * 1000;
-    const bufferMs = (rules.buffer_time || 0) * 60 * 60 * 1000;
-
-    
-    const bookings = await this.prisma.bookings.findMany({
-        where: {
-            resource_id: resourceId,
-            status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING] },
-            deletedAt: null,
-            start_time: { lte: workEnd },
-            end_time: { gte: workStart }
-        }
-    });
-
-    const availableSlots: { start: string; end: string }[] = [];
-    let currentSlotStart = new Date(workStart);
-    const now = new Date();
-
-    while (currentSlotStart.getTime() + slotDurationMs <= workEnd.getTime()) {
-        const currentSlotEnd = new Date(currentSlotStart.getTime() + slotDurationMs);
-
-        if (currentSlotStart < now) {
-            currentSlotStart = new Date(currentSlotStart.getTime() + slotDurationMs);
-            continue;
-        }
-
-        const isOccupied = bookings.some(booking => {
-            const bStartWithBuffer = booking.start_time.getTime() - bufferMs;
-            const bEndWithBuffer = booking.end_time.getTime() + bufferMs;
-            
-            return (currentSlotStart.getTime() < bEndWithBuffer && currentSlotEnd.getTime() > bStartWithBuffer);
+            }
         });
 
-        if (!isOccupied) {
-            availableSlots.push({
-                start: formatInTimezone(currentSlotStart, resolvedTimezone, { dateStyle: 'short', timeStyle: 'short' }),
-                end: formatInTimezone(currentSlotEnd, resolvedTimezone, { dateStyle: 'short', timeStyle: 'short' })
-            });
+        if (!resource) throw new NotFoundException('Resource not found');
+
+        const resolvedTimezone = resolveTimezone(timezone, resource.organization?.timezone, process.env.DEFAULT_TIMEZONE, 'UTC');
+        const rules = resource.resourcesRules[0];
+        const availableDays = (rules?.availableDays as string[]) || [];
+
+
+        const dayName = getWeekdayInTimezone(date, resolvedTimezone);
+
+        if (availableDays.length > 0 && !availableDays.includes(dayName)) {
+            throw new BadRequestException(`Resource is not available on ${dayName}`);
         }
 
-        currentSlotStart = new Date(currentSlotStart.getTime() + slotDurationMs);
-    }
+        const workStart = parseDateTimeInTimezone(`${date}T${String(rules?.opening_hours).padStart(2, '0')}:00:00`, resolvedTimezone);
+        const workEnd = parseDateTimeInTimezone(`${date}T${String(rules?.closing_hours || 18).padStart(2, '0')}:00:00`, resolvedTimezone);
 
-    return { date, day: dayName, timezone: resolvedTimezone, availableSlots };
-}
+        const slotDurationMs = (rules.slot_duration_min || 30) * 60 * 1000;
+        const bufferMs = (rules.buffer_time || 0) * 60 * 60 * 1000;
+
+
+        const bookings = await this.prisma.bookings.findMany({
+            where: {
+                resource_id: resourceId,
+                status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING] },
+                deletedAt: null,
+                start_time: { lte: workEnd },
+                end_time: { gte: workStart }
+            }
+        });
+
+        const availableSlots: { start: string; end: string }[] = [];
+        let currentSlotStart = new Date(workStart);
+        const now = new Date();
+
+        while (currentSlotStart.getTime() + slotDurationMs <= workEnd.getTime()) {
+            const currentSlotEnd = new Date(currentSlotStart.getTime() + slotDurationMs);
+
+            if (currentSlotStart < now) {
+                currentSlotStart = new Date(currentSlotStart.getTime() + slotDurationMs);
+                continue;
+            }
+
+            const isOccupied = bookings.some(booking => {
+                const bStartWithBuffer = booking.start_time.getTime() - bufferMs;
+                const bEndWithBuffer = booking.end_time.getTime() + bufferMs;
+
+                return (currentSlotStart.getTime() < bEndWithBuffer && currentSlotEnd.getTime() > bStartWithBuffer);
+            });
+
+            if (!isOccupied) {
+                availableSlots.push({
+                    start: formatInTimezone(currentSlotStart, resolvedTimezone, { dateStyle: 'short', timeStyle: 'short' }),
+                    end: formatInTimezone(currentSlotEnd, resolvedTimezone, { dateStyle: 'short', timeStyle: 'short' })
+                });
+            }
+
+            currentSlotStart = new Date(currentSlotStart.getTime() + slotDurationMs);
+        }
+
+        return { date, day: dayName, timezone: resolvedTimezone, availableSlots };
+    }
 
     // Get my booking history
     async getMyBookingsHistoryService(user: User, query: MyBookingsHistoryQueryDto) {
@@ -673,7 +687,7 @@ export class BookingsService {
                 status: status
             });
 
-    
+
             currentLoopDate.setUTCDate(currentLoopDate.getUTCDate() + 1);
         }
 

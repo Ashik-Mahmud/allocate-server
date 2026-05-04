@@ -39,7 +39,7 @@ export class BookingsController {
     @ApiResponse({ status: 400, description: 'Bad Request - Invalid input data' })
     @ApiResponse({ status: 401, description: 'Unauthorized - Token required' })
     @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
-    async createBooking(@CurrentUser() currentUser: User, @Body() createBookingDto: CreateBookingDto, @Res() res: Response) {
+    async createBooking(@CurrentUser() currentUser: User & CurrentUserType, @Body() createBookingDto: CreateBookingDto, @Res() res: Response) {
         const result = await this.service.createBooking(currentUser, createBookingDto, res);
         return ResponseUtil.success(result, res);
     }
