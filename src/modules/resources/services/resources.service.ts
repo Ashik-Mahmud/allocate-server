@@ -181,6 +181,10 @@ export class ResourcesService {
             if (resource.organization.is_active === false) {
                 throw new ForbiddenException('Your organization is not active. Please contact support.');
             }
+            // if occupied then cannot mark under maintenance
+            if (resource?.is_occupied) {
+                throw new ForbiddenException('Resource is currently occupied. Please try again later.');
+             }
             // Log resource update activity
             const ipAddress = (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '';
             const userAgent = res?.req?.headers['user-agent'] || 'unknown';
@@ -614,22 +618,6 @@ export class ResourcesService {
                         metadata: true,
                         createdAt: true,
                         updatedAt: true,
-                        currentBooking: {
-                            select: {
-                                id: true,
-                                start_time: true,
-                                end_time: true,
-                                total_cost: true,
-                                user: {
-                                    select: {
-                                        id: true,
-                                        name: true,
-                                        email: true,
-                                        photo: true,
-                                    }
-                                }
-                            },
-                        },
                         is_occupied: true,
                         organization: {
                             select: {

@@ -100,17 +100,14 @@ export class BookingsService {
 
                 // check if the booking duration exceeds maximum allowed hours
                 if (rules.max_booking_hours && hoursDifference > rules.max_booking_hours) {
-                    throw new BadRequestException(`Maximum booking allowed is ${rules.max_booking_hours} hours`);
+                    const maxBookingHrInMin = rules.max_booking_hours * 60
+                    throw new BadRequestException(`Maximum booking allowed is ${maxBookingHrInMin} minutes`);
                 }
 
-                // Check if the booking duration exceeds maximum allowed hours
-                if (rules.max_booking_hours && hoursDifference > rules.max_booking_hours) {
-                    throw new BadRequestException(`Maximum booking allowed is ${rules.max_booking_hours} hours`);
-                }
 
                 const minLeadTimeMs = (rules.min_lead_time || 0) * 60 * 60 * 1000;
                 if (startTime.getTime() < now.getTime() + minLeadTimeMs) {
-                    throw new BadRequestException(`Must book at least ${rules.min_lead_time} hours in advance`);
+                    throw new BadRequestException(`Must book at least ${(rules.min_lead_time || 0) * 60} minutes in advance`);
                 }
             }
 
@@ -120,7 +117,7 @@ export class BookingsService {
             const overlappingBooking = await tx.bookings.findFirst({
                 where: {
                     resource_id,
-                    status: { in: ['CONFIRMED', 'PENDING'] },
+                    status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING] },
                     deletedAt: null,
                     AND: [
                         { start_time: { lt: new Date(endTime.getTime() + bufferMs) } },
@@ -142,11 +139,11 @@ export class BookingsService {
 
             // Check pending bookings for the user to calculate pending credits
             const pendingBookings = await tx.bookings.aggregate({
-                where: { user_id: userId, status: 'PENDING', deletedAt: null },
+                where: { user_id: userId, status: BookingStatus.PENDING, deletedAt: null },
                 _sum: { total_cost: true }
             });
             const pendingCredits = pendingBookings._sum.total_cost || 0;
-            const bookingStatus = (currentUser.role === 'ORG_ADMIN') ? 'CONFIRMED' : 'PENDING';            // Check if user is STAFF then credits will be deducted from personal credits otherwise from organization credits
+            const bookingStatus = (currentUser.role === Role.ORG_ADMIN) ? BookingStatus.CONFIRMED : BookingStatus.PENDING;            // Check if user is STAFF then credits will be deducted from personal credits otherwise from organization credits
 
             const userTotalRequired = totalCost + pendingCredits;
             if (Number(user.personal_credits || 0) < userTotalRequired) {
@@ -444,7 +441,7 @@ export class BookingsService {
         throw new BadRequestException(`Resource is not available on ${dayName}`);
     }
 
-    const workStart = parseDateTimeInTimezone(`${date}T${String(rules?.opening_hours || 9).padStart(2, '0')}:00:00`, resolvedTimezone);
+    const workStart = parseDateTimeInTimezone(`${date}T${String(rules?.opening_hours).padStart(2, '0')}:00:00`, resolvedTimezone);
     const workEnd = parseDateTimeInTimezone(`${date}T${String(rules?.closing_hours || 18).padStart(2, '0')}:00:00`, resolvedTimezone);
 
     const slotDurationMs = (rules.slot_duration_min || 30) * 60 * 1000;
