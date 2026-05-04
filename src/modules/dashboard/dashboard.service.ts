@@ -1,11 +1,12 @@
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
-import { BookingStatus, PaymentStatus, PlanType, Role, User } from '@prisma/client';
+import { BookingStatus, PaymentStatus, PlanType, Role, TransactionType, User } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import {
     buildPlanDistribution,
     buildRevenueTrend,
 } from './dashboard.utils';
 import { getWeekKeyInTimezone, resolveUserTimezone } from 'src/shared/utils/timezone.util';
+import { is } from 'zod/v4/locales';
 
 @Injectable()
 export class DashboardService {
@@ -155,7 +156,7 @@ export class DashboardService {
         const orgId = user.org_id as string;
         const now = new Date();
 
-        const [latestTransactions, totalSpentAgg, bookings, recentActivity] = await Promise.all([
+        const [latestTransactions, totalSpentAgg, bookings, recentActivity, mostUsedResource, currentMonthCredits] = await Promise.all([
             this.prisma.creditTransaction.findMany({
                 where: {
                     org_id: orgId,
@@ -220,10 +221,58 @@ export class DashboardService {
                 orderBy: { createdAt: 'desc' },
                 take: 10,
             }),
+            //find the most used resource by the user in the organization
+            await this.prisma.resources.findMany({
+                where: {
+                    org_id: orgId,
+                    deletedAt: null,
+                    bookings: {
+                        some: {
+                            user_id: user.id,
+                            deletedAt: null,
+                        },
+                    },
+                },
+                select: {
+                    id: true,
+                    name: true,
+                    type: true,
+                    photo: true,
+                    isOccupied: true,
+                    _count: {
+                        select: {
+                            bookings: {
+                                where: {
+                                    user_id: user.id,
+                                    deletedAt: null,
+                                },
+                            },
+                        },
+                    },
+                },
+                orderBy: {
+                    bookings: {
+                        _count: 'desc',
+                    },
+                },
+                take: 3,
+            }),
+            this.prisma.creditTransaction.aggregate({
+                where: {
+                    org_id: orgId,
+                    user_id: user.id,
+                    type: TransactionType.SPEND,
+                    createdAt: {
+                        gte: new Date(now.getFullYear(), now.getMonth(), 1),
+                    },
+                },
+                _sum: { amount: true },
+            }),
         ]);
 
         const totalSpent = Number(totalSpentAgg._sum.amount || 0);
         const currentBalance = Number(user.personal_credits || 0);
+        const currentMonthSpent = Number(currentMonthCredits._sum.amount || 0);
         const lastTransaction = latestTransactions[0]
             ? {
                 amount: Number(latestTransactions[0].amount),
@@ -243,6 +292,15 @@ export class DashboardService {
             durationMinutes: this.getBookingDurationMinutes(booking.start_time, booking.end_time),
         }));
 
+        const mostUsedResources = mostUsedResource?.map((res) => ({
+            id: res.id,
+            name: res.name,
+            type: res.type,
+            image: res.photo,
+            isOccupied: res.isOccupied,
+            usageCount: res._count.bookings,
+        })) || [];
+
         return {
             scope: 'personal',
             user: {
@@ -255,6 +313,7 @@ export class DashboardService {
                 totalSpent,
                 lastTransaction,
                 usageCount: bookings.length,
+                currentMonthSpent
             },
             recentActivity: recentActivity.map((booking) => ({
                 bookingId: booking.id,
@@ -263,6 +322,7 @@ export class DashboardService {
                 description: `${user.name} used ${booking.resource.name} ${this.getRelativeTimeLabel(booking.createdAt)}`,
                 createdAt: booking.createdAt,
             })),
+            mostUsedResources,
             usageHistory,
         };
     }
@@ -559,7 +619,7 @@ export class DashboardService {
                 revenueTrends: {
                     daily: revenueTrendDaily,
                     weekly: revenueTrendWeekly,
-                }, 
+                },
                 planDistribution,
                 newSignups: {
                     last7Days: newSignups7,
