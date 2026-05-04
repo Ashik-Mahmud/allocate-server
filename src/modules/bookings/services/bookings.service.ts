@@ -672,7 +672,7 @@ export class BookingsService {
                 date: dateStr,
                 day: dayName,
                 availableSlotsCount: slots.length,
-                slots: slots,
+                // slots: slots,
                 status: status
             });
 

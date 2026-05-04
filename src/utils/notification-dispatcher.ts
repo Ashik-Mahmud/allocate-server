@@ -1,4 +1,5 @@
 import { NotificationType } from '@prisma/client';
+import { meta } from 'zod/v4/core';
 
 /**
  * Notification Preferences stored in organization settings
@@ -14,6 +15,9 @@ export interface NotificationPreferences {
  * Unified notification data structure
  * Pass this to the dispatcher and it handles all channels
  */
+export type EmailTemplateId = 'upgrade_plan_reminder';
+
+
 export interface NotificationPayload {
     userId: string;
     orgId: string;
@@ -27,6 +31,7 @@ export interface NotificationPayload {
     // Channel-specific templates (optional)
     emailSubject?: string;
     emailTemplate?: string; // HTML email template
+    emailTemplateId?: EmailTemplateId; // Reference to a predefined email template
     smsContent?: string; // Plain text for SMS
     pushTitle?: string;
     pushBody?: string;
@@ -160,7 +165,9 @@ export class NotificationDispatcher {
                 to: payload.userEmail,
                 name: payload.userName,
                 subject: subject,
-                htmlContent: body
+                htmlContent: body,
+                metadata: payload.metadata,
+                htmlTemplateId: payload.emailTemplateId, // Pass template ID if available
             });
 
 

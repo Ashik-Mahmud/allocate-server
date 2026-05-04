@@ -117,6 +117,7 @@ model Subscription {
   end_date       DateTime?
   payment_status PaymentStatus?
   is_active      Boolean?       @default(true)
+  last_reminder_sent DateTime?
   deletedAt      DateTime?
   createdAt      DateTime?      @default(now())
   updatedAt      DateTime?      @updatedAt
@@ -283,6 +284,10 @@ enum NotificationType {
   // Subscription (Paid Feature)
   SUBSCRIPTION_EXPIRING
   SUBSCRIPTION_EXPIRED
+  UPGRADE_PLAN_REMINDER
+  SUBSCRIPTION_RENEWED
+  SUBSCRIPTION_CANCELLED
+  
 
   // System
   SYSTEM_ALERT

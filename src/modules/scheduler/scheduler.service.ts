@@ -2,7 +2,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
-import { BookingStatus, NotificationType } from '@prisma/client';
+import { BookingStatus, NotificationType, PlanType, Role } from '@prisma/client';
 import { NotificationManager } from '../inbox/service/notification-manager.service';
 
 @Injectable()
@@ -16,7 +16,7 @@ export class SchedulerService {
     ) { }
 
     // Task 1: Auto-cancel pending bookings that are past their expiration time (runs every minute)
-    @Cron(CronExpression.EVERY_MINUTE)
+    @Cron(CronExpression.EVERY_5_MINUTES)
     async autoCancelPendingBookings() {
         this.logger.log('Checking for expired pending bookings to auto-cancel...');
         const now = new Date();
@@ -60,6 +60,7 @@ export class SchedulerService {
 
         // Use allSettled so one failed email doesn't crash the whole cron task
         await Promise.allSettled(notificationPromises);
+        this.logger.log(`Sent cancellation notifications for ${expiredBookings.length} bookings...`);
 
     }
 
@@ -101,12 +102,13 @@ export class SchedulerService {
             })
         );
         await Promise.allSettled(notificationPromises);
+        this.logger.log(`Sent booking completion notifications for ${completedBookings.length} bookings...`);
 
 
     }
 
     // Task 3: Send reminders to Organizer for pending bookings to be confirmed (15 minutes before the booking)
-    @Cron(CronExpression.EVERY_10_MINUTES)
+    @Cron(CronExpression.EVERY_5_MINUTES)
     async sendBookingReminders() {
         this.logger.log('Checking for upcoming bookings to send reminders...');
         const now = Date.now();
@@ -158,16 +160,17 @@ export class SchedulerService {
         }
 
         await Promise.allSettled(notificationPromises);
+        this.logger.log(`Sent booking reminders for ${upcomingBookings.length} upcoming bookings...`);
 
     }
 
     // Task 4: Send follow-up notifications to Staff before their scheduled bookings (15 minutes before the booking)
-    @Cron(CronExpression.EVERY_10_MINUTES)
+    @Cron(CronExpression.EVERY_5_MINUTES)
     async sendStaffFollowUps() {
+        this.logger.log('Checking for upcoming staff bookings to send follow-ups...');
         const now = Date.now();
         const windowStart = new Date(now + 15 * 60000);
         const windowEnd = new Date(now + 25 * 60000);
-        this.logger.log('Checking for upcoming staff bookings to send follow-ups...');
         const staffBookings = await this.prisma.bookings.findMany({
             where: {
                 status: BookingStatus.CONFIRMED,
@@ -220,8 +223,220 @@ export class SchedulerService {
         }
 
         await Promise.allSettled(notificationPromises);
+        this.logger.log(`Sent staff follow-up notifications to ${staffBookings.length} bookings...`);
 
     }
 
-    // Task 5: 
+    // Task 5: Send Subscription Renewal Reminders every day to org admin with the day left for subscription expiry
+    @Cron(CronExpression.EVERY_HOUR)
+    async sendSubscriptionRenewalReminders() {
+        this.logger.log('Checking for upcoming subscription expirations to send renewal reminders...');
+
+        // 1. Get the current date in UTC and set to start of day (00:00:00.000)
+        const now = new Date();
+        const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60000);
+
+        const expiringSubscriptions = await this.prisma.subscription.findMany({
+            where: {
+                plan_name: { not: PlanType.FREE }, // Only paid plans
+                end_date: {
+                    lt: sevenDaysFromNow,
+                    gte: now,
+                },
+                OR: [
+                    { last_reminder_sent: null },
+                    { last_reminder_sent: { lt: new Date(now.getTime() - 24 * 60 * 60000) } } // Ensure we only send one reminder per day
+                ]
+            },
+            include: {
+                organization: {
+                    include: {
+                        users: {
+                            where: { role: Role.ORG_ADMIN }, // Filter for organization admins only
+                            select: { id: true, email: true, name: true }
+                        }
+                    }
+                }
+            },
+        });
+
+        if (expiringSubscriptions.length === 0) return;
+        const notificationPromises: Promise<unknown>[] = [];
+
+        for (const subscription of expiringSubscriptions) {
+            const admins = subscription.organization.users;
+            const orgName = subscription.organization.name;
+
+            await this.prisma.subscription.update({
+                where: { id: subscription.id },
+                data: { last_reminder_sent: new Date() }
+            });
+
+            // Calculate days left for the subscription to expire
+            const diffInTime = subscription.end_date ? (subscription.end_date.getTime() - now.getTime()) : 0;
+            const daysLeft = subscription.end_date ? Math.ceil(diffInTime / (1000 * 3600 * 24)) : 0;
+
+            // Format the end date in a user-friendly way (e.g., "15th August 2024")
+            const formattedDate = subscription.end_date?.toLocaleDateString('en-GB', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+                timeZone: (subscription.organization).timezone || 'Asia/Dhaka'
+            });
+            const broadMessage = `Important: Your subscription for "${orgName}" will expire in ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} (on ${formattedDate}). Please renew your plan to ensure uninterrupted access to your dashboard and services. Note: If you do not renew, your subscription will automatically downgrade to the Free Tier upon expiration.`;
+
+            admins.forEach(admin => {
+                notificationPromises.push(
+                    this.NotificationManager.send({
+                        userId: admin.id,
+                        message: broadMessage,
+                        type: NotificationType.SUBSCRIPTION_EXPIRING,
+                        title: `Subscription Expiring Soon: ${orgName}`,
+                        orgId: subscription.org_id,
+                        userEmail: admin.email,
+                        userName: admin.name
+                    })
+                );
+            });
+        }
+
+        await Promise.allSettled(notificationPromises);
+        this.logger.log(`Sent subscription expiration notifications to ${expiringSubscriptions.length} organizations...`);
+    }
+
+    // Task 6: Send Expired Subscription Notifications every day to org admin if the subscription is expired
+    @Cron(CronExpression.EVERY_HOUR)
+    async sendExpiredSubscriptionNotifications() {
+        this.logger.log('Checking for expired subscriptions to send notifications...');
+        const now = new Date();
+        const expiredSubscriptions = await this.prisma.subscription.findMany({
+            where: {
+                plan_name: { not: PlanType.FREE }, // Only paid plans
+                end_date: {
+                    lt: now,
+                },
+                OR: [
+                    { last_reminder_sent: null },
+                    { last_reminder_sent: { lt: new Date(now.getTime() - 24 * 60 * 60000) } } // Ensure we only send one reminder per day
+                ],
+                is_active: true // Only consider active subscriptions to avoid notifying about already handled expired ones
+            },
+            include: {
+                organization: {
+                    include: {
+                        users: {
+                            where: { role: Role.ORG_ADMIN }, // Filter for organization admins only
+                            select: { id: true, email: true, name: true }
+                        }
+                    }
+                }
+            },
+        });
+
+        if (expiredSubscriptions.length === 0) return;
+        const notificationPromises: Promise<unknown>[] = [];
+
+        for (const subscription of expiredSubscriptions) {
+            const admins = subscription.organization.users;
+            const orgName = subscription.organization.name;
+
+            await this.prisma.subscription.update({
+                where: { id: subscription.id },
+                data: {
+                    plan_name: PlanType.FREE, // Downgrade to free plan
+                    last_reminder_sent: now
+                }
+            });
+
+            const broadMessage = `Your "${orgName}" ${subscription.plan_name} plan has expired and has been moved to the Free Tier. To regain access to Pro features, please renew your subscription.`;
+
+            admins.forEach(admin => {
+                notificationPromises.push(
+                    this.NotificationManager.send({
+                        userId: admin.id,
+                        message: broadMessage,
+                        type: NotificationType.SUBSCRIPTION_EXPIRED,
+                        title: `Subscription Expired & Plan Downgraded: ${orgName}`,
+                        orgId: subscription.org_id,
+                        userEmail: admin.email,
+                        userName: admin.name
+                    })
+                );
+            });
+        }
+
+        await Promise.allSettled(notificationPromises);
+        this.logger.log(`Sent expired subscription notifications to ${expiredSubscriptions.length} organizations...`);
+    }
+
+    // Task 7: Send Free user Notification to upgrade Paid plan with the features and others stuff in every 15 days
+    @Cron('0 0 1,16 * *') // Runs at 00:00 on the 1st and 16th of every month
+    async sendFreeUserUpgradeNotifications() {
+        this.logger.log('Checking for free users to send notifications...');
+        const now = new Date();
+        const freeUsers = await this.prisma.subscription.findMany({
+            where: {
+                plan_name: PlanType.FREE,
+                is_active: true,
+                // Only target users who have been on the free plan for more than 7 days to avoid spamming new sign-ups
+                createdAt: {
+                    // lt: new Date(now.getTime() - 7 * 24 * 60 * 60000)
+                },
+                OR: [
+                    { last_reminder_sent: null },
+                    { last_reminder_sent: { lt: new Date(now.getTime() - 24 * 60 * 60000) } }
+                ]
+            },
+            include: {
+                organization: {
+                    include: {
+                        users: {
+                            where: { role: Role.ORG_ADMIN },
+                            select: { id: true, email: true, name: true }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (freeUsers?.length === 0) return;
+
+        const notificationPromises: Promise<unknown>[] = [];
+
+        for (const sub of freeUsers) {
+            const admins = sub?.organization?.users || [];
+            const orgName = sub?.organization?.name || 'your organization';
+
+
+            const upgradeMessage = `Unlock the full power of ${orgName}! 🚀 Upgrade to our Pro Plan to get advanced analytics, unlimited team members, and priority support. Don't let your growth slow down.`;
+
+            await this.prisma.subscription.update({
+                where: { id: sub.id },
+                data: { last_reminder_sent: now }
+            });
+
+            admins.forEach(admin => {
+                notificationPromises.push(
+                    this.NotificationManager.send({
+                        userId: admin.id,
+                        message: upgradeMessage,
+                        type: NotificationType.UPGRADE_PLAN_REMINDER,
+                        title: `Boost your workflow with Pro Features! ✨`,
+                        orgId: sub.org_id,
+                        userEmail: admin.email,
+                        userName: admin.name,
+                        emailTemplateId: 'upgrade_plan_reminder', // You can create a specific email template for this
+                        metadata: {
+                            orgName: orgName,
+                        }
+                    })
+                );
+            });
+        }
+
+        await Promise.allSettled(notificationPromises);
+        this.logger.log(`Sent upgrade notifications to ${freeUsers.length} organizations...`);
+    }
+
+
 }

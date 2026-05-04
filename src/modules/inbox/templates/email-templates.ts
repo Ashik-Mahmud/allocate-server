@@ -7,6 +7,7 @@ interface BaseTemplateOptions {
     appName?: string;
     appUrl?: string;
     supportEmail?: string;
+    metadata?: Record<string, any>;
 }
 
 interface WelcomeEmailOptions extends BaseTemplateOptions {
@@ -62,8 +63,9 @@ interface AnnouncementOptions extends BaseTemplateOptions {
 
 const defaultTemplateOptions: Required<BaseTemplateOptions> = {
     appName: 'Allocate',
-    appUrl: process.env.WEB_APP_URL || '#',
+    appUrl: process.env.WEB_APP_LINK || '#',
     supportEmail: process.env.SUPPORT_EMAIL || process.env.SENDER_EMAIL || 'support@example.com',
+    metadata: {},
 };
 
 const withDefaults = <T extends BaseTemplateOptions>(options: T): Required<BaseTemplateOptions> & T => ({
@@ -71,6 +73,7 @@ const withDefaults = <T extends BaseTemplateOptions>(options: T): Required<BaseT
     ...options,
 });
 
+// Simple HTML escaping to prevent injection in email templates
 const escapeHtml = (value: string): string =>
     value?.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;');
 
@@ -254,3 +257,80 @@ export const buildAnnouncementEmailTemplate = (rawOptions: AnnouncementOptions):
 };
 
 
+
+export const buildUpgradePlanEmailTemplate = (rawOptions: AnnouncementOptions): EmailTemplate => {
+    const options = withDefaults(rawOptions);
+    const subject = `Boost your workflow with Pro Features! ✨`;
+    const billingUrl = `${options.appUrl}/dashboard/billing`;
+
+    const htmlContent = buildLayout(
+        options,
+        'Upgrade to Pro Plan',
+        `Elevate ${options?.metadata?.orgName} with Pro Features`,
+        `
+    <div style="text-align: center; padding: 10px 0;">
+        <h1 style="color: #1a1a1a; font-size: 26px; margin-bottom: 10px;">Scale Your Organization Faster</h1>
+        <p style="color: #666666; font-size: 16px;">Hi ${options.name}, move beyond the limits and unlock the full potential of <strong>${options?.metadata?.orgName}</strong>.</p>
+    </div>
+
+    <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; margin: 25px 0;">
+        <div style="background-color: #173b7a; color: #ffffff; padding: 15px; text-align: center; font-weight: bold;">
+            PRO PLAN BENEFITS
+        </div>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="15" border="0">
+            <tr>
+                <td style="border-bottom: 1px solid #f0f0f0;">
+                    <strong>📅 30-Day Booking Window</strong><br/>
+                    <span style="font-size: 13px; color: #666;">Plan ahead! Move from 7 days to a full month of advanced booking.</span>
+                </td>
+                <td style="border-bottom: 1px solid #f0f0f0;">
+                    <strong>👥 50 User Capacity</strong><br/>
+                    <span style="font-size: 13px; color: #666;">Grow your team without limits (Up from only 5 users).</span>
+                </td>
+            </tr>
+            <tr>
+                <td style="border-bottom: 1px solid #f0f0f0;">
+                    <strong>🏢 20 Managed Resources</strong><br/>
+                    <span style="font-size: 13px; color: #666;">Manage 10x more resources compared to the Free plan.</span>
+                </td>
+                <td style="border-bottom: 1px solid #f0f0f0;">
+                    <strong>💰 Advanced Credit Management</strong><br/>
+                    <span style="font-size: 13px; color: #666;">Full UI to track transactions, staff credits, and usage history.</span>
+                </td>
+            </tr>
+            <tr>
+                <td style="border-bottom: 1px solid #f0f0f0;">
+                    <strong>🗓️ Calendar Availability View</strong><br/>
+                    <span style="font-size: 13px; color: #666;">Visualize resource availability at a glance with our premium calendar.</span>
+                </td>
+                <td style="border-bottom: 1px solid #f0f0f0;">
+                    <strong>⚙️ Dynamic Resource Rules</strong><br/>
+                    <span style="font-size: 13px; color: #666;">Update and customize booking rules for each resource on the fly.</span>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2" style="background-color: #f9f9f9; text-align: center;">
+                    <strong>📈 Plus: Detailed Insights, Priority Support & Personal Staff Transaction History</strong>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div style="text-align: center; margin: 30px 0;">
+        <a href="${billingUrl}" 
+           style="display:inline-block; padding:16px 35px; border-radius:8px; background:#173b7a; color:#ffffff; text-decoration:none; font-weight:bold; font-size: 18px;">
+           Upgrade Now & Get 1,000 Credits
+        </a>
+        <p style="font-size: 13px; color: #888; margin-top: 15px;">
+            Join other successful organizations using our Pro tools to streamline their operations.
+        </p>
+    </div>
+
+    <div style="border-top: 1px solid #eeeeee; padding-top: 20px; color: #777; font-size: 13px; line-height: 1.5;">
+        <p>Questions? Reply to this email or contact our Priority Support team (available for Pro users).</p>
+    </div>
+    `
+    );
+
+    return { subject, htmlContent };
+};

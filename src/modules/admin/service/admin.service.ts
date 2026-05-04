@@ -363,6 +363,7 @@ export class AdminService {
                     <p>This is to inform you that your password has been reset. Your new password is: <strong>${newPassword}</strong></p>
                     <p>If you did not request this, please contact support immediately.</p>
                 `,
+
         }).catch(err => console.error('Failed to send reset email:', err));;
         return result;
     }
@@ -460,7 +461,7 @@ export class AdminService {
             this.prisma.creditTransaction.groupBy({
                 by: ['org_id'],
                 where: revenueWhere,
-                orderBy:{
+                orderBy: {
                     org_id: 'asc'
                 }
             }),

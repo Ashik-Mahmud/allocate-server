@@ -4,12 +4,22 @@ import {
     buildAnnouncementEmailTemplate,
     buildForgotPasswordEmailTemplate,
     buildStaffInviteEmailTemplate,
+    buildUpgradePlanEmailTemplate,
     buildVerifyEmailTemplate,
     buildVerifyOtpEmailTemplate,
     buildWelcomeEmailTemplate,
     type EmailTemplate,
 } from "../templates";
+import { EmailTemplateId } from "src/utils/notification-dispatcher";
 
+type GlobalEmailOptions = {
+    to: string
+    name: string;
+    subject: string;
+    htmlContent: string;
+    metadata?: Record<string, any>;
+    templateId?: EmailTemplateId; // Optional template ID for predefined templates
+}
 // Write Email service code
 @Injectable()
 export class EmailService {
@@ -141,20 +151,43 @@ export class EmailService {
     }
 
     // Global Email Sending Template for various use cases
+
+
     async sendGlobalEmail(options: {
         to: string;
         name: string;
         subject: string;
         htmlContent: string;
+        metadata?: Record<string, any>;
+        htmlTemplateId?: EmailTemplateId; // Optional template ID for predefined templates
     }) {
-        const template = buildAnnouncementEmailTemplate({
-            name: options.name,
-            heading: options.subject,
-            title: options.subject,
-            message: options.htmlContent,
-            ctaUrl: process.env.WEB_APP_LINK || 'http://localhost:3000',
-            ctaLabel: 'View App',
-        });
+        const template = this.getTemplateById(options, options.htmlTemplateId);
         return this.sendTemplateEmail(options.to, options.name, template);
     }
+
+
+    // define template based on templateId if needed in the future
+    private getTemplateById(options: GlobalEmailOptions, templateId?: EmailTemplateId): EmailTemplate {
+        switch (templateId) {
+            case 'upgrade_plan_reminder':
+                return buildUpgradePlanEmailTemplate({
+                    name: options.name,
+                    title: options.subject,
+                    heading: options.subject,
+                    message: options.htmlContent,
+                    metadata: options.metadata,
+                });
+            default:
+                return buildAnnouncementEmailTemplate({
+                    name: options.name,
+                    heading: options.subject,
+                    title: options.subject,
+                    message: options.htmlContent,
+                    ctaUrl: process.env.WEB_APP_LINK || 'http://localhost:3000',
+                    ctaLabel: 'View App',
+                });
+        }
+    }
+
+
 }
