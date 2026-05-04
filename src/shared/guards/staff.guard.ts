@@ -4,6 +4,7 @@ import {
   ExecutionContext,
   ForbiddenException,
 } from '@nestjs/common';
+import { Role } from '@prisma/client';
 
 /**
  * StaffGuard - Restricts access to STAFF role only
@@ -22,7 +23,7 @@ export class StaffGuard implements CanActivate {
       throw new ForbiddenException('User not authenticated');
     }
 
-    if (user.role !== 'STAFF') {
+    if (user.role !== Role.STAFF) {
       throw new ForbiddenException('This action is only available for staff members');
     }
 

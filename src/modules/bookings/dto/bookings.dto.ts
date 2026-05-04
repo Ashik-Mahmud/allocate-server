@@ -1,25 +1,3 @@
-/* model Bookings {
-  id                  String         @id @default(cuid())
-  user_id             String
-  resource_id         String
-  org_id              String
-  start_time          DateTime
-  end_time            DateTime
-  total_cost          Decimal
-  status              BookingStatus? @default(PENDING)
-  cancellation_reason String?
-  deletedAt           DateTime?
-  createdAt           DateTime?       @default(now())
-  updatedAt           DateTime?       @updatedAt
-
-  user               User                @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  organization       Organizations       @relation(fields: [org_id], references: [id], onDelete: Cascade)
-  resource           Resources           @relation(fields: [resource_id], references: [id], onDelete: Cascade)
-  creditTransactions CreditTransaction[]
-
-  @@index([user_id, resource_id, org_id])
-  @@map("bookings")
-} */
 
 // Using Zod for validation
 import { z } from 'zod';
@@ -45,7 +23,7 @@ export const UpdateBookingSchema = z.object({
 // DTO for booking status update
 export const UpdateBookingStatusSchema = z.object({
     cancellation_reason: z.string().optional(), // Optional cancellation reason when status is CANCELLED
-    status: z.enum(['PENDING', 'CONFIRMED', 'REJECTED', 'CANCELLED', 'COMPLETED']).optional(),
+    status: z.enum(['PENDING', 'CONFIRMED', 'REJECTED', 'CANCELLED', 'COMPLETED', 'CHECKED_IN']).optional(),
 });
 
 export class CreateBookingDto extends createZodDto(CreateBookingSchema) { }

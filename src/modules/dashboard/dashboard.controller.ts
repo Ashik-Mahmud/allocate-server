@@ -4,6 +4,8 @@ import { AuthGuard } from '../auth/guards/auth.guard';
 import { DashboardService } from './dashboard.service';
 import { CurrentUser } from 'src/shared/decorators/user.decorator';
 import { Role, User } from '@prisma/client';
+import { ClientGuard, RolesGuard, StaffGuard } from 'src/shared/guards';
+import { Roles } from 'src/shared/decorators/roles.decorator';
 
 @ApiTags('Dashboard')
 @ApiBearerAuth()
@@ -14,23 +16,63 @@ export class DashboardController {
     constructor(private service: DashboardService) { }
 
     /**
-     * Get Organization/Staff/Admin dashboard Overview
+     * Get System Admin dashboard Overview
      * Returns key metrics and insights about the organization
      */
-    @Get('overview')
-    @ApiResponse({ status: 200, description: 'Organization/Staff/Admin dashboard overview' })
+    @Get('system-insights')
+    @UseGuards(RolesGuard)
+    @Roles(Role.ADMIN) // Only ADMIN role can access this endpoint
+    @ApiResponse({ status: 200, description: 'System Admin dashboard overview' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
-    @ApiOperation({ summary: 'Get dashboard overview', description: 'Returns key metrics and insights about the dashboard for STAFF, ADMIN, ORG_ADMIN' })
+    @ApiOperation({ summary: 'Get dashboard overview', description: 'Returns key metrics and insights about the dashboard for system administrators' })
     async getDashboardOverview(@CurrentUser() user: User) {
         // Placeholder for actual implementation
-        switch (user.role) {
-            case Role.ORG_ADMIN:
-                return await this.service.getOrganizationOverview(user);
-            case Role.STAFF:
-                return await this.service.getStaffOverview(user);
-            case Role.ADMIN:
-                return await this.service.getAdminOverview(user);
-        }
+        const result = await this.service.getAdminOverview(user);
+        return {
+            insights: result,
+            message: 'Key metrics and insights about the dashboard'
+        };
     }
+
+    /**
+     * Get Organization dashboard Insights
+     * Returns detailed insights and analytics about the organization
+     * This endpoint can be used to fetch more granular data for analysis and decision-making
+     */
+    @Get('organization-insights')
+    @UseGuards(ClientGuard)
+    @ApiResponse({ status: 200, description: 'Organization/Staff/Admin dashboard insights' })
+    @ApiResponse({ status: 401, description: 'Unauthorized' })
+    @ApiOperation({ summary: 'Get organization insights', description: 'Returns detailed insights and analytics about the organization for STAFF, ADMIN, ORG_ADMIN' })
+    async getOrganizationInsights(@CurrentUser() user: User) {
+        // Placeholder for actual implementation
+        const result = await this.service.getOrganizationOverview(user);
+        return {
+            insights: result,
+            message: 'Detailed insights and analytics about the organization'
+        };
+    }
+
+    /**
+     * Get Staff dashboard Metrics
+     * Returns specific metrics related to the staff, such as user activity, resource usage, etc.
+     * This endpoint can be used to fetch specific metrics for monitoring and performance tracking
+     */
+    @Get('staff-insights')
+    @UseGuards(RolesGuard)
+    @Roles(Role.STAFF, Role.ADMIN, Role.ORG_ADMIN) // STAFF, ADMIN, and ORG_ADMIN roles can access this endpoint
+    @ApiResponse({ status: 200, description: 'Organization/Staff/Admin dashboard metrics' })
+    @ApiResponse({ status: 401, description: 'Unauthorized' })
+    @ApiOperation({ summary: 'Get staff insights', description: 'Returns specific metrics related to the staff for STAFF, ADMIN, ORG_ADMIN' })
+    async getStaffInsights(@CurrentUser() user: User) {
+        // Placeholder for actual implementation
+        const result = await this.service.getStaffOverview(user);
+        return {
+            insights: result,
+            message: 'Specific metrics related to the staff'
+        };
+    }
+
+
 
 }

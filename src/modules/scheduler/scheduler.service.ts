@@ -70,32 +70,106 @@ export class SchedulerService {
         }
     }
 
-    // Task 2: Auto-complete confirmed bookings that are past their completion time (runs every 5 minutes)
+    // Task 2: When will be the confirmed booking start we put the status to CHECEKD_IN if the start time is passed and the status is still confirmed and send notification to the user about the check-in time 
     @Cron(CronExpression.EVERY_5_MINUTES)
-    async autoCompleteConfirmedBookings() {
+    async autoCheckInConfirmedBookings() {
+        this.logger.log('Checking for confirmed bookings to auto-check-in...');
+        try {
+            const confirmedBookings = await this.prisma.bookings.findMany({
+                where: {
+                    status: BookingStatus.CONFIRMED,
+                    start_time: { lt: new Date() },
+                },
+                include: {
+                    user: { select: { id: true, email: true, name: true } },
+                },
+            });
+
+            if (confirmedBookings.length === 0) return;
+            await this.prisma.$transaction(async (tx) => {
+                const idList = confirmedBookings.map(b => b.id);
+
+                // 1. Updated booking status to CHECKED_IN for all the bookings which are confirmed and the start time is passed
+                await tx.bookings.updateMany({
+                    where: { id: { in: idList } },
+                    data: { status: BookingStatus.CHECKED_IN },
+                });
+
+                // 2. Updated resource status to occupied and added booking id to resource current booking relation
+                await Promise.all(
+                    confirmedBookings.map(booking =>
+                        tx.resources.update({
+                            where: { id: booking.resource_id },
+                            data: {
+                                is_occupied: true,
+                                currentBookingId: booking.id
+                            }
+                        })
+                    )
+                );
+            });
+            // 3. Notification to users about the check-in (Optional but good for UX)
+            const notificationPromises = confirmedBookings.map(booking =>
+                this.NotificationManager.send({
+                    userId: booking.user_id,
+                    message: `Your booking with ID ${booking.id} has been checked in. Enjoy your session!`,
+                    type: NotificationType.BOOKING_CHECKED_IN,
+                    title: 'Booking Checked In',
+                    orgId: booking.org_id,
+                    userEmail: booking.user.email,
+                    userName: booking.user.name
+                })
+            );
+
+            await Promise.allSettled(notificationPromises);
+
+
+
+            this.logger.log(`Auto-checked in ${confirmedBookings.length} bookings and sent notifications.`);
+        } catch (error) {
+            this.logger.error('Error auto-checking in bookings:', error);
+        }
+    }
+    // Task 3: Auto-complete checkedIn bookings that are past their completion time (runs every 5 minutes)
+    @Cron(CronExpression.EVERY_5_MINUTES)
+    async autoCompleteCheckedInBookings() {
         this.logger.log('Checking for completed bookings to auto-complete...');
         try {
-
-
             const now = new Date();
             const completedBookings = await this.prisma.bookings.findMany({
                 where: {
-                    status: BookingStatus.CONFIRMED,
-                    end_time: {
-                        lt: now
-                    },
+                    status: BookingStatus.CHECKED_IN, // Only consider bookings that were checked in but not yet completed
+                    end_time: { lt: now },
                 },
-                include: { user: { select: { id: true, email: true, name: true } }, organization: { select: { name: true } } },
+                include: {
+                    user: { select: { id: true, email: true, name: true } },
+                    organization: { select: { name: true } }
+                },
             });
 
             if (completedBookings.length === 0) return;
-            await this.prisma.bookings.updateMany({
-                where: {
-                    id: { in: completedBookings.map(b => b.id) }
-                },
-                data: { status: BookingStatus.COMPLETED },
+            await this.prisma.$transaction(async (tx) => {
+                const idList = completedBookings.map(b => b.id);
+
+                //  Update all relevant bookings to COMPLETED in a batch for efficiency
+                await tx.bookings.updateMany({
+                    where: { id: { in: idList } },
+                    data: { status: BookingStatus.COMPLETED },
+                });
+
+                // make resource unoccupied
+                for (const booking of completedBookings) {
+                    await tx.resources.update({
+                        where: { id: booking.resource_id },
+                        data: {
+                            is_occupied: false,
+                            currentBookingId: null
+                        }
+                    });
+                }
             });
-            this.logger.log(`Auto-completed ${completedBookings.length} bookings.`);
+
+            this.logger.log(`Auto-completed ${completedBookings.length} bookings and released resources.`);
             // 2. Notification (Optional but good for UX)
             const notificationPromises = completedBookings.map(booking =>
                 this.NotificationManager.send({
@@ -117,7 +191,7 @@ export class SchedulerService {
 
     }
 
-    // Task 3: Send reminders to Organizer for pending bookings to be confirmed (15 minutes before the booking)
+    // Task 4: Send reminders to Organizer for pending bookings to be confirmed (15 minutes before the booking)
     @Cron(CronExpression.EVERY_5_MINUTES)
     async sendBookingReminders() {
         this.logger.log('Checking for upcoming bookings to send reminders...');
@@ -179,7 +253,7 @@ export class SchedulerService {
         }
     }
 
-    // Task 4: Send follow-up notifications to Staff before their scheduled bookings (15 minutes before the booking)
+    // Task 5: Send follow-up notifications to Staff before their scheduled bookings (15 minutes before the booking)
     @Cron(CronExpression.EVERY_5_MINUTES)
     async sendStaffFollowUps() {
         this.logger.log('Checking for upcoming staff bookings to send follow-ups...');
@@ -247,7 +321,7 @@ export class SchedulerService {
         }
     }
 
-    // Task 5: Send Subscription Renewal Reminders every day to org admin with the day left for subscription expiry
+    // Task 6: Send Subscription Renewal Reminders every day to org admin with the day left for subscription expiry
     @Cron(CronExpression.EVERY_HOUR)
     async sendSubscriptionRenewalReminders() {
         this.logger.log('Checking for upcoming subscription expirations to send renewal reminders...');
@@ -329,7 +403,7 @@ export class SchedulerService {
         }
     }
 
-    // Task 6: Send Expired Subscription Notifications every day to org admin if the subscription is expired
+    // Task 7: Send Expired Subscription Notifications every day to org admin if the subscription is expired
     @Cron(CronExpression.EVERY_HOUR)
     async sendExpiredSubscriptionNotifications() {
         this.logger.log('Checking for expired subscriptions to send notifications...');
@@ -418,7 +492,7 @@ export class SchedulerService {
         }
     }
 
-    // Task 7: Send Free user Notification to upgrade Paid plan with the features and others stuff in every 15 days
+    // Task 8: Send Free user Notification to upgrade Paid plan with the features and others stuff in every 15 days
     @Cron('0 0 1,16 * *') // Runs at 00:00 on the 1st and 16th of every month
     async sendFreeUserUpgradeNotifications() {
         this.logger.log('Checking for free users to send notifications...');
@@ -493,7 +567,7 @@ export class SchedulerService {
         }
     }
 
-    // Task 8: Reset free users credits every month on the 1st day of the month
+    // Task 9: Reset free users credits every month on the 1st day of the month
     @Cron('0 0 1 * *') // Runs at 00:00 on the 1st of every month
     async resetFreeUserCredits() {
         this.logger.log('Resetting credits for free users...');
@@ -580,7 +654,7 @@ export class SchedulerService {
     }
 
 
-    // Task 9: Clean up old notifications and logs (e.g., older than 90 days) to keep the database optimized
+    // Task 10: Clean up old notifications and logs (e.g., older than 90 days) to keep the database optimized
     @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
     async cleanUpOldData() {
         this.logger.log('Cleaning up old notifications and logs...');
@@ -611,5 +685,9 @@ export class SchedulerService {
             this.logger.error('Error cleaning up old notifications and logs:', error);
         }
     }
+
+
+
+
 
 }

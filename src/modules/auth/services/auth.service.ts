@@ -338,6 +338,41 @@ export class AuthService {
       throw new NotFoundException('User not found');
     }
 
+    const activeOrNextBooking = await this.prisma.bookings.findFirst({
+      where: {
+        user_id: userId,
+        status: {
+          in: [BookingStatus.CHECKED_IN, BookingStatus.CONFIRMED],
+        },
+        OR: [
+          { status: BookingStatus.CHECKED_IN },
+          {
+            status: BookingStatus.CONFIRMED,
+            start_time: { gt: new Date() }
+          }
+        ]
+      },
+      orderBy: [
+        { status: 'desc' },
+        { start_time: 'asc' }
+      ],
+      select: {
+        id: true,
+        start_time: true,
+        end_time: true,
+        status: true,
+        resource: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            photo: true,
+            hourly_rate: true,
+            metadata: true,
+          }
+        }
+      }
+    });
     const nextBooking = await this.prisma.bookings.findFirst({
       where: {
         user_id: userId,
@@ -361,9 +396,12 @@ export class AuthService {
         }
       }
     });
+
+
     return {
       ...user,
-      ...(nextBooking && { nextBooking }),
+      activeBooking: activeOrNextBooking?.status === BookingStatus.CHECKED_IN ? activeOrNextBooking : null,
+      nextBooking: activeOrNextBooking?.status === BookingStatus.CONFIRMED ? activeOrNextBooking : null,
     };
   }
 
@@ -429,7 +467,6 @@ export class AuthService {
   // verify email
   async verifyEmail(token: string, user: User): Promise<void> {
 
-    console.log(token)
     const dbUser = await this.prisma.user.findUnique({
       where: { verification_token: token },
       select: { id: true, deletedAt: true, is_verified: true, token_expiry: true },

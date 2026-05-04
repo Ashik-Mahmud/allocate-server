@@ -66,22 +66,27 @@ model Organizations {
 }
 
 model Resources {
-  id             String          @id @default(cuid())
+  id             String        @id @default(cuid())
   org_id         String
-  organization   Organizations   @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  organization   Organizations @relation(fields: [org_id], references: [id], onDelete: Cascade)
   name           String
   type           String
   hourly_rate    Decimal
   photo          String?
   metadata       Json
-  is_available   Boolean         @default(true) // Indicates if the resource is currently available for booking (e.g. not under maintenance)
-  is_active      Boolean         @default(true) // Indicates if the resource is active in the system (e.g. not archived or deleted)
-  is_maintenance Boolean         @default(false)
+  is_available   Boolean       @default(true) // Indicates if the resource is currently available for booking (e.g. not under maintenance)
+  is_active      Boolean       @default(true) // Indicates if the resource is active in the system (e.g. not archived or deleted)
+  is_maintenance Boolean       @default(false)
+  is_occupied    Boolean       @default(false) // Indicates if the resource is currently occupied (i.e. has an active booking)
+
+  currentBookingId String?   @unique
+  currentBooking   Bookings? @relation("CurrentResourceBooking", fields: [currentBookingId], references: [id], onDelete: SetNull)
+
   deletedAt      DateTime?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   resourcesRules ResourcesRule[]
-  bookings       Bookings[]
+  bookings       Bookings[]      @relation("AllResourceBookings")
 
   @@index([org_id])
   @@map("resources")
@@ -147,9 +152,10 @@ model Bookings {
 
   user               User                @relation("BookingUser", fields: [user_id], references: [id], onDelete: Cascade)
   organization       Organizations       @relation(fields: [org_id], references: [id], onDelete: Cascade)
-  resource           Resources           @relation(fields: [resource_id], references: [id], onDelete: Cascade)
+  resource           Resources           @relation("AllResourceBookings", fields: [resource_id], references: [id], onDelete: Cascade)
   creator            User?               @relation("BookingCreator", fields: [created_by], references: [id], onDelete: SetNull)
   creditTransactions CreditTransaction[]
+  currentOfResource  Resources?          @relation("CurrentResourceBooking")
 
   @@index([user_id, resource_id, org_id, status])
   @@map("bookings")
@@ -252,6 +258,7 @@ enum BookingStatus {
   REJECTED
   CANCELLED
   COMPLETED
+  CHECKED_IN
 }
 
 enum InvitationStatus {
@@ -269,6 +276,7 @@ enum NotificationType {
   BOOKING_REMINDER
   BOOKING_CANCELLED
   BOOKING_COMPLETED
+  BOOKING_CHECKED_IN
 
   // RESOURCE Related
   RESOURCE_MAINTENANCE

@@ -497,6 +497,23 @@ export class ResourcesService {
                         metadata: true,
                         createdAt: true,
                         updatedAt: true,
+                        currentBooking: {
+                            select: {
+                                id: true,
+                                start_time: true,
+                                end_time: true,
+                                total_cost: true,
+                                user: {
+                                    select: {
+                                        id: true,
+                                        name: true,
+                                        email: true,
+                                        photo: true,
+                                    }
+                                }
+                            },
+                        },
+                        is_occupied: true,
 
                         organization: {
                             select: {
@@ -597,7 +614,23 @@ export class ResourcesService {
                         metadata: true,
                         createdAt: true,
                         updatedAt: true,
-
+                        currentBooking: {
+                            select: {
+                                id: true,
+                                start_time: true,
+                                end_time: true,
+                                total_cost: true,
+                                user: {
+                                    select: {
+                                        id: true,
+                                        name: true,
+                                        email: true,
+                                        photo: true,
+                                    }
+                                }
+                            },
+                        },
+                        is_occupied: true,
                         organization: {
                             select: {
                                 id: true,
@@ -659,7 +692,27 @@ export class ResourcesService {
                     org_id: user.org_id,
                     deletedAt: null,
                 },
+
                 include: {
+
+                    currentBooking: {
+                        select: {
+                            id: true,
+                            start_time: true,
+                            end_time: true,
+                            total_cost: true,
+                            metadata: true,
+                            user: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    email: true,
+                                    photo: true,
+                                }
+                            }
+                        },
+                    },
+
                     organization: {
                         select: {
                             id: true,
