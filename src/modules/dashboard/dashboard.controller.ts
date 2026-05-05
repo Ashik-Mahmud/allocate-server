@@ -2,7 +2,7 @@ import { Controller, Get, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { DashboardService } from './dashboard.service';
-import { CurrentUser } from 'src/shared/decorators/user.decorator';
+import { CurrentUser, CurrentUserType } from 'src/shared/decorators/user.decorator';
 import { Role, User } from '@prisma/client';
 import { ClientGuard, RolesGuard, StaffGuard } from 'src/shared/guards';
 import { Roles } from 'src/shared/decorators/roles.decorator';
@@ -64,7 +64,7 @@ export class DashboardController {
     @ApiResponse({ status: 200, description: 'Organization/Staff/Admin dashboard metrics' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiOperation({ summary: 'Get staff insights', description: 'Returns specific metrics related to the staff for STAFF, ADMIN, ORG_ADMIN' })
-    async getStaffInsights(@CurrentUser() user: User) {
+    async getStaffInsights(@CurrentUser() user: User & CurrentUserType) {
         // Placeholder for actual implementation
         const result = await this.service.getStaffOverview(user);
         return {

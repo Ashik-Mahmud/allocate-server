@@ -175,7 +175,7 @@ export class BookingsController {
     @ApiQuery({ name: 'userId', required: false, type: String, description: 'Filter by user ID' })
     @ApiQuery({ name: 'resourceId', required: false, type: String, description: 'Filter by resource ID' })
     @ApiQuery({ name: 'dateRange', required: false, type: String, description: 'Filter by date range (e.g. "2024-01-01 to 2024-01-07")' })
-    async getAllBookings(@CurrentUser() currentUser: User, @Query('query') query: AllBookingsQueryDto, @Res() res: Response) {
+    async getAllBookings(@CurrentUser() currentUser: User, @Query() query: AllBookingsQueryDto, @Res() res: Response) {
         const result = await this.service.getAllBookings(currentUser, query);
         return ResponseUtil.paginated(result.items, result.total, result.page, result.limit, res);
     }
