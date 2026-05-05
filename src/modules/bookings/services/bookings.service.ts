@@ -47,13 +47,16 @@ export class BookingsService {
         const ipAddress = (res.req?.headers['x-forwarded-for'] as string) || res.req?.ip || res.req?.connection?.remoteAddress || '';
 
         // check if the resource count more than the subscription limit for the organization but Org is free plan then throw an error
-        const resourceCount = await this.prisma.resources.count({ where: { org_id: currentUser?.org_id, is_active: true } });
+        const[resourceCount, staffCount] = await this.prisma.$transaction([
+            this.prisma.resources.count({ where: { org_id: currentUser?.org_id, is_active: true } }),
+            this.prisma.user.count({ where: { org_id: currentUser?.org_id,  deletedAt: null } }),
+        ]);
         const currentPlan = currentUser?.plan_type as PlanType || PlanType.FREE;
 
-        if (isSubscriptionLimitReached(currentPlan, 'MAX_RESOURCES', resourceCount)) {
-            const { MAX_RESOURCES } = getSubscriptionLimits(currentPlan);
+        if (isSubscriptionLimitReached(currentPlan, 'MAX_RESOURCES', resourceCount) || isSubscriptionLimitReached(currentPlan, 'MAX_USERS', staffCount)) {
+            const { MAX_RESOURCES, MAX_USERS } = getSubscriptionLimits(currentPlan);
             throw new ForbiddenException(
-                `Your organization is over the ${currentPlan} plan limit. This limit is ${MAX_RESOURCES} resources. Please upgrade to Pro to continue booking.`
+                `Your organization is over the ${currentPlan} plan limit. This limit is ${MAX_RESOURCES} resources & ${MAX_USERS} users. But you have ${resourceCount} resources & ${staffCount} users.  ${currentUser?.role === Role.STAFF ? 'Please contact your organization admin to upgrade the plan to continue booking.' : 'Please upgrade to Pro to continue booking.' }` 
             );
         }
 

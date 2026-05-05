@@ -9,6 +9,7 @@ import { EmailService } from 'src/modules/inbox/service/email.service';
 import { v4 as uuidv4 } from 'uuid';
 import { SharedService } from 'src/shared/services/shared.service';
 import { Response } from 'express';
+import { user } from 'node_modules/@getbrevo/brevo/dist/cjs/api';
 @Injectable()
 export class AuthService {
   constructor(
@@ -329,10 +330,20 @@ export class AuthService {
         org_id: true,
         last_login: true,
         personal_credits: true,
-        organization: role === Role.STAFF ? { select: selectOrgFieldsForStaff } : true,
+        organization: role === Role.STAFF ? { select: selectOrgFieldsForStaff } : {
+          include: {
+            _count: {
+              select: {
+                resources: true,
+                users: true,
+              }
+            }
+          }
+        },
         is_verified: true,
       },
     });
+    console.log(user, 'user')
 
     if (!user) {
       throw new NotFoundException('User not found');
@@ -373,29 +384,7 @@ export class AuthService {
         }
       }
     });
-    const nextBooking = await this.prisma.bookings.findFirst({
-      where: {
-        user_id: userId,
-        status: BookingStatus.CONFIRMED,
-        start_time: { gt: new Date() }
-      },
-      orderBy: { start_time: 'asc' },
-      select: {
-        start_time: true,
-        id: true,
-        resource: {
-          select:
-          {
-            name: true,
-            type: true,
-            photo: true,
-            hourly_rate: true,
-            metadata: true,
-            id: true
-          }
-        }
-      }
-    });
+
 
 
     return {
