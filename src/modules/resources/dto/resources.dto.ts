@@ -3,12 +3,13 @@
 import { z } from 'zod';
 import { createZodDto } from "nestjs-zod"
 import { is } from 'zod/v4/locales';
+import GLOBAL_CONFIG from 'src/shared/constant/global.constant';
 
 // DTO for creating a resource
 export const CreateResourceSchema = z.object({
     name: z.string().min(1, 'Name is required'),
     type: z.string().min(1, 'Type is required'),
-    hourly_rate: z.number().min(1, 'Hourly rate is required'),
+    hourly_rate: z.number().min(GLOBAL_CONFIG.MINMUM_HOURLY_RATE, `Hourly rate must be at least ${GLOBAL_CONFIG.MINMUM_HOURLY_RATE}`),
     photo: z.string().url('Photo must be a valid URL').optional(),
     metadata: z.record(z.string(), z.any()).optional(),
     is_available: z.boolean().default(true),
@@ -21,7 +22,7 @@ export const CreateResourceSchema = z.object({
 export const UpdateResourceSchema = z.object({
     name: z.string().min(1, 'Name is required').optional(),
     type: z.string().min(1, 'Type is required').optional(),
-    hourly_rate: z.number().min(1, 'Hourly rate is required').optional(),
+    hourly_rate: z.number().min(GLOBAL_CONFIG.MINMUM_HOURLY_RATE, `Hourly rate must be at least ${GLOBAL_CONFIG.MINMUM_HOURLY_RATE}`).optional(),
     photo: z.string().url('Photo must be a valid URL').optional(),
     metadata: z.record(z.string(), z.any()).optional(),
     is_available: z.boolean().optional(),

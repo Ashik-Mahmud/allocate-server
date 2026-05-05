@@ -7,6 +7,7 @@ import {
 } from './dashboard.utils';
 import { getWeekKeyInTimezone, resolveUserTimezone } from 'src/shared/utils/timezone.util';
 import { is } from 'zod/v4/locales';
+import { CurrentUserType } from 'src/shared/decorators/user.decorator';
 
 @Injectable()
 export class DashboardService {
@@ -150,7 +151,7 @@ export class DashboardService {
         };
     }
     // Staff overview can include metrics relevant to their bookings and activities
-    async getStaffOverview(user: User) {
+    async getStaffOverview(user: User & CurrentUserType) {
         this.requireOrgUser(user);
 
         const orgId = user.org_id as string;
@@ -328,7 +329,7 @@ export class DashboardService {
                 bookingId: booking.id,
                 resourceName: booking.resource.name,
                 status: booking.status,
-                description: `${user.name} used ${booking.resource.name} ${this.getRelativeTimeLabel(booking.createdAt)}`,
+                description: `${user?.name} used ${booking.resource.name} ${this.getRelativeTimeLabel(booking.createdAt)}`,
                 createdAt: booking.createdAt,
             })),
             mostUsedResources,

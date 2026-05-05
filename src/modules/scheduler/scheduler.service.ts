@@ -74,7 +74,7 @@ export class SchedulerService {
     }
 
     // Task 2: When will be the confirmed booking start we put the status to CHECEKD_IN if the start time is passed and the status is still confirmed and send notification to the user about the check-in time 
-    @Cron(CronExpression.EVERY_5_MINUTES)
+    @Cron(CronExpression.EVERY_MINUTE)
     async autoCheckInConfirmedBookings() {
         this.logger.log('Checking for confirmed bookings to auto-check-in...');
         try {
@@ -134,7 +134,7 @@ export class SchedulerService {
         }
     }
     // Task 3: Auto-complete checkedIn bookings that are past their completion time (runs every 5 minutes)
-    @Cron(CronExpression.EVERY_5_MINUTES)
+    @Cron(CronExpression.EVERY_MINUTE)
     async autoCompleteCheckedInBookings() {
         this.logger.log('Checking for completed bookings to auto-complete...');
         try {

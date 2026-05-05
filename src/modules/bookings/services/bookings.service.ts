@@ -233,7 +233,6 @@ export class BookingsService {
             }
 
             // Send notification 
-
             await this.bookingUtilService.handlePostBookingActions(booking, tx, currentUser, {
                 ipAddress: ipAddress,
                 userAgent: res.req?.headers['user-agent'] || '',

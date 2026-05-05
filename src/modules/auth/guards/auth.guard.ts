@@ -33,6 +33,7 @@ export class AuthGuard implements CanActivate {
         where: { id: payload.userId },
         select: {
           id: true,
+          name: true,
           email: true,
           role: true,
           deletedAt: true,
@@ -49,6 +50,7 @@ export class AuthGuard implements CanActivate {
 
       request.user = {
         id: user.id,
+        name: user?.name,
         email: user.email,
         role: user.role,
         org_id: user.org_id,

@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { Bookings, BookingStatus, NotificationType, Prisma, TransactionType, User } from "@prisma/client";
+import { Bookings, BookingStatus, NotificationType, Prisma, Role, TransactionType, User } from "@prisma/client";
 import { NotificationManager } from "src/modules/inbox/service/notification-manager.service";
 import { getBookingMessage } from "../constant/BookingMessages";
 import { SharedService } from "src/shared/services/shared.service";
@@ -57,34 +57,28 @@ export class BookingUtilService {
         options?: BookingUtilServiceOthersOptions,
     ) {
         const timezone = resolveUserTimezone(currentUser as any);
+        const tasks: Promise<any>[] = [];
 
         // Find Organization Admin
         const orgAdmin = await tx.user.findFirst({
-            where: { org_id: booking.org_id, role: 'ORG_ADMIN', deletedAt: null },
+            where: { org_id: booking.org_id, role: Role.ORG_ADMIN, deletedAt: null },
             select: { id: true, email: true, name: true },
         });
 
         const resourceName = booking?.resource?.name || 'resource';
         const requesterName = booking?.user?.name || 'Staff';
         const notificationType = this.getNotificationTypeBookingStatus(booking.status as BookingStatus);
-        const defaultStaffMessage = getBookingMessage(notificationType, 'STAFF', {
+        const templateData = {
             resourceName,
             requesterName,
             actorName: currentUser.name,
             startTime: booking?.start_time ? formatInTimezone(booking.start_time, timezone, { dateStyle: 'medium', timeStyle: 'short' }) : undefined,
             endTime: booking?.end_time ? formatInTimezone(booking.end_time, timezone, { dateStyle: 'medium', timeStyle: 'short' }) : undefined,
             cancelReason: options?.cancelReason,
-        });
-        const defaultAdminMessage = getBookingMessage(notificationType, 'ORG_ADMIN', {
-            resourceName,
-            requesterName,
-            actorName: currentUser.name,
-            startTime: booking?.start_time ? formatInTimezone(booking.start_time, timezone, { dateStyle: 'medium', timeStyle: 'short' }) : undefined,
-            endTime: booking?.end_time ? formatInTimezone(booking.end_time, timezone, { dateStyle: 'medium', timeStyle: 'short' }) : undefined,
-            cancelReason: options?.cancelReason,
-        });
+        };
+        const defaultStaffMessage = getBookingMessage(notificationType, 'STAFF', templateData);
+        const defaultAdminMessage = getBookingMessage(notificationType, 'ORG_ADMIN', templateData);
 
-        const tasks: Promise<any>[] = [];
 
         // Staff Notification
         tasks.push(
@@ -117,7 +111,8 @@ export class BookingUtilService {
         );
 
         // Organization Admin Notification (if exists)
-        if (orgAdmin && options?.notifications?.orgAdmin?.enabled !== false) {
+        const isAdminTheRequester = orgAdmin?.id === booking.user_id;
+        if (orgAdmin && !isAdminTheRequester && options?.notifications?.orgAdmin?.enabled !== false) {
             tasks.push(
                 this.notificationManager.send({
                     userId: orgAdmin.id,
@@ -159,9 +154,10 @@ export class BookingUtilService {
             const previousBalance = Number(
                 options?.creditTransaction?.previousBalance ?? booking.user?.personal_credits ?? 0,
             );
+            const isRefund = options?.creditTransaction?.type === TransactionType.REFUND;
             const currentBalance =
                 options?.creditTransaction?.currentBalance ??
-                (options?.creditTransaction?.type === TransactionType.REFUND
+                (isRefund
                     ? previousBalance + amount
                     : previousBalance - amount);
 

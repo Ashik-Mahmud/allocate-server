@@ -3,6 +3,7 @@ import { User } from '@prisma/client'
 
 export type CurrentUserType = {
     id: string;
+    naem: string;
     email: string;
     role: string;
     org_id: string;
