@@ -79,6 +79,7 @@ model Resources {
   is_active      Boolean       @default(true) // Indicates if the resource is active in the system (e.g. not archived or deleted)
   is_maintenance Boolean       @default(false)
   is_occupied    Boolean       @default(false) // Indicates if the resource is currently occupied (i.e. has an active booking)
+  isAutoConfirm     Boolean       @default(false) // If true, bookings for this resource will be auto-confirmed without admin approval
 
   currentBookingId String?   @unique
   currentBooking   Bookings? @relation("CurrentResourceBooking", fields: [currentBookingId], references: [id], onDelete: SetNull)

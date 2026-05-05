@@ -156,7 +156,11 @@ export class DashboardService {
         const orgId = user.org_id as string;
         const now = new Date();
 
-        const [latestTransactions, totalSpentAgg, bookings, recentActivity, mostUsedResource, currentMonthCredits] = await Promise.all([
+        const [availableCredits, latestTransactions, totalSpentAgg, bookings, recentActivity, mostUsedResource, currentMonthCredits] = await Promise.all([
+            this.prisma.user.findUnique({
+                where: { id: user.id, org_id: orgId },
+                select: { personal_credits: true },
+            }),
             this.prisma.creditTransaction.findMany({
                 where: {
                     org_id: orgId,
@@ -177,7 +181,7 @@ export class DashboardService {
                 where: {
                     org_id: orgId,
                     user_id: user.id,
-                    type: 'SPEND',
+                    type: TransactionType.SPEND,
                 },
                 _sum: { amount: true },
             }),
@@ -198,6 +202,7 @@ export class DashboardService {
                     },
                 },
                 orderBy: { createdAt: 'desc' },
+                take: 5,
             }),
             this.prisma.bookings.findMany({
                 where: {
@@ -219,7 +224,7 @@ export class DashboardService {
                     },
                 },
                 orderBy: { createdAt: 'desc' },
-                take: 10,
+                take: 4,
             }),
             //find the most used resource by the user in the organization
             await this.prisma.resources.findMany({
@@ -255,7 +260,7 @@ export class DashboardService {
                         _count: 'desc',
                     },
                 },
-                take: 3,
+                take: 5,
             }),
             this.prisma.creditTransaction.aggregate({
                 where: {
@@ -271,7 +276,7 @@ export class DashboardService {
         ]);
 
         const totalSpent = Number(totalSpentAgg._sum.amount || 0);
-        const currentBalance = Number(user.personal_credits || 0);
+        const currentBalance = Number(availableCredits?.personal_credits || 0);
         const currentMonthSpent = Number(currentMonthCredits._sum.amount || 0);
         const lastTransaction = latestTransactions[0]
             ? {

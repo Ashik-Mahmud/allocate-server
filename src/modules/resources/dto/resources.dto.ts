@@ -2,6 +2,7 @@
 // Using Zod for validation
 import { z } from 'zod';
 import { createZodDto } from "nestjs-zod"
+import { is } from 'zod/v4/locales';
 
 // DTO for creating a resource
 export const CreateResourceSchema = z.object({
@@ -13,6 +14,7 @@ export const CreateResourceSchema = z.object({
     is_available: z.boolean().default(true),
     is_active: z.boolean().default(true),
     is_maintenance: z.boolean().default(false),
+    isAutoConfirm: z.boolean().default(false),
 });
 
 // DTO for updating a resource
@@ -25,6 +27,7 @@ export const UpdateResourceSchema = z.object({
     is_available: z.boolean().optional(),
     is_active: z.boolean().optional(),
     is_maintenance: z.boolean().optional(),
+    isAutoConfirm: z.boolean().optional(),
 });
 
 export class CreateResourceDto extends createZodDto(CreateResourceSchema) { }

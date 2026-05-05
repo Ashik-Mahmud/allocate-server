@@ -56,7 +56,7 @@ export class BookingsService {
         if (isSubscriptionLimitReached(currentPlan, 'MAX_RESOURCES', resourceCount) || isSubscriptionLimitReached(currentPlan, 'MAX_USERS', staffCount)) {
             const { MAX_RESOURCES, MAX_USERS } = getSubscriptionLimits(currentPlan);
             throw new ForbiddenException(
-                `Your organization is over the ${currentPlan} plan limit. This limit is ${MAX_RESOURCES} resources & ${MAX_USERS} users. But you have ${resourceCount} resources & ${staffCount} users.  ${currentUser?.role === Role.STAFF ? 'Please contact your organization admin to upgrade the plan to continue booking.' : 'Please upgrade to Pro to continue booking.' }` 
+                `Your organization is over the ${currentPlan} plan limit. This limit is ${MAX_RESOURCES} resources & ${MAX_USERS} users. But you have ${resourceCount} resources & ${staffCount} users.  ${currentUser?.role === Role.STAFF ? 'Please contact your organization admin to upgrade the plan to continue booking.' : 'Please upgrade to Pro to continue booking or reduce the number of users and resources to align with your plan.' }` 
             );
         }
 
@@ -160,7 +160,7 @@ export class BookingsService {
                 _sum: { total_cost: true }
             });
             const pendingCredits = pendingBookings._sum.total_cost || 0;
-            const bookingStatus = (currentUser.role === Role.ORG_ADMIN) ? BookingStatus.CONFIRMED : BookingStatus.PENDING;            // Check if user is STAFF then credits will be deducted from personal credits otherwise from organization credits
+            const bookingStatus = (currentUser.role === Role.ORG_ADMIN || resource?.isAutoConfirm) ? BookingStatus.CONFIRMED : BookingStatus.PENDING;            // Check if user is STAFF then credits will be deducted from personal credits otherwise from organization credits
 
             const userTotalRequired = totalCost + pendingCredits;
             if (Number(user.personal_credits || 0) < userTotalRequired) {

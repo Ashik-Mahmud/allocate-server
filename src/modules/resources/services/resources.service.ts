@@ -439,7 +439,6 @@ export class ResourcesService {
             throw new ForbiddenException('User organization not found');
         }
 
-        console.log(is_active, is_maintenance)
         const organization = await this.prisma.organizations.findUnique({
             where: { id: user.org_id },
             select: { id: true, is_active: true },
@@ -497,6 +496,7 @@ export class ResourcesService {
                         is_available: true,
                         is_active: true,
                         is_maintenance: true,
+                        isAutoConfirm: true,
                         photo: true,
                         metadata: true,
                         createdAt: true,
@@ -619,6 +619,7 @@ export class ResourcesService {
                         createdAt: true,
                         updatedAt: true,
                         is_occupied: true,
+                        isAutoConfirm: true,
                         organization: {
                             select: {
                                 id: true,

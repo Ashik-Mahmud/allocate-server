@@ -343,7 +343,6 @@ export class AuthService {
         is_verified: true,
       },
     });
-    console.log(user, 'user')
 
     if (!user) {
       throw new NotFoundException('User not found');

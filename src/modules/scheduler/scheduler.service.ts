@@ -25,13 +25,15 @@ export class SchedulerService {
 
 
             const now = new Date();
-            const bufferTime = new Date(now.getTime() - 10 * 60000);
+            const cancellationThreshold = new Date(now.getTime() + 10 * 60000);
             // 1. Fetch bookings that need cancellation
             const expiredBookings = await this.prisma.bookings.findMany({
                 where: {
                     status: BookingStatus.PENDING,
                     start_time: {
-                        lt: bufferTime
+                        lt: now
+                        // lte: cancellationThreshold,
+                        // gte: now
                     },
                 },
                 include: { user: { select: { id: true, email: true, name: true } } },
@@ -197,15 +199,16 @@ export class SchedulerService {
     async sendBookingReminders() {
         this.logger.log('Checking for upcoming bookings to send reminders...');
         try {
-            const now = Date.now();
-            const windowStart = new Date(now + 15 * 60000);
-            const windowEnd = new Date(now + 25 * 60000);
+            const now = new Date();
+
+            const reminderThreshold = new Date(now.getTime() + 15 * 60000);
+            const windowEnd = new Date(now.getTime() + 20 * 60000);
             const upcomingBookings = await this.prisma.bookings.findMany({
                 where: {
                     status: BookingStatus.PENDING,
                     start_time: {
-                        gte: windowStart,
-                        lt: windowEnd,
+                        gte: reminderThreshold,
+                        lte: windowEnd,
                     },
                 },
                 include: {
@@ -257,15 +260,15 @@ export class SchedulerService {
     async sendStaffFollowUps() {
         this.logger.log('Checking for upcoming staff bookings to send follow-ups...');
         try {
-            const now = Date.now();
-            const windowStart = new Date(now + 15 * 60000); // 15 minutes window to send notifications for upcoming bookings
-            const windowEnd = new Date(now + 25 * 60000); // 15-25 minutes window to avoid sending notifications for bookings that are too close or already started
+            const now = new Date();
+            const windowStart = new Date(now.getTime() + 15 * 60000);
+            const windowEnd = new Date(now.getTime() + 20 * 60000);
             const staffBookings = await this.prisma.bookings.findMany({
                 where: {
                     status: BookingStatus.CONFIRMED,
                     start_time: {
                         gte: windowStart,
-                        lt: windowEnd,
+                        lte: windowEnd,
                     },
                 },
                 include: {
