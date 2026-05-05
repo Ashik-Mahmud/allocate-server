@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { BookingStatus, NotificationType, PlanType, Role, TransactionType } from '@prisma/client';
 import { NotificationManager } from '../inbox/service/notification-manager.service';
 import { SUBSCRIPTION_LIMITS } from 'src/shared/constant/subscription.constant';
+import { getDateKeyInTimezone } from 'src/shared/utils/timezone.util';
 
 @Injectable()
 export class SchedulerService {
@@ -196,8 +197,6 @@ export class SchedulerService {
     async sendBookingReminders() {
         this.logger.log('Checking for upcoming bookings to send reminders...');
         try {
-
-
             const now = Date.now();
             const windowStart = new Date(now + 15 * 60000);
             const windowEnd = new Date(now + 25 * 60000);
@@ -258,11 +257,9 @@ export class SchedulerService {
     async sendStaffFollowUps() {
         this.logger.log('Checking for upcoming staff bookings to send follow-ups...');
         try {
-
-
             const now = Date.now();
-            const windowStart = new Date(now + 15 * 60000);
-            const windowEnd = new Date(now + 25 * 60000);
+            const windowStart = new Date(now + 15 * 60000); // 15 minutes window to send notifications for upcoming bookings
+            const windowEnd = new Date(now + 25 * 60000); // 15-25 minutes window to avoid sending notifications for bookings that are too close or already started
             const staffBookings = await this.prisma.bookings.findMany({
                 where: {
                     status: BookingStatus.CONFIRMED,
@@ -327,7 +324,6 @@ export class SchedulerService {
         this.logger.log('Checking for upcoming subscription expirations to send renewal reminders...');
         try {
 
-
             // 1. Get the current date in UTC and set to start of day (00:00:00.000)
             const now = new Date();
             const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60000);
@@ -379,7 +375,16 @@ export class SchedulerService {
                     year: 'numeric',
                     timeZone: (subscription.organization).timezone || 'Asia/Dhaka'
                 });
-                const broadMessage = `Important: Your subscription for "${orgName}" will expire in ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} (on ${formattedDate}). Please renew your plan to ensure uninterrupted access to your dashboard and services. Note: If you do not renew, your subscription will automatically downgrade to the Free Tier upon expiration.`;
+                const maxStaff = SUBSCRIPTION_LIMITS[PlanType.FREE].MAX_USERS;
+                const maxResources = SUBSCRIPTION_LIMITS[PlanType.FREE].MAX_RESOURCES;
+                const broadMessage = `
+                Important: Your subscription for "${orgName}" will expire in ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} (on ${formattedDate}). 
+                Please renew your plan to ensure uninterrupted access to your dashboard and services. 
+                If you do not renew, your subscription will automatically downgrade to the Free Tier upon expiration. 
+                ACTION REQUIRED: Since the Free Tier only supports up to ${maxResources} resources and ${maxStaff} staff members, and your current usage exceeds these limits, your booking capabilities will be disabled upon downgrade. You will need to either upgrade back to Pro or reduce your resources/staff to regain access.
+                Don't disrupt your workflow—Renew Now! 🚀
+                 
+                 `;
 
                 admins.forEach(admin => {
                     notificationPromises.push(
@@ -463,13 +468,24 @@ export class SchedulerService {
                         where: { id: orgId },
                         data: {
                             credit_pool: freeLimit,
+                            plan_type: PlanType.FREE,
+                            weeklyReportEnabled: false,
                             frozen_credits: { increment: excessCredits }
                         }
                     })
                 ]);
 
 
-                const broadMessage = `Your "${orgName}" ${expiredPlanName} plan has expired. Your excess ${excessCredits} credits are frozen and your account is moved to the Free Tier. Don't worry, your remaining ${excessCredits} credits will be restored immediately once you upgrade back to Pro!. `;
+                // const broadMessage = `Your "${orgName}" ${expiredPlanName} plan has expired. Your excess ${excessCredits} credits are frozen and your account is moved to the Free Tier. Don't worry, your remaining ${excessCredits} credits will be restored immediately once you upgrade back to Pro!. `;
+                const maxStaff = SUBSCRIPTION_LIMITS[PlanType.FREE].MAX_USERS;
+                const maxResources = SUBSCRIPTION_LIMITS[PlanType.FREE].MAX_RESOURCES;
+                const broadMessage = `Your "${orgName}" ${expiredPlanName} plan has expired. \n
+                                    Your account has been moved to the Free Tier. As a result: \n
+                                    1. Your excess ${excessCredits} credits are now frozen (Upgrade to restore them).\n
+                                    2. If your organization exceeds the Free Tier limits (Max ${maxResources} Resources & ${maxStaff} Staff) ⚠️ Booking will be DISABLED until you upgrade or reduce your usage of resources and staff.\n
+                                    To resume your bookings and unlock your frozen credits, please upgrade back to the Pro Plan!`;
+
+
                 admins.forEach(admin => {
                     notificationPromises.push(
                         this.NotificationManager.send({
@@ -505,7 +521,7 @@ export class SchedulerService {
                     is_active: true,
                     // Only target users who have been on the free plan for more than 7 days to avoid spamming new sign-ups
                     createdAt: {
-                        // lt: new Date(now.getTime() - 7 * 24 * 60 * 60000)
+                        lt: new Date(now.getTime() - 7 * 24 * 60 * 60000)
                     },
                     OR: [
                         { last_reminder_sent: null },
@@ -533,7 +549,20 @@ export class SchedulerService {
                 const orgName = sub?.organization?.name || 'your organization';
 
 
-                const upgradeMessage = `Unlock the full power of ${orgName}! 🚀 Upgrade to our Pro Plan to get advanced analytics, unlimited team members, and priority support. Don't let your growth slow down.`;
+                // const upgradeMessage = `Unlock the full power of ${orgName}! 🚀 Upgrade to our Pro Plan to get advanced analytics, unlimited team members, and priority support. Don't let your growth slow down.`;
+                const maxStaff = SUBSCRIPTION_LIMITS.FREE.MAX_USERS;
+                const maxResources = SUBSCRIPTION_LIMITS.FREE.MAX_RESOURCES;
+                const upgradeMessage = `Ready to take "${orgName}" to the next level? 🚀 
+                    \n
+                    Currently, you're on our Free Tier, which is great for getting started. But why stop there? Unlock the full potential of your organization with our Pro Plan:
+                    \n
+                    ✅ Unlimited Staff Members: Grow your team without worrying about the ${maxStaff}-staff limit.\n
+                    ✅ Scalable Resources: Add as many resources as you need beyond the ${maxResources}-resource cap.\n
+                    ✅ Smart Scheduling: Get full access to our Calendar View and Advanced Analytics to optimize your bookings.\n
+                    ✅ Priority Support: We’re here for you 24/7 to ensure your operations never stop.\n
+                    ✅ Credit Perks: Enjoy a much larger monthly credit pool to keep your business running smoothly.\n\n
+
+                    Don't let plan limits slow down your growth. Upgrade today and start scaling like a pro!`;
 
                 await this.prisma.subscription.update({
                     where: { id: sub.id },
@@ -623,8 +652,10 @@ export class SchedulerService {
                     })
                 );
                 // Send notification to org admins about the credit reset   
-                const message = `Good news! Your monthly credits have been reset to ${freeLimit} for ${org.name}. Keep innovating and making the most out of our platform!`;
-
+                let message = `Good news! Your monthly credits have been reset to ${freeLimit} for ${org.name}. Keep innovating and making the most out of our platform! 🚀`;
+                if (Number(org?.frozen_credits || 0) > 0) {
+                    message += `\n\nNote: You also have ${org.frozen_credits} credits currently frozen. Upgrade to our Pro Plan anytime to unlock and add them to your current pool! 💎`;
+                }
                 admins.forEach(admin => {
                     notificationPromises.push(
                         this.NotificationManager.send({
@@ -687,7 +718,144 @@ export class SchedulerService {
     }
 
 
+    // Task 11: Send weekly reports to PRO organizations every Sunday morning at 8 AM based on their local timezone (if enabled)
+    @Cron('0 * * * *') // Run every hour to check for organizations that need to receive the report at that time based on their timezone
+    async sendWeeklyReports() {
+        this.logger.log('Checking for organizations to send weekly reports...');
+        try {
+            const organizations = await this.prisma.organizations.findMany({
+                where: {
+                    plan_type: { not: PlanType.FREE },
+                    is_active: true,
+                    weeklyReportEnabled: true,
+                    deletedAt: null,
+                },
+                include: { users: { where: { role: Role.ORG_ADMIN } } }
+            });
+            if (organizations.length === 0) return;
+            const orgsToNotify = organizations.filter(org => {
+                const timezone = org.timezone || 'UTC';
+                const orgNow = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
 
+                return orgNow.getDay() === 0 && orgNow.getHours() === 8;
+            });
+
+            if (orgsToNotify.length === 0) {
+                this.logger.log('No organizations to notify in this hour slot. Stopping.');
+                return;
+            }
+            // Calculate the date 7 days ago from now to fetch stats for the last week
+            const lastWeek = new Date();
+            lastWeek.setDate(lastWeek.getDate() - 7);
+
+            const notificationPromises = organizations.map(async (org) => {
+                // Fetch stats
+                const stats = await this.getOrganizationStats(org.id, lastWeek);
+                const adminPromises = org.users.map(admin => {
+                    return this.NotificationManager.send({
+                        userId: admin.id,
+                        type: NotificationType.WEEKLY_REPORT,
+                        title: `Your Weekly Report is Here! 📈`,
+                        message: `Weekly summary for ${org.name} is ready. Check it out ${admin.email}! `,
+                        userEmail: admin.email,
+                        userName: admin.name,
+                        emailTemplateId: 'weekly_report',
+                        orgId: org.id,
+                        metadata: {
+                            orgName: org.name,
+                            stats
+                        },
+                    });
+                });
+
+                return Promise.all(adminPromises);
+            });
+
+            await Promise.all(notificationPromises);
+            this.logger.log(`Sent weekly reports to ${orgsToNotify.length} organizations...`);
+        } catch (error) {
+            this.logger.error('Error sending weekly reports:', error);
+        }
+    }
+
+    // Get organization stats for the weekly report
+    async getOrganizationStats(orgId: string, sinceDate: Date) {
+
+        const [
+            totalBookings,
+            cancelledBookings,
+            topResource,
+            topUser,
+            creditsUsed,
+            activeStaffCount,
+
+            bookingDays
+        ] = await Promise.all([
+            // 1. Total Bookings in the last 7 days
+            this.prisma.bookings.count({
+                where: { org_id: orgId, createdAt: { gte: sinceDate } }
+            }),
+
+            // 2. Cancelled Bookings
+            this.prisma.bookings.count({
+                where: { org_id: orgId, createdAt: { gte: sinceDate }, status: BookingStatus.CANCELLED }
+            }),
+
+            // 3. Top Resource (based on bookings in the last 7 days)
+            this.prisma.resources.findFirst({
+                where: { org_id: orgId, bookings: { some: { createdAt: { gte: sinceDate } } } },
+                orderBy: { bookings: { _count: 'desc' } },
+                select: { name: true }
+            }),
+
+            // 4. Top User (based on bookings in the last 7 days)
+            this.prisma.user.findFirst({
+                where: { org_id: orgId, bookings: { some: { createdAt: { gte: sinceDate } } } },
+                orderBy: { bookings: { _count: 'desc' } },
+                select: { name: true }
+            }),
+
+            // 5. Credit Usage
+            this.prisma.creditTransaction.aggregate({
+                where: {
+                    org_id: orgId,
+                    createdAt: { gte: sinceDate },
+                    type: TransactionType.SPEND
+                },
+                _sum: { amount: true }
+            }),
+
+            // 6. Active Staff
+            this.prisma.user.count({
+                where: { org_id: orgId, deletedAt: null, }
+            }),
+
+            // 7. Busiest Day Data
+            this.prisma.bookings.groupBy({
+                by: ['createdAt'],
+                where: { org_id: orgId, createdAt: { gte: sinceDate } },
+                _count: { id: true }
+            })
+        ]);
+
+        const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        const countsPerDay = new Array(7).fill(0);
+        bookingDays.forEach((b: any) => {
+            const dayIndex = new Date(b?.createdAt).getDay();
+            countsPerDay[dayIndex] += b._count.id;
+        });
+        const busiestDayIndex = countsPerDay.indexOf(Math.max(...countsPerDay));
+
+        return {
+            totalBookings,
+            cancelledBookings,
+            topResourceName: topResource?.name || 'No bookings',
+            topUserName: topUser?.name || 'No active user',
+            creditsUsed: creditsUsed?._sum?.amount || 0,
+            activeStaffCount,
+            busiestDay: totalBookings > 0 ? dayNames[busiestDayIndex] : 'N/A'
+        };
+    }
 
 
 }

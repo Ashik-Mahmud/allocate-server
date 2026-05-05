@@ -49,6 +49,7 @@ model Organizations {
   needUpdateOrg      Boolean?            @default(true)
   settings           Json?               @default("{\"notificationPreference\":{\"email\":true,\"sms\":false,\"push\":false, \"inApp\":true}}") // For future extensibility (e.g. notification preferences, etc.)
   isVerified         Boolean?            @default(false)
+  weeklyReportEnabled Boolean?            @default(false)
   deletedAt          DateTime?
   createdAt          DateTime?           @default(now())
   updatedAt          DateTime?           @updatedAt
@@ -298,6 +299,9 @@ enum NotificationType {
   SUBSCRIPTION_RENEWED
   SUBSCRIPTION_CANCELLED
   CREDIT_RESET
+
+  // Weekly Report
+  WEEKLY_REPORT
 
   // System
   SYSTEM_ALERT

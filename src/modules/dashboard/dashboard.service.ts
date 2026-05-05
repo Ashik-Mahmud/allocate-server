@@ -300,6 +300,10 @@ export class DashboardService {
             isOccupied: res.is_occupied,
             usageCount: res._count.bookings,
         })) || [];
+        /* **
+          1. Also update the plan of Organization when pro user rollback to free
+          2. 
+         */
 
         return {
             scope: 'personal',

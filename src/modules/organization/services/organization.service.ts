@@ -65,18 +65,15 @@ export class OrganizationService {
 
     // Update organization details
     async updateOrganization(id: string, updateOrganizationDto: UpdateOrganizationDto, clientId: string, response: Response) {
-        // check if clientId is provided in the query parameters
-
-        console.log(updateOrganizationDto, 'updateOrganizationDto')
-      
-        const targetedUserId = id || clientId ;
+        // check if clientId is provided in the query parameters      
+        const targetedUserId = id || clientId;
         if (!targetedUserId) {
             throw new Error(`Client with ID ${targetedUserId} not found`);
         }
         // check if client exists in the database
         const client = await this.prisma.user.findUnique({
             where: { id: targetedUserId },
-            select: { org_id: true, name: true, email: true, organization: { select: { id: true, name: true } } },
+            select: { org_id: true, name: true, email: true, organization: { select: { id: true, name: true, is_active: true, plan_type: true } } },
         });
 
         if (!client || !client.organization || !client?.org_id) {
@@ -85,6 +82,16 @@ export class OrganizationService {
 
         if (client.org_id !== client?.org_id) {
             throw new ForbiddenException('Client is not authorized to update this organization');
+        }
+
+        if (client?.organization?.is_active === false) {
+            throw new ForbiddenException('Your organization is not active. Please contact support.');
+        }
+
+        if (client?.organization?.plan_type === PlanType.FREE && updateOrganizationDto.weeklyReportEnabled === true) {
+            throw new ForbiddenException(
+                'Weekly reports are not available on the Free Plan. Please upgrade to the Pro Plan to access this feature.'
+            );
         }
 
         // Log activity for organization creation

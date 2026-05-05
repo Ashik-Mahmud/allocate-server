@@ -15,7 +15,7 @@ export interface NotificationPreferences {
  * Unified notification data structure
  * Pass this to the dispatcher and it handles all channels
  */
-export type EmailTemplateId = 'upgrade_plan_reminder' | 'account_deletion' | 'credit_reset'; // Extendable for future templates
+export type EmailTemplateId = 'upgrade_plan_reminder' | 'account_deletion' | 'credit_reset' | 'weekly_report'; // Extendable for future templates
 
 
 export interface NotificationPayload {

@@ -8,6 +8,7 @@ import {
     buildUpgradePlanEmailTemplate,
     buildVerifyEmailTemplate,
     buildVerifyOtpEmailTemplate,
+    buildWeeklyReportEmailTemplate,
     buildWelcomeEmailTemplate,
     type EmailTemplate,
 } from "../templates";
@@ -183,6 +184,15 @@ export class EmailService {
                     name: options.name,
                     title: options.subject,
                     heading: options.subject,
+                    message: options.htmlContent,
+                    metadata: options.metadata,
+                });
+
+            case 'weekly_report':
+                return buildWeeklyReportEmailTemplate({
+                    name: options.name,
+                    heading: options.subject,
+                    title: options.subject,
                     message: options.htmlContent,
                     metadata: options.metadata,
                 });

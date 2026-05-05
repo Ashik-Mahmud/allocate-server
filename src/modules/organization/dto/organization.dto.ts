@@ -23,6 +23,7 @@ export const UpdateOrganizationSchema = z.object({
     photo: z.string().optional(),
     is_active: z.boolean().optional(),
     timezone: z.string().optional(),
+    weeklyReportEnabled: z.boolean().optional(),
     settings: z.record(z.string(), z.any()).optional(),
     address: z.record(z.string(), z.string()).optional(),
     business_email: z.string().email().optional(),

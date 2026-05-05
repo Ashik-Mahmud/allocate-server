@@ -349,7 +349,7 @@ export const buildCreditResetEmailTemplate = (rawOptions: AnnouncementOptions): 
     const options = withDefaults(rawOptions);
     const subject = `Your ${options?.metadata?.orgName} credits have been refilled! 🚀`;
     const billingUrl = `${options.appUrl}/dashboard/billing`;
-    
+
     // Metadata থেকে ডাটা নেওয়া
     const orgName = options?.metadata?.orgName || 'Your Organization';
     const newLimit = options?.metadata?.newCreditLimit || 100;
@@ -410,6 +410,92 @@ export const buildCreditResetEmailTemplate = (rawOptions: AnnouncementOptions): 
         <p>This is an automated notification regarding your monthly credit reset policy.</p>
     </div>
     `
+    );
+
+    return { subject, htmlContent };
+};
+
+// Weekly report email template
+export const buildWeeklyReportEmailTemplate = (rawOptions: AnnouncementOptions): EmailTemplate => {
+    const options = withDefaults(rawOptions);
+    const metadata = options.metadata || {};
+    const reportData = metadata.stats || {};
+    const orgName = metadata.orgName || 'Your Organization';
+    const subject = `Weekly Activity Report: ${orgName} 📊`;
+
+    const htmlContent = buildLayout(
+        options,
+        'Weekly Activity Summary',
+        `Hi ${escapeHtml(rawOptions.name)}, here is a summary of your organization's performance for the last 7 days.`,
+        `
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; color: #334155;">
+            
+            <!-- Date Badge -->
+            <div style="text-align: center; margin-bottom: 24px;">
+                <span style="background-color: #f1f5f9; color: #64748b; padding: 6px 14px; border-radius: 100px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Report Period: ${new Date().toLocaleDateString()} - Last 7 Days
+                </span>
+            </div>
+
+            <!-- Dashboard Style Metrics -->
+            <div style="display: table; width: 100%; border-spacing: 10px; margin-bottom: 20px;">
+                <div style="display: table-row;">
+                    <!-- Total Bookings Highlight -->
+                    <div style="display: table-cell; width: 40%; background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); border-radius: 16px; padding: 20px; color: #ffffff; vertical-align: top; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                        <p style="margin: 0; font-size: 12px; font-weight: 600; opacity: 0.9; text-transform: uppercase;">Total Bookings</p>
+                        <h1 style="margin: 8px 0; font-size: 42px; font-weight: 800;">${reportData.totalBookings || 0}</h1>
+                        <div style="background: rgba(255,255,255,0.2); display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 11px;">
+                            Busiest: <strong>${reportData.busiestDay || 'N/A'}</strong>
+                        </div>
+                    </div>
+
+                    <!-- Secondary Stats -->
+                    <div style="display: table-cell; vertical-align: top;">
+                        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; margin-bottom: 10px;">
+                            <p style="margin: 0; font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 600;">Top Resource</p>
+                            <p style="margin: 4px 0 0 0; font-size: 14px; font-weight: 700; color: #0f172a;">${reportData.topResourceName}</p>
+                        </div>
+                        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px;">
+                            <p style="margin: 0; font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 600;">Top Staff</p>
+                            <p style="margin: 4px 0 0 0; font-size: 14px; font-weight: 700; color: #0f172a;">${reportData.topUserName}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detail List Card -->
+            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; margin-bottom: 30px;">
+                <div style="padding: 16px 20px; border-bottom: 1px solid #f1f5f9; background: #f8fafc;">
+                    <h3 style="margin: 0; font-size: 14px; color: #0f172a; font-weight: 700;">Performance Breakdown</h3>
+                </div>
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="15" border="0">
+                    <tr>
+                        <td style="font-size: 14px; color: #475569; border-bottom: 1px solid #f1f5f9;">Credits Consumed</td>
+                        <td align="right" style="font-size: 14px; font-weight: 700; color: #0f172a; border-bottom: 1px solid #f1f5f9;">${reportData.creditsUsed || 0} Credits</td>
+                    </tr>
+                    <tr>
+                        <td style="font-size: 14px; color: #475569; border-bottom: 1px solid #f1f5f9;">Cancelled Bookings</td>
+                        <td align="right" style="font-size: 14px; font-weight: 700; color: #ef4444; border-bottom: 1px solid #f1f5f9;">${reportData.cancelledBookings || 0} Bookings</td>
+                    </tr>
+                    <tr>
+                        <td style="font-size: 14px; color: #475569;">Active Staff Count</td>
+                        <td align="right" style="font-size: 14px; font-weight: 700; color: #0f172a;">${reportData.activeStaffCount || 0} Staff</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Footer Section -->
+            <div style="text-align: center; border-top: 1px solid #e2e8f0; padding-top: 24px;">
+                <p style="margin: 0; font-size: 13px; color: #64748b; line-height: 1.6;">
+                    This insights report is an exclusive benefit of your <strong>Pro Plan</strong>. <br/>
+                    Visit your dashboard to view more insights and detailed logs.
+                </p>
+                <div style="margin-top: 20px; font-size: 11px; color: #cbd5e1;">
+                    © ${new Date().getFullYear()} Allocate Inc. All rights reserved.
+                </div>
+            </div>
+        </div>
+        `
     );
 
     return { subject, htmlContent };
