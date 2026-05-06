@@ -484,15 +484,15 @@ export class StaffService {
             },
         });
 
-        const totalPending = totalPendingCredits._sum.total_cost || 0;
-        const revokedCredits = Number(staff?.personal_credits || 0) - totalPending;
+        const totalPending = Number(totalPendingCredits._sum.total_cost || 0);
+        const currentBalance = Number(staff?.personal_credits || 0);
+        const withdrawableBalance = currentBalance - totalPending;
 
-        if (revokedCredits <= credits) {
+        if (withdrawableBalance < credits) {
             throw new BadRequestException(
-                `You cannot revoke ${credits} credits as there are ${totalPending} pending credits for this staff member. Please resolve pending bookings before revoking credits.`
+                `Cannot revoke ${credits} credits. The staff member has ${currentBalance} total credits, but ${totalPending} are locked for pending bookings. Only ${withdrawableBalance} credits are available to be revoked.`
             );
         }
-
         try {
             const updatedStaff = await this.prisma.$transaction(async (tx) => {
                 // Add credits to organization pool
