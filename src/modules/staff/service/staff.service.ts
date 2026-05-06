@@ -1,4 +1,4 @@
-import { NotificationType, PlanType, Prisma, PrismaClient, Role, TransactionType, User } from "@prisma/client";
+import { BookingStatus, NotificationType, PlanType, Prisma, PrismaClient, Role, TransactionType, User } from "@prisma/client";
 import { PrismaService } from "src/modules/prisma/prisma.service";
 import { CreateStaffDto, ManageCreditsDto, ManageMultipleStaffCreditsDto, UpdateStaffDto } from "../dto/staff.dto";
 import { CryptoUtils } from "src/modules/auth/utils/crypto";
@@ -476,6 +476,23 @@ export class StaffService {
             throw new BadRequestException('Staff member does not have enough credits to revoke');
         }
 
+        const totalPendingCredits = await this.prisma.bookings.aggregate({
+            _sum: { total_cost: true },
+            where: {
+                user_id: id,
+                status: { in: [BookingStatus.PENDING] },
+            },
+        });
+
+        const totalPending = totalPendingCredits._sum.total_cost || 0;
+        const revokedCredits = Number(staff?.personal_credits || 0) - totalPending;
+
+        if (revokedCredits <= credits) {
+            throw new BadRequestException(
+                `You cannot revoke ${credits} credits as there are ${totalPending} pending credits for this staff member. Please resolve pending bookings before revoking credits.`
+            );
+        }
+
         try {
             const updatedStaff = await this.prisma.$transaction(async (tx) => {
                 // Add credits to organization pool
@@ -639,7 +656,7 @@ export class StaffService {
                         type: TransactionType.ALLOCATE,
                         prevBalance: Number(staff.personal_credits || 0),
                         currBalance: Number(staff.personal_credits || 0) + sc.credits,
-                       // refId: `credit-${Date.now()}`,
+                        // refId: `credit-${Date.now()}`,
                         description: `Assigned ${sc.credits} credits to staff member with email ${staff.email} by ${user.email}`,
                         performedBy: user.id,
                     });
