@@ -5,8 +5,7 @@ import {
     buildPlanDistribution,
     buildRevenueTrend,
 } from './dashboard.utils';
-import { getWeekKeyInTimezone, resolveUserTimezone } from 'src/shared/utils/timezone.util';
-import { is } from 'zod/v4/locales';
+import { getDateKeyInTimezone, getStartOfDayUtc, getWeekKeyInTimezone, resolveUserTimezone } from 'src/shared/utils/timezone.util';
 import { CurrentUserType } from 'src/shared/decorators/user.decorator';
 
 @Injectable()
@@ -22,7 +21,7 @@ export class DashboardService {
     }
 
     // Organization overview can include metrics relevant to the entire organization
-    async getOrganizationOverview(user: User) {
+    async getOrganizationOverview(user: User & CurrentUserType) {
         this.requireOrgUser(user);
 
         if (user.role !== Role.ORG_ADMIN) {
@@ -49,7 +48,7 @@ export class DashboardService {
                 this.prisma.creditTransaction.aggregate({
                     where: {
                         org_id: orgId,
-                        type: { in: ['ALLOCATE', 'TOP_UP', 'ADJUSTMENT'] },
+                        type: { in: [TransactionType.ALLOCATE, TransactionType.TOP_UP, TransactionType.ADJUSTMENT] },
                     },
                     _sum: { amount: true },
                 }),
@@ -148,6 +147,329 @@ export class DashboardService {
                 message: `${booking.user.name} booked ${booking.resource.name} ${this.getRelativeTimeLabel(booking.createdAt)}`,
                 createdAt: booking.createdAt,
             })),
+        };
+    }
+
+    // Organization overview v2: strategic summary for organization admins
+    async getOrganizationOverviewV2(user: User & CurrentUserType) {
+        this.requireOrgUser(user);
+
+        if (user.role !== Role.ORG_ADMIN) {
+            throw new ForbiddenException('Organization overview is available for organization admins only');
+        }
+
+        const orgId = user.org_id as string;
+
+        const timezone = resolveUserTimezone(user as User & CurrentUserType);
+        const now = new Date();
+        const monthKey = getDateKeyInTimezone(now, timezone).slice(0, 7);
+        const monthStart = getStartOfDayUtc(`${monthKey}-01`, timezone);
+        const [
+            organization,
+            totalStaff,
+            totalCreditsAssignedAgg,
+            totalCreditsSpentThisMonthAgg,
+            lowCreditUsers,
+            allBookingsCount,
+            upcomingBookingsCount,
+            cancelledBookingsCount,
+            activeStaffThisMonth,
+            bookingStatusDistribution,
+            resourceUsage,
+            topSpenders,
+            recentStaffActivity,
+        ] = await Promise.all([
+            // organization details
+            this.prisma.organizations.findUnique({
+                where: { id: orgId },
+                select: { id: true, name: true, credit_pool: true },
+            }),
+            // total staff count
+            this.prisma.user.count({
+                where: {
+                    org_id: orgId,
+                    deletedAt: null,
+                    role: Role.STAFF,
+                },
+            }),
+            // total credits assigned
+            this.prisma.creditTransaction.aggregate({
+                where: {
+                    org_id: orgId,
+                    type: { in: [TransactionType.ALLOCATE, TransactionType.TOP_UP, TransactionType.ADJUSTMENT] },
+                },
+                _sum: { amount: true },
+            }),
+            // total credits spent this month
+            this.prisma.creditTransaction.aggregate({
+                where: {
+                    org_id: orgId,
+                    type: TransactionType.SPEND,
+                    createdAt: { gte: monthStart },
+                },
+                _sum: { amount: true },
+            }),
+            // low credit users
+            this.prisma.user.findMany({
+                where: {
+                    org_id: orgId,
+                    deletedAt: null,
+                    role: Role.STAFF,
+                    personal_credits: {
+                        lt: this.LOW_CREDIT_THRESHOLD,
+                    },
+                },
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    personal_credits: true,
+                },
+                orderBy: { personal_credits: 'asc' },
+            }),
+            // total bookings
+            this.prisma.bookings.count({
+                where: {
+                    org_id: orgId,
+                    deletedAt: null,
+                },
+            }),
+            // upcoming bookings
+            this.prisma.bookings.count({
+                where: {
+                    org_id: orgId,
+                    deletedAt: null,
+                    status: BookingStatus.PENDING,
+                },
+            }),
+            // cancelled bookings
+            this.prisma.bookings.count({
+                where: {
+                    org_id: orgId,
+                    deletedAt: null,
+                    status: BookingStatus.CANCELLED,
+                },
+            }),
+            // active staff this month
+            this.prisma.bookings.groupBy({
+                by: ['user_id'],
+                where: {
+                    org_id: orgId,
+                    deletedAt: null,
+                    createdAt: { gte: monthStart },
+                },
+                _count: { _all: true },
+            }),
+            // booking status distribution
+            this.prisma.bookings.groupBy({
+                by: ['status'],
+                where: {
+                    org_id: orgId,
+                    deletedAt: null,
+                },
+                _count: { _all: true },
+            }),
+            // resource usage
+            this.prisma.bookings.groupBy({
+                by: ['resource_id'],
+                where: {
+                    org_id: orgId,
+                    deletedAt: null,
+                },
+                _count: { _all: true },
+                orderBy: {
+                    _count: {
+                        resource_id: 'desc',
+                    },
+                },
+                take: 10,
+            }),
+            // top spenders this month
+            this.prisma.creditTransaction.groupBy({
+                by: ['user_id'],
+                where: {
+                    org_id: orgId,
+                    type: TransactionType.SPEND,
+                    createdAt: { gte: monthStart },
+                },
+                _sum: { amount: true },
+                orderBy: {
+                    _sum: {
+                        amount: 'desc',
+                    },
+                },
+                take: 5,
+            }),
+            // recent staff activity
+            this.prisma.bookings.findMany({
+                where: {
+                    org_id: orgId,
+                    deletedAt: null,
+                },
+                select: {
+                    id: true,
+                    createdAt: true,
+                    start_time: true,
+                    end_time: true,
+                    status: true,
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                        },
+                    },
+                    resource: {
+                        select: {
+                            id: true,
+                            name: true,
+                        },
+                    },
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 20,
+            }),
+        ]);
+
+        const organizationCreditPool = Number(organization?.credit_pool || 0);
+        const totalCreditsAssigned = Number(totalCreditsAssignedAgg._sum.amount || 0);
+        const totalCreditsSpentThisMonth = Number(totalCreditsSpentThisMonthAgg._sum.amount || 0);
+        const activeStaffThisMonthCount = activeStaffThisMonth.length;
+        const utilizationRate = totalStaff > 0 ? Math.round((activeStaffThisMonthCount / totalStaff) * 100) : 0;
+
+        const statusCountMap = new Map(
+            bookingStatusDistribution.map((row) => [row.status, row._count._all]),
+        );
+
+        const resourceIds = resourceUsage.map((row) => row.resource_id).filter(Boolean) as string[];
+        const resources = resourceIds.length
+            ? await this.prisma.resources.findMany({
+                where: { id: { in: resourceIds } },
+                select: { id: true, name: true },
+            })
+            : [];
+        const resourceNameMap = new Map(resources.map((resource) => [resource.id, resource.name]));
+
+        const resourceAnalytics = resourceUsage.map((row) => {
+            const bookingRows = recentStaffActivity.filter((activity) => activity.resource.id === row.resource_id);
+            const totalHours = bookingRows.reduce((sum, activity) => {
+                if (!activity.start_time || !activity.end_time) {
+                    return sum;
+                }
+
+                return sum + this.getBookingDurationMinutes(activity.start_time, activity.end_time) / 60;
+            }, 0);
+
+            return {
+                name: resourceNameMap.get(row.resource_id) || 'Unknown Resource',
+                bookings: row._count._all,
+                totalHours: Number(totalHours.toFixed(2)),
+            };
+        });
+
+        const userIdsForSpenders = topSpenders.map((row) => row.user_id).filter(Boolean) as string[];
+        const spenderUsers = userIdsForSpenders.length
+            ? await this.prisma.user.findMany({
+                where: { id: { in: userIdsForSpenders } },
+                select: { id: true, name: true },
+            })
+            : [];
+        const spenderNameMap = new Map(spenderUsers.map((entry) => [entry.id, entry.name]));
+
+        const topSpendersList = topSpenders.map((row) => ({
+            name: spenderNameMap.get(row.user_id) || 'Unknown User',
+            creditsSpent: Number(row._sum.amount || 0),
+        }));
+
+        const lowCreditAtZero = lowCreditUsers.filter((staff) => Number(staff.personal_credits || 0) === 0);
+        const lowCreditSeverityRatio = totalStaff > 0 ? (lowCreditUsers.length / totalStaff) : 0;
+        const creditCoverageRatio = totalCreditsAssigned > 0 ? (organizationCreditPool / totalCreditsAssigned) : 0;
+
+        const mostUsedResource = resourceAnalytics.length > 0 ? resourceAnalytics[0].name : null;
+
+        const activeStaffRankingMap = new Map<string, number>();
+        for (const activity of recentStaffActivity) {
+            const current = activeStaffRankingMap.get(activity.user.id) || 0;
+            activeStaffRankingMap.set(activity.user.id, current + 1);
+        }
+
+        const mostActiveStaff = Array.from(activeStaffRankingMap.entries())
+            .map(([staffId, count]) => {
+                const match = recentStaffActivity.find((item) => item.user.id === staffId);
+                return {
+                    staffId,
+                    staffName: match?.user.name || 'Unknown User',
+                    recentBookings: count,
+                };
+            })
+            .sort((a, b) => b.recentBookings - a.recentBookings)
+            .slice(0, 5);
+
+        const executiveSummary = [
+            `${organization?.name || 'Organization'} has ${totalStaff} staff with ${activeStaffThisMonthCount} active this month (${utilizationRate}% utilization), and ${allBookingsCount} total bookings with ${upcomingBookingsCount} upcoming bookings.`,
+            `Credit coverage is ${creditCoverageRatio.toFixed(2)}x (pool ${organizationCreditPool} vs assigned ${totalCreditsAssigned}), while ${lowCreditUsers.length} staff are below ${this.LOW_CREDIT_THRESHOLD} credits, including ${lowCreditAtZero.length} at zero.`,
+            `${mostUsedResource ? `${mostUsedResource} is the highest-demand resource currently` : 'No dominant resource trend detected yet'}, and pending/cancelled bookings are ${statusCountMap.get(BookingStatus.PENDING) || 0}/${statusCountMap.get(BookingStatus.CANCELLED) || 0}.`,
+        ].join(' ');
+
+        const criticalAlerts = lowCreditAtZero.map((staff) => ({
+            id: staff.id,
+            name: staff.name,
+            email: staff.email,
+            personalCredits: Number(staff.personal_credits || 0),
+            reason: 'Out of credits and at immediate risk of booking disruption',
+        }));
+
+        const activityInsights = {
+            bookingAndResourcePatterns: {
+                totalBookings: allBookingsCount,
+                upcomingBookings: upcomingBookingsCount,
+                bookingStatusDistribution: {
+                    confirmed: statusCountMap.get(BookingStatus.CONFIRMED) || 0,
+                    completed: statusCountMap.get(BookingStatus.COMPLETED) || 0,
+                    pending: statusCountMap.get(BookingStatus.PENDING) || 0,
+                    cancelled: statusCountMap.get(BookingStatus.CANCELLED) || 0,
+                },
+                mostUsedResource,
+                resourceAnalytics,
+            },
+            staffEngagement: {
+                totalStaff,
+                activeStaffThisMonth: activeStaffThisMonthCount,
+                mostActiveStaff,
+                lowCreditAlerts: lowCreditUsers.map((staff) => ({
+                    id: staff.id,
+                    name: staff.name,
+                    email: staff.email,
+                    personalCredits: Number(staff.personal_credits || 0),
+                })),
+            },
+            financialOverview: {
+                organizationCreditPool,
+                totalCreditsAssigned,
+                creditCoverageRatio: Number(creditCoverageRatio.toFixed(2)),
+                lowCreditAlertsCount: lowCreditUsers.length,
+                lowCreditSeverity: lowCreditSeverityRatio >= 0.4 ? 'HIGH' : lowCreditSeverityRatio >= 0.2 ? 'MEDIUM' : 'LOW',
+                totalCreditsSpentThisMonth,
+                topSpenders: topSpendersList,
+            },
+        };
+
+        const adminRecommendations = [
+            `Urgent: allocate credits immediately to ${lowCreditAtZero.length} zero-credit staff (${lowCreditAtZero.map((u) => u.name).join(', ') || 'none'}) to prevent booking interruptions.`,
+            `Efficiency: ${mostUsedResource ? `${mostUsedResource} demand is concentrated` : 'resource demand is fragmented'}; rebalance availability and monitor pending bookings (${upcomingBookingsCount}) to avoid scheduling bottlenecks.`,
+            `Growth: with a ${creditCoverageRatio.toFixed(2)}x pool-to-assigned ratio and ${allBookingsCount} bookings so far, ${creditCoverageRatio < 0.15 ? 'increase the org credit pool now for sustained growth' : 'current pool is acceptable short term, but trend monthly spend versus top-up cadence.'}`,
+        ];
+
+        return {
+            scope: 'organization-v2',
+            organization: {
+                id: organization?.id,
+                name: organization?.name,
+            },
+            timezone,
+            executiveSummary,
+            criticalAlerts,
+            activityInsights,
+            adminRecommendations,
         };
     }
     // Staff overview can include metrics relevant to their bookings and activities
