@@ -117,7 +117,7 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get user profile' })
   @ApiResponse({ status: 200, description: 'Profile retrieved successfully' })
-  async getProfile(@Req() req: Request, @Res() res: Response, @CurrentUser() user: User) {
+  async getProfile(@Req() req: Request, @Res() res: Response, @CurrentUser() user: User): Promise<any> {
     const profile = await this.authService.getProfile(req.user!.id, user?.role);
     return ResponseUtil.success(profile, res);
   }

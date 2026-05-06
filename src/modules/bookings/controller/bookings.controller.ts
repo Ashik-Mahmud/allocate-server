@@ -4,10 +4,10 @@ import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
 import { BookingsService } from '../services/bookings.service';
 import { RolesGuard, SubscriptionGuard, UserVerificationGuard } from 'src/shared/guards';
 import { Roles } from 'src/shared/decorators/roles.decorator';
-import { BookingStatus, PlanType, Role, User } from '@prisma/client';
+import { Bookings, BookingStatus, PlanType, Role, User } from '@prisma/client';
 import { CurrentUser, CurrentUserType } from 'src/shared/decorators/user.decorator';
 import { CreateBookingDto, UpdateBookingDto, UpdateBookingStatusDto } from '../dto/bookings.dto';
-import { ResponseUtil } from 'src/utils/responses';
+import { PaginatedResponse, ResponseUtil } from 'src/utils/responses';
 import { Response } from 'express';
 import { AllBookingsQueryDto, BookingStatsQueryDto, MyBookingsHistoryQueryDto } from '../dto/booking-filter.dto';
 import { SubscriptionPlans } from 'src/shared/decorators/subscription.decorator';
@@ -148,7 +148,7 @@ export class BookingsController {
     @ApiResponse({ status: 401, description: 'Unauthorized - Token required' })
     @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
 
-    async getMyBookingsHistory(@CurrentUser() currentUser: User, @Query() query:  MyBookingsHistoryQueryDto, @Res() res: Response) {
+    async getMyBookingsHistory(@CurrentUser() currentUser: User, @Query() query:  MyBookingsHistoryQueryDto, @Res() res: Response): Promise<PaginatedResponse<Bookings>> {
         const result = await this.service.getMyBookingsHistoryService(currentUser, query);
         return ResponseUtil.paginated(result.items, result.total, result.page, result.limit, res);
     }
@@ -175,7 +175,7 @@ export class BookingsController {
     @ApiQuery({ name: 'userId', required: false, type: String, description: 'Filter by user ID' })
     @ApiQuery({ name: 'resourceId', required: false, type: String, description: 'Filter by resource ID' })
     @ApiQuery({ name: 'dateRange', required: false, type: String, description: 'Filter by date range (e.g. "2024-01-01 to 2024-01-07")' })
-    async getAllBookings(@CurrentUser() currentUser: User, @Query() query: AllBookingsQueryDto, @Res() res: Response) {
+    async getAllBookings(@CurrentUser() currentUser: User, @Query() query: AllBookingsQueryDto, @Res() res: Response): Promise<PaginatedResponse<Bookings>> {
         const result = await this.service.getAllBookings(currentUser, query);
         return ResponseUtil.paginated(result.items, result.total, result.page, result.limit, res);
     }

@@ -272,19 +272,11 @@ export class SchedulerService {
                     },
                 },
                 include: {
-                    user: { select: { name: true } }, // Customer Name
+                    user: { select: { id: true, name: true, email: true } }, // Customer Name
                     organization: {
-                        include: {
-                            // Fetch users linked to this organization who have STAFF or ADMIN roles
-                            users: {
-                                where: {
-                                    role: { in: [Role.ORG_ADMIN, Role.STAFF] } // Adjust based on your Role enum
-                                },
-                                select: { id: true, email: true, name: true }
-                            }
-                        }
+                        select: { timezone: true }
                     },
-                    resource: { select: { name: true } } // Resource Name (e.g., "Room 101")
+                    resource: { select: { name: true, } } // Resource Name (e.g., "Room 101")
                 },
             });
 
@@ -293,27 +285,24 @@ export class SchedulerService {
             const notificationPromises: Promise<unknown>[] = [];
 
             for (const booking of staffBookings) {
-                const staffMembers = booking.organization.users;
-
+                const staff = booking.user;
                 const localTime = booking.start_time.toLocaleTimeString('en-US', {
                     timeZone: (booking.organization).timezone || 'UTC',
                     hour: '2-digit',
                     minute: '2-digit',
                 });
-
-                staffMembers.forEach(staff => notificationPromises.push(
+                notificationPromises.push(
                     this.NotificationManager.send({
                         userId: staff.id,
-                        message: `Upcoming session: ${booking.user.name} has booked ${booking.resource.name} at ${localTime}.`,
+                        message: `Hi ${staff.name}, your session at ${booking.resource.name} starts at ${localTime}. See you soon!`,
                         type: NotificationType.BOOKING_REMINDER,
-                        title: 'Upcoming Resource Usage',
+                        title: 'Upcoming Booking Reminder: Get Ready!',
                         orgId: booking.org_id,
                         userEmail: staff.email,
                         userName: staff.name
                     })
-                ));
+                );
             }
-
             await Promise.allSettled(notificationPromises);
             this.logger.log(`Sent staff follow-up notifications to ${staffBookings.length} bookings...`);
         } catch (error) {

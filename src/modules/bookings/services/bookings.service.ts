@@ -42,21 +42,22 @@ export class BookingsService {
         // basic time variables for later use
         const startTime = parseDateTimeInTimezone(start_time, timezone);
         const endTime = parseDateTimeInTimezone(end_time, timezone);
+
         const now = new Date();
         const userId = user_id || currentUser.id
         const ipAddress = (res.req?.headers['x-forwarded-for'] as string) || res.req?.ip || res.req?.connection?.remoteAddress || '';
 
         // check if the resource count more than the subscription limit for the organization but Org is free plan then throw an error
-        const[resourceCount, staffCount] = await this.prisma.$transaction([
+        const [resourceCount, staffCount] = await this.prisma.$transaction([
             this.prisma.resources.count({ where: { org_id: currentUser?.org_id, is_active: true } }),
-            this.prisma.user.count({ where: { org_id: currentUser?.org_id,  deletedAt: null } }),
+            this.prisma.user.count({ where: { org_id: currentUser?.org_id, deletedAt: null } }),
         ]);
         const currentPlan = currentUser?.plan_type as PlanType || PlanType.FREE;
+        const { MAX_RESOURCES, MAX_USERS } = getSubscriptionLimits(currentPlan);
 
-        if (isSubscriptionLimitReached(currentPlan, 'MAX_RESOURCES', resourceCount) || isSubscriptionLimitReached(currentPlan, 'MAX_USERS', staffCount)) {
-            const { MAX_RESOURCES, MAX_USERS } = getSubscriptionLimits(currentPlan);
+        if (currentPlan === PlanType.FREE && (resourceCount > MAX_RESOURCES || staffCount > MAX_USERS)) {
             throw new ForbiddenException(
-                `Your organization is over the ${currentPlan} plan limit. This limit is ${MAX_RESOURCES} resources & ${MAX_USERS} users. But you have ${resourceCount} resources & ${staffCount} users.  ${currentUser?.role === Role.STAFF ? 'Please contact your organization admin to upgrade the plan to continue booking.' : 'Please upgrade to Pro to continue booking or reduce the number of users and resources to align with your plan.' }` 
+                `Your organization is over the ${currentPlan} plan limit. This limit is ${MAX_RESOURCES} resources & ${MAX_USERS} users. But you have ${resourceCount} resources & ${staffCount} users.  ${currentUser?.role === Role.STAFF ? 'Please contact your organization admin to upgrade the plan to continue booking.' : 'Please upgrade to Pro to continue booking or reduce the number of users and resources to align with your plan.'}`
             );
         }
 
