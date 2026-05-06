@@ -31,6 +31,16 @@ const BookingMessages: Partial<Record<NotificationType, BookingMessageAudienceMa
             message: `${requesterName || 'A staff member'} booking for ${resourceName} was confirmed.`,
         }),
     },
+    BOOKING_COMPLETED: {
+        STAFF: ({ resourceName }) => ({
+            title: 'Booking Completed',
+            message: `Your booking for ${resourceName} has been marked as completed.`,
+        }),
+        ORG_ADMIN: ({ requesterName, resourceName }) => ({
+            title: 'Booking Completed',
+            message: `${requesterName || 'A staff member'} booking for ${resourceName} was marked as completed.`,
+        }),
+    },
     BOOKING_REQUESTED: {
         STAFF: ({ resourceName }) => ({
             title: 'Booking Requested',
@@ -67,6 +77,7 @@ const BookingMessages: Partial<Record<NotificationType, BookingMessageAudienceMa
             message: `Booking for ${resourceName} by ${requesterName || 'a staff member'} has been cancelled.${cancelReason ? ` Reason: ${cancelReason}` : ''}`,
         }),
     },
+    
 };
 
 export const getBookingMessage = (
