@@ -26,7 +26,7 @@ export class BookingServiceWithNotifications {
     orgId: string;
     startTime: Date;
     endTime: Date;
-  }) {
+  }): Promise<any> {
     // Create the booking
     const booking = await this.prisma.bookings.create({
       data: {
@@ -102,7 +102,7 @@ export class BookingServiceWithNotifications {
   /**
    * Example 3: Send notification when booking is approved
    */
-  async approveBooking(bookingId: string) {
+  async approveBooking(bookingId: string): Promise<any> {
     const booking = await this.prisma.bookings.update({
       where: { id: bookingId },
       data: { status: 'CONFIRMED' },
@@ -144,7 +144,7 @@ export class BookingServiceWithNotifications {
   /**
    * Example 4: Send notification when booking is cancelled
    */
-  async cancelBooking(bookingId: string, reason?: string) {
+  async cancelBooking(bookingId: string, reason?: string): Promise<any> {
     const booking = await this.prisma.bookings.update({
       where: { id: bookingId },
       data: {

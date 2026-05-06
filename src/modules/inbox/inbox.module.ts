@@ -3,10 +3,11 @@ import { InboxController } from './controller/inbox.controller';
 import { InboxService } from './service/inbox.service';
 import { EmailService } from './service/email.service';
 import { NotificationManager } from './service/notification-manager.service';
+import { SharedService } from 'src/shared/services/shared.service';
 
 @Module({
     controllers: [InboxController],
-    providers: [InboxService, EmailService, NotificationManager],
+    providers: [InboxService, EmailService, NotificationManager, SharedService],
     exports: [EmailService, NotificationManager],
 })
 export class InboxModule {}

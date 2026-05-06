@@ -6,7 +6,7 @@ import { RolesGuard, SubscriptionGuard, UserVerificationGuard } from 'src/shared
 import { Roles } from 'src/shared/decorators/roles.decorator';
 import { Bookings, BookingStatus, PlanType, Role, User } from '@prisma/client';
 import { CurrentUser, CurrentUserType } from 'src/shared/decorators/user.decorator';
-import { CreateBookingDto, UpdateBookingDto, UpdateBookingStatusDto } from '../dto/bookings.dto';
+import { CreateBookingDto, RescheduleBookingDto, UpdateBookingDto, UpdateBookingStatusDto } from '../dto/bookings.dto';
 import { PaginatedResponse, ResponseUtil } from 'src/utils/responses';
 import { Response } from 'express';
 import { AllBookingsQueryDto, BookingStatsQueryDto, MyBookingsHistoryQueryDto } from '../dto/booking-filter.dto';
@@ -100,7 +100,31 @@ export class BookingsController {
             return ResponseUtil.success(result, res);
         }
 
+        /**
+         * This controller will allow user rescheduling a booking to a different time slot. It will allow clients to update the date and time of an existing booking, subject to availability and organizational policies.
+         * @param currentUser - The current authenticated user
+         * @param bookingId - The ID of the booking to reschedule
+         */
+    @UseGuards(RolesGuard)
+    @Roles(Role.ORG_ADMIN) // Allow both ORG_MEMBER and ORG_ADMIN to update bookings
+    @Patch('reschedule')
+    @ApiOperation({ summary: 'Reschedule a booking to a different time slot (ORG_ADMIN role)' })
+    @ApiResponse({ status: 200, description: 'Booking rescheduled successfully' })
+    @ApiResponse({ status: 400, description: 'Bad Request - Invalid input data' })
+    @ApiResponse({ status: 401, description: 'Unauthorized - Token required' })
+    @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+    @ApiQuery({ name: 'bookingId', type: 'string', description: 'ID of the booking to reschedule' })
+    async rescheduleBooking(
+        @CurrentUser() currentUser: User & CurrentUserType,
+        @Query('bookingId') bookingId: string,
+        @Body() rescheduleBookingDto: RescheduleBookingDto,
+        @Res() res: Response
+    ) {
+        const result = await this.service.rescheduleBooking(currentUser, bookingId, rescheduleBookingDto, res);
+        return ResponseUtil.success(result, res);
+    }
 
+  
     /**
      * This controller will handle a available slots by the resources and date range. It will allow clients to get the available slots for a resource within a specified date range.
      *  @param resourceId - The ID of the resource to check availability for

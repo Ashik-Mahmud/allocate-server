@@ -5,10 +5,10 @@ import { Request, response, Response } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
-import { RolesGuard } from 'src/shared/guards';
+import { ClientGuard, RolesGuard } from 'src/shared/guards';
 import { Roles } from 'src/shared/decorators/roles.decorator';
 import { Role, User } from '@prisma/client';
-import { CurrentUser } from 'src/shared/decorators/user.decorator';
+import { CurrentUser, CurrentUserType } from 'src/shared/decorators/user.decorator';
 import { InboxService } from '../service/inbox.service';
 import { NotificationManager } from '../service/notification-manager.service';
 import { ResponseUtil } from 'src/utils/responses';
@@ -20,6 +20,26 @@ import { ResponseUtil } from 'src/utils/responses';
 export class InboxController {
 
     constructor(private inboxService: InboxService, private notificationManager: NotificationManager) { }
+
+
+    /**
+     * Send a notification to a user from the organization
+     * @body - The notification details including recipient user ID, title, message, and optional metadata
+     * @param user - The currently authenticated user
+     * @param response - The outgoing response object
+     */
+    @UseGuards(ClientGuard)
+    @Post(':id/send-reminder')
+    @ApiResponse({ status: 201, description: 'Notification sent successfully.' })
+    @ApiResponse({ status: 403, description: 'Forbidden.' })
+    @ApiOperation({ summary: 'Send Notification', description: 'Send a notification to a user from the organization.' })
+    async sendNotification(@Param('id') bookingId: string,
+        @CurrentUser() currentUser: User & CurrentUserType, @Res() response: Response) {
+        // Implement logic to send a notification to a user from the organization here
+        // You can use this.inboxService to call service methods for business logic
+        const result = await this.inboxService.sendManualReminder(currentUser, bookingId, response);
+        return ResponseUtil.success(result, response);
+    }
 
 
     /**

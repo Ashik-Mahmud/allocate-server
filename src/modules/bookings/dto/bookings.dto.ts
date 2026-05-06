@@ -26,6 +26,15 @@ export const UpdateBookingStatusSchema = z.object({
     status: z.enum(['PENDING', 'CONFIRMED', 'REJECTED', 'CANCELLED', 'COMPLETED', 'CHECKED_IN']).optional(),
 });
 
+
+// DTO reschedule booking
+export const RescheduleBookingSchema = z.object({
+    start_time: z.string().min(1, 'Start time is required'),
+    end_time: z.string().min(1, 'End time is required'),
+});
+
+
 export class CreateBookingDto extends createZodDto(CreateBookingSchema) { }
 export class UpdateBookingDto extends createZodDto(UpdateBookingSchema) { }
 export class UpdateBookingStatusDto extends createZodDto(UpdateBookingStatusSchema) { }
+export class RescheduleBookingDto extends createZodDto(RescheduleBookingSchema) { }

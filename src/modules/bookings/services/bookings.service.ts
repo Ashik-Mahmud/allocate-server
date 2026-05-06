@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
-import { Bookings, BookingStatus, NotificationType, PlanType, Prisma, Role, User } from '@prisma/client';
+import { Bookings, BookingStatus, NotificationType, PlanType, Prisma, Role, TransactionType, User } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
-import { CreateBookingDto, UpdateBookingDto, UpdateBookingStatusDto } from '../dto/bookings.dto';
+import { CreateBookingDto, RescheduleBookingDto, UpdateBookingDto, UpdateBookingStatusDto } from '../dto/bookings.dto';
 import GLOBAL_CONFIG from 'src/shared/constant/global.constant';
 import { AllBookingsQueryDto, BookingStatsQueryDto, MyBookingsHistoryQueryDto } from '../dto/booking-filter.dto';
 import { BookingCalendarData } from '../interfaces/booking.interface';
@@ -165,7 +165,7 @@ export class BookingsService {
 
             const userTotalRequired = totalCost + pendingCredits;
             if (Number(user.personal_credits || 0) < userTotalRequired) {
-                throw new BadRequestException('Insufficient personal credits');
+                throw new BadRequestException(`User has insufficient credits to book this resource. ${pendingCredits > 0 ? ` You have ${pendingCredits} credits pending for confirmation from previous bookings. Please wait for them to be confirmed or reduce the booking duration to fit within your available credits.` : ''}`);
             }
 
 
@@ -430,6 +430,234 @@ export class BookingsService {
             },
         });
     }
+
+    // Reschedule a booking (update start_time and end_time)
+    async rescheduleBooking(currentUser: User & CurrentUserType, bookingId: string, rescheduleBookingDto: RescheduleBookingDto, res?: Response) {
+
+
+        const { start_time, end_time } = rescheduleBookingDto;
+        if (!currentUser?.org_id) {
+            throw new NotFoundException('Organization not found');
+        }
+        const booking = await this.prisma.bookings.findUnique({
+            where: {
+                id: bookingId,
+                deletedAt: null,
+                org_id: currentUser?.org_id,
+            },
+            include: { user: true, resource: true }
+        });
+        if (!booking) {
+            throw new NotFoundException('Booking not found');
+        }
+
+        if (booking?.status !== BookingStatus.CONFIRMED && booking?.status !== BookingStatus.PENDING) {
+            throw new BadRequestException('Only confirmed bookings can be rescheduled');
+        }
+
+
+        const timezone = resolveUserTimezone(currentUser as any);
+        // basic time variables for later use
+        const startTime = parseDateTimeInTimezone(start_time, timezone);
+        const endTime = parseDateTimeInTimezone(end_time, timezone);
+        const now = new Date();
+        const resource_id = booking?.resource_id;
+        const userId = booking?.user_id;
+        const ipAddress = (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '';
+
+        // If the start time is in the past or end time is before start time, throw an error
+        if (startTime < now || endTime <= startTime) {
+            throw new BadRequestException(`Invalid time slot. Start time must be in the future with ${timezone} timezone and end time must be after start time.`);
+        }
+
+        const result = await this.prisma.$transaction(async (tx) => {
+            // Check if the resource exists and belongs to an active organization
+            const resource = await tx.resources.findUnique({
+                where: { id: resource_id, },
+                include: {
+                    organization: true,
+                    resourcesRules: true
+                },
+            });
+
+            if (!resource || !resource.organization.is_active) {
+                throw new NotFoundException('Resource is not available or organization is inactive');
+            }
+
+            if (resource.org_id !== currentUser?.org_id) {
+                throw new BadRequestException('Resource does not belong to your organization');
+            }
+
+            if (resource?.is_maintenance) {
+                throw new BadRequestException('Resource is under maintenance');
+            }
+
+            // Validate booking against resource rules (if any)
+            const rules = resource?.resourcesRules[0];
+            const hoursDifference = Number(((endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60)).toFixed(2));
+
+
+            // check if the booking duration should be greater than 0 and less than max allowed hours (if set)
+            if (hoursDifference <= 0) {
+                throw new BadRequestException('Invalid time slot. End time must be after start time.');
+            }
+
+            if (rules) {
+                // check if weekend is allow 
+                const bookingDay = getWeekdayInTimezone(startTime, timezone);
+                const isWeekend = GLOBAL_CONFIG.WEEKEND_DAYS.includes(bookingDay);
+                if (isWeekend && !rules.is_weekend_allowed) {
+                    throw new BadRequestException('Booking is not allowed on weekends');
+                }
+
+                // check if booking is only allowed on specific days
+                const availableDays = rules.availableDays as string[];
+                if (availableDays && availableDays?.length > 0) {
+                    if (!availableDays.includes(bookingDay)) {
+                        throw new BadRequestException(`Resource is only available on: ${availableDays.join(', ')}`);
+                    }
+                }
+
+                // check if the booking duration exceeds maximum allowed hours
+                if (rules.max_booking_hours && hoursDifference > rules.max_booking_hours) {
+                    const maxBookingHrInMin = rules.max_booking_hours * 60
+                    throw new BadRequestException(`Maximum booking allowed is ${maxBookingHrInMin} minutes`);
+                }
+
+
+                const minLeadTimeMs = (rules.min_lead_time || 0) * 60 * 60 * 1000;
+                if (startTime.getTime() < now.getTime() + minLeadTimeMs) {
+                    throw new BadRequestException(`Must book at least ${(rules.min_lead_time || 0) * 60} minutes in advance`);
+                }
+            }
+
+            // Check for overlapping bookings considering buffer time
+            const bufferMs = (rules?.buffer_time || 0) * 60 * 60 * 1000;
+
+            const overlappingBooking = await tx.bookings.findFirst({
+                where: {
+                    id: { not: bookingId }, // exclude current booking
+                    resource_id,
+                    status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING] },
+                    deletedAt: null,
+                    AND: [
+                        { start_time: { lt: new Date(endTime.getTime() + bufferMs) } },
+                        { end_time: { gt: new Date(startTime.getTime() - bufferMs) } }
+                    ]
+                }
+            });
+
+            if (overlappingBooking) {
+                throw new BadRequestException('Resource is already booked or in buffer period');
+            }
+
+            // Credits calculation and pending credits check
+            const hourlyRate = Number(resource?.hourly_rate || 0);
+            const totalCost = hoursDifference * hourlyRate;
+
+            const user = await tx.user.findUnique({ where: { id: userId } });
+            if (!user) throw new NotFoundException('User not found');
+
+            // Check pending bookings for the user to calculate pending credits
+            const pendingBookings = await tx.bookings.aggregate({
+                where: { user_id: userId, status: BookingStatus.PENDING, deletedAt: null },
+                _sum: { total_cost: true }
+            });
+            const pendingCredits = pendingBookings._sum.total_cost || 0;
+
+
+            // Check if user is STAFF then credits will be deducted from personal credits otherwise from organization credits
+            const alreadyPaid = booking.status === BookingStatus.CONFIRMED ? Number(booking.total_cost || 0) : 0;
+            const howMuchToPay = totalCost - alreadyPaid;
+
+            if (howMuchToPay > 0) {
+                const userTotalRequired = howMuchToPay + pendingCredits;
+
+                if (Number(user.personal_credits || 0) < userTotalRequired) {
+                    throw new BadRequestException(
+                        `Insufficient personal credits. You need ${howMuchToPay} more credits for this change (Total required with pending: ${userTotalRequired}).`
+                    );
+                }
+            }
+
+            // Update the booking
+            const updatedBooking = await tx.bookings.update({
+                where: { id: bookingId },
+                data: {
+                    start_time: startTime,
+                    end_time: endTime,
+                    total_cost: totalCost,
+                }
+            });
+
+            // If the booking was already confirmed, then we need to adjust the user's credits based on the new total cost
+            if (booking.status === BookingStatus.CONFIRMED && howMuchToPay !== 0) {
+                await tx.user.update({
+                    where: { id: userId },
+                    data: {
+                        personal_credits: {
+                            decrement: howMuchToPay
+                        }
+                    },
+                });
+            }
+
+            // Notify User about the reschedule
+            const startTimeFormatted = formatInTimezone(startTime, timezone, { dateStyle: 'short', timeStyle: 'short' });
+            const endTimeFormatted = formatInTimezone(endTime, timezone, { dateStyle: 'short', timeStyle: 'short' });
+            await this.notificationManager.send({
+                userId: booking.user_id,
+                type: NotificationType.BOOKING_RESCHEDULED,
+                message: `Your booking for ${booking.resource?.name || 'resource'} has been rescheduled to ${startTimeFormatted} - ${endTimeFormatted}. Please check the details. ${howMuchToPay > 0 ? `You need to pay an additional ${howMuchToPay} credits for this change.` : howMuchToPay < 0 ? `You will be refunded ${-howMuchToPay} credits for this change.` : ''}`,
+                title: 'Booking Rescheduled',
+                orgId: booking.org_id,
+                userEmail: user.email,
+                userName: user.name,
+            })
+            this.sharedService.logActivity(tx, {
+                action: 'BOOKING_RESCHEDULED',
+                details: `Booking #${booking.id} for ${booking.resource_id || 'resource'} rescheduled by ${currentUser?.name}`,
+                metadata: {
+                    previous_start_time: booking.start_time,
+                    previous_end_time: booking.end_time,
+                    new_start_time: startTime,
+                    new_end_time: endTime,
+                    booking_status: booking.status,
+                },
+                orgId: booking.org_id,
+                userId: user.id,
+                ipAddress: ipAddress,
+                userAgent: res?.req?.headers['user-agent'] || '',
+            });
+
+            if (howMuchToPay !== 0) {
+                this.sharedService.createCreditTransaction(tx, {
+                    userId: userId,
+                    orgId: booking.org_id,
+                    amount: howMuchToPay,
+                    currBalance: Number(user.personal_credits || 0) - howMuchToPay,
+                    performedBy: currentUser.id,
+                    prevBalance: Number(user.personal_credits || 0),
+                    refId: booking.id,
+                    type: howMuchToPay > 0 ? TransactionType.SPEND : TransactionType.REFUND,
+                    description: howMuchToPay > 0
+                        ? `Additional credits spent for rescheduling booking #${booking.id} (${resource.name})`
+                        : `Credits refunded for rescheduling booking #${booking.id} (${resource.name})`,
+                });
+            }
+
+
+
+
+            return updatedBooking;
+
+        }
+        );
+        return result;
+
+    }
+
+
 
     // Get available slots for a resource within a date 
     async getAvailableSlotsByResource(resourceId: string, date: string, timezone?: string) {

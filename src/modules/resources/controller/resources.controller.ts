@@ -3,10 +3,10 @@ import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiQuery } from '@ne
 import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
 import { ClientGuard, RolesGuard, SubscriptionGuard, UserVerificationGuard } from 'src/shared/guards';
 import { Roles } from 'src/shared/decorators/roles.decorator';
-import { ResponseUtil } from 'src/utils/responses';
+import { ApiResponse as myApiResponse, PaginatedResponse, ResponseUtil } from 'src/utils/responses';
 import { CreateResourceDto, UpdateResourceDto, ListResourcesQueryDto } from '../dto/resources.dto';
 import { Response } from 'express';
-import { PlanType, Role, User } from '@prisma/client';
+import { PlanType, Resources, Role, User } from '@prisma/client';
 import { CurrentUser } from 'src/shared/decorators/user.decorator';
 import { ResourcesService } from '../services/resources.service';
 import { SubscriptionPlans } from 'src/shared/decorators/subscription.decorator';
@@ -45,7 +45,7 @@ export class ResourcesController {
         @CurrentUser() currentUser: User,
         @Body() createResourceDto: CreateResourceDto,
         @Res() res: Response
-    ) {
+    ): Promise<myApiResponse<Resources>>  {
         //Logic to create a resource will go here
         const resource = await this.service.createResource(currentUser, createResourceDto, res);
         return ResponseUtil.success(resource, res);
@@ -73,7 +73,7 @@ export class ResourcesController {
         @Param('id') id: string,
         @Body() updateResourceDto: UpdateResourceDto,
         @Res() res: Response
-    ) {
+    ): Promise<myApiResponse<Resources>> {
         // Logic to update a resource will go here
         const resource = await this.service.updateResource(currentUser, id, updateResourceDto, res);
         return ResponseUtil.success(resource, res);
@@ -98,7 +98,7 @@ export class ResourcesController {
             @CurrentUser() currentUser: User,
             @Param('id') id: string,
             @Res() res: Response
-        ) {
+        ): Promise<myApiResponse<Resources>>  {
             // Logic to mark resource as under maintenance will go here
             const resource = await this.service.markResourceUnderMaintenance(currentUser, id, res);
             return ResponseUtil.success(resource, res);
@@ -119,7 +119,7 @@ export class ResourcesController {
     @ApiResponse({ status: 200, description: 'Resource deleted successfully' })
     @ApiResponse({ status: 401, description: 'Unauthorized - Token required' })
     @ApiResponse({ status: 403, description: 'Forbidden - ORG_ADMIN role required' })
-    async deleteResource(@CurrentUser() currentUser: User, @Param('id') id: string, @Res() res: Response) {
+    async deleteResource(@CurrentUser() currentUser: User, @Param('id') id: string, @Res() res: Response): Promise<myApiResponse<Resources>>  {
         // Logic to delete a resource will go here
         const resource = await this.service.deleteResource(currentUser, id, res);
         return ResponseUtil.success(resource, res);
@@ -150,7 +150,7 @@ export class ResourcesController {
     @ApiResponse({ status: 200, description: 'Resources fetched successfully with pagination' })
     @ApiResponse({ status: 400, description: 'Invalid query parameters' })
     @ApiResponse({ status: 401, description: 'Unauthorized - Token required' })
-    async listResources(@CurrentUser() currentUser: User, @Query() query: ListResourcesQueryDto, @Res() res: Response) {
+    async listResources(@CurrentUser() currentUser: User, @Query() query: ListResourcesQueryDto, @Res() res: Response): Promise<PaginatedResponse<Partial<Resources>>>  {
         const result = await this.service.listResources(currentUser, query);
         return ResponseUtil.paginated(result.items, result.total, result.page, result.limit, res);
     }
@@ -174,7 +174,7 @@ export class ResourcesController {
         @ApiResponse({ status: 200, description: 'Resources fetched successfully' })
         @ApiResponse({ status: 400, description: 'Invalid query parameters' })
         @ApiResponse({ status: 401, description: 'Unauthorized - Token required' })
-        async getAllResources(@CurrentUser() currentUser: User, @Query() query: ListResourcesQueryDto, @Res() res: Response) {
+        async getAllResources(@CurrentUser() currentUser: User, @Query() query: ListResourcesQueryDto, @Res() res: Response): Promise<myApiResponse<Partial<Resources>[]>>  {
             const result = await this.service.listBrowseResources(currentUser, query);
             return ResponseUtil.success(result.items, res, result.metadata);
         }
@@ -195,7 +195,7 @@ export class ResourcesController {
     @ApiResponse({ status: 200, description: 'Resource fetched successfully' })
     @ApiResponse({ status: 401, description: 'Unauthorized - Token required' })
     @ApiResponse({ status: 404, description: 'Resource not found' })
-    async getResource(@CurrentUser() currentUser: User, @Param('id') id: string, @Res() res: Response) {
+    async getResource(@CurrentUser() currentUser: User, @Param('id') id: string, @Res() res: Response): Promise<myApiResponse<Resources>>  {
         const resource = await this.service.getResourceById(currentUser, id);
         return ResponseUtil.success(resource, res);
     }
