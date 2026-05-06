@@ -325,6 +325,17 @@ export class BookingsService {
                 }
             }
 
+            // If status completed then make resource unoccupied and current booking  null
+            if (booking?.status === BookingStatus.CHECKED_IN && status === BookingStatus.COMPLETED) {
+                await tx.resources.update({
+                    where: { id: booking.resource_id },
+                    data: {
+                        is_occupied: false,
+                        currentBookingId: null,
+                    }
+                });
+            }
+
             // Send notification to user about the status update
             const ipAddress = (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '';
             await this.bookingUtilService.handlePostBookingActions({
@@ -558,12 +569,6 @@ export class BookingsService {
             const user = await tx.user.findUnique({ where: { id: userId } });
             if (!user) throw new NotFoundException('User not found');
 
-            // Check pending bookings for the user to calculate pending credits
-            const pendingBookings = await tx.bookings.aggregate({
-                where: { user_id: userId, status: BookingStatus.PENDING, deletedAt: null },
-                _sum: { total_cost: true }
-            });
-            const pendingCredits = pendingBookings._sum.total_cost || 0;
 
 
             // Check if user is STAFF then credits will be deducted from personal credits otherwise from organization credits
@@ -571,12 +576,16 @@ export class BookingsService {
             const howMuchToPay = totalCost - alreadyPaid;
 
             if (howMuchToPay > 0) {
+                // Check pending bookings for the user to calculate pending credits
+                const pendingBookings = await tx.bookings.aggregate({
+                    where: { user_id: userId, status: BookingStatus.PENDING, deletedAt: null, id: { not: bookingId } },
+                    _sum: { total_cost: true }
+                });
+                const pendingCredits = pendingBookings._sum.total_cost || 0;
                 const userTotalRequired = howMuchToPay + pendingCredits;
 
                 if (Number(user.personal_credits || 0) < userTotalRequired) {
-                    throw new BadRequestException(
-                        `Insufficient personal credits. You need ${howMuchToPay} more credits for this change (Total required with pending: ${userTotalRequired}).`
-                    );
+                    throw new BadRequestException(`Insufficient credits. You need ${howMuchToPay} more credits (Total required with pending: ${userTotalRequired}). But Staff has ${user.personal_credits} credits. Please reduce the booking duration or wait for pending bookings to be confirmed to free up credits.`);
                 }
             }
 
@@ -605,7 +614,7 @@ export class BookingsService {
             // Notify User about the reschedule
             const startTimeFormatted = formatInTimezone(startTime, timezone, { dateStyle: 'short', timeStyle: 'short' });
             const endTimeFormatted = formatInTimezone(endTime, timezone, { dateStyle: 'short', timeStyle: 'short' });
-            await this.notificationManager.send({
+            this.notificationManager.send({
                 userId: booking.user_id,
                 type: NotificationType.BOOKING_RESCHEDULED,
                 message: `Your booking for ${booking.resource?.name || 'resource'} has been rescheduled to ${startTimeFormatted} - ${endTimeFormatted}. Please check the details. ${howMuchToPay > 0 ? `You need to pay an additional ${howMuchToPay} credits for this change.` : howMuchToPay < 0 ? `You will be refunded ${-howMuchToPay} credits for this change.` : ''}`,
@@ -614,7 +623,7 @@ export class BookingsService {
                 userEmail: user.email,
                 userName: user.name,
             })
-            this.sharedService.logActivity(tx, {
+            await this.sharedService.logActivity(tx, {
                 action: 'BOOKING_RESCHEDULED',
                 details: `Booking #${booking.id} for ${booking.resource_id || 'resource'} rescheduled by ${currentUser?.name}`,
                 metadata: {
@@ -631,7 +640,7 @@ export class BookingsService {
             });
 
             if (howMuchToPay !== 0) {
-                this.sharedService.createCreditTransaction(tx, {
+                await this.sharedService.createCreditTransaction(tx, {
                     userId: userId,
                     orgId: booking.org_id,
                     amount: howMuchToPay,
