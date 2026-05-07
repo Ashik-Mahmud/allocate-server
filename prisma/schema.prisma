@@ -33,35 +33,34 @@ model User {
 }
 
 model Organizations {
-  id                 String              @id @default(cuid())
-  name               String
-  slug               String?             @unique
-  org_type           String?
-  tagline            String?
-  photo              String?
-  plan_type          PlanType?           @default(FREE)
-  credit_pool        Int?                @default(100)
-  frozen_credits     Int?                @default(0) // Credits that are reserved for upcoming bookings but not yet spent
-  is_active          Boolean?            @default(true)
-  timezone           String              @default("UTC")
-  address            Json?
-  business_email     String?
-  needUpdateOrg      Boolean?            @default(true)
-  settings           Json?               @default("{\"notificationPreference\":{\"email\":true,\"sms\":false,\"push\":false, \"inApp\":true}}") // For future extensibility (e.g. notification preferences, etc.)
-  isVerified         Boolean?            @default(false)
+  id                  String              @id @default(cuid())
+  name                String
+  slug                String?             @unique
+  org_type            String?
+  tagline             String?
+  photo               String?
+  plan_type           PlanType?           @default(FREE)
+  credit_pool         Int?                @default(100)
+  frozen_credits      Int?                @default(0) // Credits that are reserved for upcoming bookings but not yet spent
+  is_active           Boolean?            @default(true)
+  timezone            String              @default("UTC")
+  address             Json?
+  business_email      String?
+  needUpdateOrg       Boolean?            @default(true)
+  settings            Json?               @default("{\"notificationPreference\":{\"email\":true,\"sms\":false,\"push\":false, \"inApp\":true}}") // For future extensibility (e.g. notification preferences, etc.)
+  isVerified          Boolean?            @default(false)
   weeklyReportEnabled Boolean?            @default(false)
-  deletedAt          DateTime?
-  createdAt          DateTime?           @default(now())
-  updatedAt          DateTime?           @updatedAt
-  users              User[]
-  resources          Resources[]
-  subscriptions      Subscription[]
-  resourcesRules     ResourcesRule[]
-  notifications      Notification[]
-  invitations        Invitation[]
-  bookings           Bookings[]
-  creditTransactions CreditTransaction[]
-
+  deletedAt           DateTime?
+  createdAt           DateTime?           @default(now())
+  updatedAt           DateTime?           @updatedAt
+  subscription        Subscription?
+  users               User[]
+  resources           Resources[]
+  resourcesRules      ResourcesRule[]
+  notifications       Notification[]
+  invitations         Invitation[]
+  bookings            Bookings[]
+  creditTransactions  CreditTransaction[]
   @@index([name, id])
   @@map("organizations")
 }
@@ -69,7 +68,7 @@ model Organizations {
 model Resources {
   id             String        @id @default(cuid())
   org_id         String
-  organization   Organizations @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  organization   Organizations @relation(fields: [org_id], references: [id])
   name           String
   type           String
   hourly_rate    Decimal
@@ -79,7 +78,7 @@ model Resources {
   is_active      Boolean       @default(true) // Indicates if the resource is active in the system (e.g. not archived or deleted)
   is_maintenance Boolean       @default(false)
   is_occupied    Boolean       @default(false) // Indicates if the resource is currently occupied (i.e. has an active booking)
-  isAutoConfirm     Boolean       @default(false) // If true, bookings for this resource will be auto-confirmed without admin approval
+  isAutoConfirm  Boolean       @default(false) // If true, bookings for this resource will be auto-confirmed without admin approval
 
   currentBookingId String?   @unique
   currentBooking   Bookings? @relation("CurrentResourceBooking", fields: [currentBookingId], references: [id], onDelete: SetNull)
@@ -118,8 +117,8 @@ model ResourcesRule {
 
 model Subscription {
   id                 String         @id @default(cuid())
-  org_id             String
-  organization       Organizations  @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  org_id             String         @unique
+  organization       Organizations  @relation(fields: [org_id], references: [id])
   plan_name          PlanType
   start_date         DateTime
   end_date           DateTime?

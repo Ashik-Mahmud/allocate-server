@@ -1011,7 +1011,7 @@ export class BookingsService {
                 // premium insight
                 if (organization?.plan_type !== PlanType.FREE && stats.length > 0) {
                     const totalCreditsSpent = stats.reduce((acc, stat) => acc + (stat.totalCredits || 0), 0);
-                    const avgDailyBurn = totalCreditsSpent / stats.length;
+                    const avgDailyBurn = (totalCreditsSpent / stats.length) || 0;
 
                     // Peak/Busiest day
                     const peakDay = stats.reduce((prev, current) =>
@@ -1024,19 +1024,19 @@ export class BookingsService {
                     const totalPeriodBookings = stats.reduce((acc, stat) => acc + stat.bookingsCount, 0);
                     responseToSend.premiumInsight = {
                         peakDemand: {
-                            date: peakDay?.period,
-                            count: peakDay?.bookingsCount,
-                            credits: peakDay?.totalCredits
+                            date: peakDay?.period || null,
+                            count: peakDay?.bookingsCount || 0,
+                            credits: peakDay?.totalCredits || 0
                         },
                         forecast: {
                             avgDailyBurn: Number(avgDailyBurn?.toFixed(2)),
-                            daysRemaining: daysRemaining,
+                            daysRemaining: daysRemaining || 0,
                             isCritical: daysRemaining < 7,
                         },
                         summary: {
-                            totalPeriodBookings: totalPeriodBookings,
-                            totalPeriodCredits: totalCreditsSpent,
-                            bookingPerDay: Number((totalPeriodBookings / stats.length).toFixed(2)),
+                            totalPeriodBookings: totalPeriodBookings || 0,
+                            totalPeriodCredits: totalCreditsSpent || 0,
+                            bookingPerDay: Number((totalPeriodBookings / stats.length).toFixed(2)) || 0,
                         }
                     };
                 }

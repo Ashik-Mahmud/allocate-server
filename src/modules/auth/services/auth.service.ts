@@ -47,7 +47,8 @@ export class AuthService {
               push: false,
               inApp: true,
             },
-          }
+          },
+          subscriptionId: uuidv4()
         },
       });
 
@@ -316,6 +317,7 @@ export class AuthService {
       timezone: true,
       needUpdateOrg: true,
       plan_type: true,
+      subscription: true,
     }
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -332,10 +334,12 @@ export class AuthService {
         personal_credits: true,
         organization: role === Role.STAFF ? { select: selectOrgFieldsForStaff } : {
           include: {
+            subscription: true,
             _count: {
               select: {
                 resources: true,
                 users: true,
+
               }
             }
           }
@@ -383,8 +387,6 @@ export class AuthService {
         }
       }
     });
-
-
 
     return {
       ...user,
