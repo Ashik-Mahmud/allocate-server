@@ -14,8 +14,7 @@ async function bootstrap() {
   // Security
   (app as any).set('trust proxy', 1);
   app.use(helmet());
-  app.enableCors();
-
+  app.enableCors()
   // Middleware
   app.use(new RequestLogger().use);
 

@@ -32,7 +32,7 @@ export class DashboardService {
         const now = new Date();
         const recentWindow = new Date(now.getTime() - 6 * 60 * 60 * 1000); // 6 hours
 
-        const [organization, totalStaff, totalCreditsAssigned, lowCreditUsers, recentBookings, bookingCount, upcomingBookings] =
+        const [organization, totalStaff, totalCreditsAssigned, lowCreditUsers, recentBookings, bookingCount, upcomingBookings, resourceUsage] =
             await Promise.all([
                 this.prisma.organizations.findUnique({
                     where: { id: orgId },
@@ -112,10 +112,44 @@ export class DashboardService {
                         status: BookingStatus.PENDING,
                     },
                 }),
+                // resource usage
+                this.prisma.bookings.groupBy({
+                    by: ['resource_id'],
+                    where: {
+                        org_id: orgId,
+                        deletedAt: null,
+                    },
+                    _count: { _all: true },
+                    orderBy: {
+                        _count: {
+                            resource_id: 'desc',
+                        },
+                    },
+                    take: 10,
+                }),
             ]);
+
 
         const organizationCreditPool = Number(organization?.credit_pool || 0);
         const totalCreditsAssignedValue = Number(totalCreditsAssigned._sum.amount || 0);
+
+        const resourceIds = resourceUsage.map((row) => row.resource_id).filter(Boolean) as string[];
+        const resources = resourceIds.length
+            ? await this.prisma.resources.findMany({
+                where: { id: { in: resourceIds } },
+                select: { id: true, name: true, type: true, photo: true },
+            })
+            : [];
+        const resourceMap = new Map(resources.map((resource) => [resource.id, { name: resource.name, type: resource.type, photo: resource.photo }]));
+        const resourceAnalytics = resourceUsage.map((row) => {
+            const resource = resourceMap.get(row.resource_id);
+            return {
+                name: resource?.name || 'Unknown Resource',
+                type: resource?.type || 'Unknown Type',
+                photo: resource?.photo || null,
+                bookings: row._count._all,
+            };
+        });
 
         return {
             scope: 'organization',
@@ -147,6 +181,7 @@ export class DashboardService {
                 message: `${booking.user.name} booked ${booking.resource.name} ${this.getRelativeTimeLabel(booking.createdAt)}`,
                 createdAt: booking.createdAt,
             })),
+            resourceAnalytics
         };
     }
 
