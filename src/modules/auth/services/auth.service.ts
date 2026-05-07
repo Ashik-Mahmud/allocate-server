@@ -48,7 +48,6 @@ export class AuthService {
               inApp: true,
             },
           },
-          subscriptionId: uuidv4()
         },
       });
 
