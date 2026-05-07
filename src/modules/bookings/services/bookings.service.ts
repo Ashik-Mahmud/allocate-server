@@ -935,7 +935,7 @@ export class BookingsService {
     }
 
     // Get booking statistics (for ORG_ADMIN)
-    async getBookingStats(user: User, query: BookingStatsQueryDto) {
+    async getBookingStats(user: User & CurrentUserType, query: BookingStatsQueryDto) {
         const { startDate, endDate, groupBy } = query;
         const timezone = resolveUserTimezone(user as any);
 
@@ -962,6 +962,14 @@ export class BookingsService {
                 },
             } : {}),
         };
+
+        // stats
+        const responseToSend: any = {
+            data: [],
+            premiumInsight: null
+        }
+
+
 
         try {
 
@@ -992,26 +1000,48 @@ export class BookingsService {
                     grouped.set(key, current);
                 }
 
-                return Array.from(grouped.entries()).map(([period, values]) => ({
+                const stats = Array.from(grouped.entries()).map(([period, values]) => ({
                     period,
                     bookingsCount: values.count,
                     totalCredits: values.totalCost,
                     averageCredits: values.count > 0 ? (values.totalCost / values.count).toFixed(2) : 0,
                 }));
+                responseToSend.data = stats
+
+                // premium insight
+                if (organization?.plan_type !== PlanType.FREE && stats.length > 0) {
+                    const totalCreditsSpent = stats.reduce((acc, stat) => acc + (stat.totalCredits || 0), 0);
+                    const avgDailyBurn = totalCreditsSpent / stats.length;
+
+                    // Peak/Busiest day
+                    const peakDay = stats.reduce((prev, current) =>
+                        (prev.bookingsCount > current.bookingsCount) ? prev : current
+                    );
+                    // credit forcasting
+                    const creditPool = Number(organization?.credit_pool ?? 0);
+                    const daysRemaining = avgDailyBurn > 0 ? Math.floor(creditPool / avgDailyBurn) : 0;
+
+                    const totalPeriodBookings = stats.reduce((acc, stat) => acc + stat.bookingsCount, 0);
+                    responseToSend.premiumInsight = {
+                        peakDemand: {
+                            date: peakDay?.period,
+                            count: peakDay?.bookingsCount,
+                            credits: peakDay?.totalCredits
+                        },
+                        forecast: {
+                            avgDailyBurn: Number(avgDailyBurn?.toFixed(2)),
+                            daysRemaining: daysRemaining,
+                            isCritical: daysRemaining < 7,
+                        },
+                        summary: {
+                            totalPeriodBookings: totalPeriodBookings,
+                            totalPeriodCredits: totalCreditsSpent,
+                            bookingPerDay: Number((totalPeriodBookings / stats.length).toFixed(2)),
+                        }
+                    };
+                }
             }
-
-            const allowedGroupByFields: Prisma.BookingsScalarFieldEnum[] = ['resource_id', 'user_id', 'status'];
-            const byField = allowedGroupByFields.includes(groupBy as any) ? (groupBy as any) : 'resource_id';
-
-            const stats = await this.prisma.bookings.groupBy({
-                by: [byField],
-                where: whereClause,
-                _count: { id: true },
-                _sum: { total_cost: true },
-                _avg: { total_cost: true },
-            });
-
-            return stats;
+            return responseToSend;
         } catch (error: any) {
             throw new InternalServerErrorException(error?.message || 'Error fetching booking statistics');
         }

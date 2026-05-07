@@ -252,7 +252,7 @@ export class BookingsController {
     @ApiQuery({ name: 'startDate', required: false, type: String, description: 'Start date for statistics (e.g. "2024-01-01")' })
     @ApiQuery({ name: 'endDate', required: false, type: String, description: 'End date for statistics (e.g. "2024-01-31")' })
     @ApiQuery({ name: 'groupBy', required: false, enum: ['day', 'week', 'month'], description: 'Group statistics by time period' })
-    async getBookingStats(@CurrentUser() currentUser: User, @Query() query: BookingStatsQueryDto, @Res() res: Response) {
+    async getBookingStats(@CurrentUser() currentUser: User & CurrentUserType, @Query() query: BookingStatsQueryDto, @Res() res: Response) {
         const result = await this.service.getBookingStats(currentUser, query);
         return ResponseUtil.success(result, res);
     }
