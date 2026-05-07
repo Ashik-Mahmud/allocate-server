@@ -500,3 +500,127 @@ export const buildWeeklyReportEmailTemplate = (rawOptions: AnnouncementOptions):
 
     return { subject, htmlContent };
 };
+
+// Sales Inquery Thank You Template
+export const buildSalesInquiryThankYouTemplate = (rawOptions: AnnouncementOptions): EmailTemplate => {
+    const options = withDefaults(rawOptions);
+    const subject = "Inquiry Received: We'll be in touch shortly";
+    const userName = rawOptions.name || 'there';
+
+    const appUrl = options.appUrl || '#';
+
+    const htmlContent = buildLayout(
+        options,
+        'Thank You for Reaching Out',
+        `Hi ${escapeHtml(userName)},`,
+        `
+      <!-- Intro -->
+      <p style="margin:0 0 20px; font-size:16px; line-height:1.6; color:#334155;">
+        We’ve successfully received your inquiry. Thank you for considering us as a potential partner for your business needs. 
+      </p>
+
+      <!-- Static Professional Message -->
+      <div style="background-color: #f8fafc; border-radius: 12px; padding: 24px; margin-bottom: 25px; border: 1px solid #e2e8f0;">
+        <p style="margin:0 0 12px; font-size:15px; line-height:1.6; color:#1e293b;">
+          Our team is dedicated to providing tailored solutions that drive efficiency and growth. We understand that every requirement is unique, and we are already looking into how our expertise can best align with your goals.
+        </p>
+        <p style="margin:0; font-size:15px; line-height:1.6; color:#1e293b;">
+          We pride ourselves on technical excellence and clear communication, ensuring that your vision is translated into a functional reality.
+        </p>
+      </div>
+
+      <!-- Expectation Management -->
+      <h3 style="margin:0 0 12px; font-size:18px; color:#173b7a; font-weight: 600;">What happens next?</h3>
+      <p style="margin:0 0 25px; font-size:15px; line-height:1.6; color:#475569;">
+        One of our solution specialists will carefully analyze your request. You can expect a detailed response or a follow-up invitation for a discovery call within <b>24 business hours</b>.
+      </p>
+
+      <!-- Call to Action -->
+      <div style="text-align: center; margin: 35px 0;">
+        <a href="${escapeHtml(appUrl)}" 
+           style="display:inline-block; padding:14px 35px; border-radius:8px; background:#173b7a; color:#ffffff; text-decoration:none; font-weight:600; font-size:15px; letter-spacing: 0.5px;">
+           Visit Our Website
+        </a>
+      </div>
+
+      <!-- Footer-like Closing -->
+      <div style="height: 1px; background: #e2e8f0; margin: 30px 0;"></div>
+      
+      <p style="margin:0; font-size:15px; line-height:1.6; color:#334155;">
+        Best Regards,<br>
+        <span style="color:#173b7a; font-weight:700;">Sales & Partnerships Team</span>
+      </p>
+      
+      <p style="margin:10px 0 0; font-size:11px; color:#94a3b8; text-align: center;">
+        This is an automated confirmation of receipt.
+      </p>
+    `,
+    );
+    return { subject, htmlContent };
+};
+
+// Sales Inquery Follow Up Template
+export const buildSalesInqueryFollowUpTemplate = (rawOptions: AnnouncementOptions): EmailTemplate => {
+    const options = withDefaults(rawOptions);
+    const inquiry = options.metadata?.inquiry; // Accessing the object passed in your service
+    const subject = `🔥 New Sales Lead: ${inquiry?.name || 'Inquiry Received'}`;
+
+    const htmlContent = buildLayout(
+        options,
+        'New Sales Inquiry', // Heading
+        `A new business inquiry has been submitted. Details are below:`, // Sub-heading
+        `
+      <!-- Data Table -->
+      <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin-bottom: 25px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px; color: #334155;">
+          <tr>
+            <td style="padding: 12px 16px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-weight: 600; width: 35%;">Name</td>
+            <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">${escapeHtml(inquiry?.name || 'N/A')}</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px 16px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-weight: 600;">Business Email</td>
+            <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; color: #173b7a; font-weight: 500;">${escapeHtml(inquiry?.business_email || 'N/A')}</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px 16px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-weight: 600;">Phone</td>
+            <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">${escapeHtml(inquiry?.phone || 'N/A')}</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px 16px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-weight: 600;">Team Size</td>
+            <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">${inquiry?.team_size || 'Not specified'}</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px 16px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-weight: 600;">Country</td>
+            <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">${escapeHtml(inquiry?.country || 'N/A')}</td>
+          </tr>
+          ${inquiry?.organization ? `
+          <tr>
+            <td style="padding: 12px 16px; background: #f0f4ff; border-bottom: 1px solid #e2e8f0; font-weight: 600;">Existing Org</td>
+            <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; background: #f0f4ff;">
+                <strong>${escapeHtml(inquiry.organization.name)}</strong><br/>
+                <span style="font-size: 12px; color: #64748b;">ID: ${inquiry.organization.id}</span>
+            </td>
+          </tr>` : ''}
+        </table>
+      </div>
+
+      <!-- Message Section -->
+      <div style="margin-bottom: 25px;">
+        <h4 style="margin: 0 0 8px; font-size: 14px; color: #173b7a; text-transform: uppercase; letter-spacing: 0.05em;">Client Message:</h4>
+        <div style="padding: 16px; background: #f1f5f9; border-radius: 8px; color: #1e293b; line-height: 1.6; font-size: 15px; border-left: 4px solid #173b7a;">
+          ${escapeHtml(inquiry?.message || 'No message provided.')}
+        </div>
+      </div>
+
+      <!-- Action Button -->
+      <div style="text-align: center; margin-top: 30px;">
+        <a href="${process.env.WEB_APP_LINK}/dashboard/sales" 
+           style="display:inline-block; padding:14px 28px; border-radius:8px; background:#173b7a; color:#ffffff; text-decoration:none; font-weight:600; font-size:14px;">
+           Open Admin Dashboard
+        </a>
+      </div>
+    `,
+    );
+
+    return { subject, htmlContent };
+};

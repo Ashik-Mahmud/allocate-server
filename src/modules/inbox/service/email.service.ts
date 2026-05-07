@@ -4,6 +4,8 @@ import {
     buildAnnouncementEmailTemplate,
     buildCreditResetEmailTemplate,
     buildForgotPasswordEmailTemplate,
+    buildSalesInqueryFollowUpTemplate,
+    buildSalesInquiryThankYouTemplate,
     buildStaffInviteEmailTemplate,
     buildUpgradePlanEmailTemplate,
     buildVerifyEmailTemplate,
@@ -190,6 +192,23 @@ export class EmailService {
 
             case 'weekly_report':
                 return buildWeeklyReportEmailTemplate({
+                    name: options.name,
+                    heading: options.subject,
+                    title: options.subject,
+                    message: options.htmlContent,
+                    metadata: options.metadata,
+                });
+            case 'sales_inquiry_thank_you':
+                return buildSalesInquiryThankYouTemplate({
+                    name: options.name,
+                    heading: options.subject,
+                    title: options.subject,
+                    message: options.htmlContent,
+                    metadata: options.metadata,
+
+                });
+            case 'sales_inquiry':
+                return buildSalesInqueryFollowUpTemplate({
                     name: options.name,
                     heading: options.subject,
                     title: options.subject,

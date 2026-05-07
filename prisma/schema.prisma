@@ -61,6 +61,8 @@ model Organizations {
   invitations         Invitation[]
   bookings            Bookings[]
   creditTransactions  CreditTransaction[]
+  salesInquiries      SalesInquiry[]
+
   @@index([name, id])
   @@map("organizations")
 }
@@ -116,19 +118,21 @@ model ResourcesRule {
 }
 
 model Subscription {
-  id                 String         @id @default(cuid())
-  org_id             String         @unique
-  organization       Organizations  @relation(fields: [org_id], references: [id])
-  plan_name          PlanType
-  start_date         DateTime
-  end_date           DateTime?
-  payment_status     PaymentStatus?
-  is_active          Boolean?       @default(true)
-  last_reminder_sent DateTime?
-
-  deletedAt DateTime?
-  createdAt DateTime? @default(now())
-  updatedAt DateTime? @updatedAt
+  id                  String           @id @default(cuid())
+  org_id              String           @unique
+  organization        Organizations    @relation(fields: [org_id], references: [id])
+  plan_name           PlanType
+  start_date          DateTime
+  end_date            DateTime?
+  payment_status      PaymentStatus?
+  is_active           Boolean?         @default(true)
+  last_reminder_sent  DateTime?
+  provider            PaymentProvider? // e.g. "Stripe", "PayPal", "SSLCOMMERZ"
+  external_id         String?
+  last_transaction_id String?
+  deletedAt           DateTime?
+  createdAt           DateTime?        @default(now())
+  updatedAt           DateTime?        @updatedAt
 
   @@index([org_id])
   @@map("subscriptions")
@@ -253,6 +257,35 @@ model Invitation {
   @@map("invitations")
 }
 
+model SalesInquiry {
+  id             String            @id @default(cuid())
+  org_id         String?
+  organization   Organizations?    @relation(fields: [org_id], references: [id])
+  name           String
+  business_email String
+  phone          String?
+  message        String            @db.Text
+  team_size      Int?
+  country        String?
+  status         SaleInquiryStatus @default(PENDING)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@map("sales_inquiries")
+}
+
+enum SaleInquiryStatus {
+  PENDING
+  CONTACTED
+  CLOSED
+  CONVERTED
+}
+
+enum PaymentProvider {
+  STRIPE
+  SSLCOMMERZ
+}
+
 enum BookingStatus {
   PENDING
   CONFIRMED
@@ -307,6 +340,7 @@ enum NotificationType {
   // System
   SYSTEM_ALERT
   MAINTENANCE_NOTICE
+  CONTACT_SALES
 }
 
 enum TransactionType {

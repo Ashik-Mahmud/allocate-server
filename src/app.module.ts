@@ -19,6 +19,7 @@ import { SharedService } from './shared/services/shared.service';
 import { ErrorHandler } from './middleware/error-handler.middleware';
 import { SchedulerModule } from './modules/scheduler/scheduler.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { SalesInquiryModule } from './modules/sales-inquiry/sales-inquiry.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -44,6 +45,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     DashboardModule,
     ScheduleModule.forRoot(),
     SchedulerModule,
+    SalesInquiryModule,
   ],
   controllers: [AppController],
   providers: [
