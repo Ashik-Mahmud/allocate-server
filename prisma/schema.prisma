@@ -128,7 +128,7 @@ model Subscription {
   is_active           Boolean?         @default(true)
   last_reminder_sent  DateTime?
   provider            PaymentProvider? // e.g. "Stripe", "PayPal", "SSLCOMMERZ"
-  external_id         String?
+  external_id         String?          @unique
   last_transaction_id String?
   deletedAt           DateTime?
   createdAt           DateTime?        @default(now())
@@ -265,7 +265,7 @@ model SalesInquiry {
   business_email String
   phone          String?
   message        String            @db.Text
-  team_size      Int?
+  team_size      String?
   country        String?
   status         SaleInquiryStatus @default(PENDING)
   createdAt      DateTime          @default(now())

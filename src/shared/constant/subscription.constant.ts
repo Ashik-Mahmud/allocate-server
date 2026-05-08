@@ -17,7 +17,7 @@ export const SUBSCRIPTION_LIMITS = {
         MAX_USERS: 50,
         MAX_RESOURCES: 20,
         INITIAL_CREDITS: 1000,
-        BOOKING_WINDOW_DAYS: 30, 
+        BOOKING_WINDOW_DAYS: 30,
         FEATURES: {
             AI_INSIGHTS: true,
             ADVANCED_RULES: true,
@@ -34,6 +34,41 @@ export const SUBSCRIPTION_LIMITS = {
             ADVANCED_RULES: true,
             PRIORITY_SUPPORT: true,
         },
+    },
+};
+
+
+export const SUBSCRIPTION_PRICING = {
+    [PlanType.FREE]: {
+        BDT: {
+            monthly: 0,
+            annually: 0,
+        },
+        USD: {
+            monthly: 0,
+            annually: 0,
+        }
+    },
+    [PlanType.PRO]: {
+
+        BDT: {
+            monthly: 999,
+            annually: 9990, // 2 months free (10 months at the price of 12 months)
+        },
+        USD: {
+            monthly: 9.99,
+            annually: 99.90, // 2 months free (10 months at the price of 12 months)
+        }
+    },
+    [PlanType.ENTERPRISE]: {
+        BDT: {
+            monthly: 2499,
+            annually: 24990,
+        },
+        USD: {
+            monthly: 24.99,
+            annually: 249.90,
+        }
     },
 };
 

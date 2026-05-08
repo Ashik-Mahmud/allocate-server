@@ -24,9 +24,11 @@ export const CreateSalesInquirySchema = z.object({
         .max(2000, "Message limit exceeded"),
 
     team_size: z
-        .number()
-        .int()
-        .positive("Team size must be a positive number")
+        .string()
+        .refine((size) => {
+            const validSizes = ["1-10", "11-50", "51-100", "100+"];
+            return validSizes.includes(size);
+        }, "Invalid team size. Valid options are: 1-10, 11-50, 51-100, 100+")
         .optional()
         .nullable(),
 
@@ -38,8 +40,6 @@ export const CreateSalesInquirySchema = z.object({
 
     phone: z
         .string()
-        .min(7, "Invalid phone number")
-        .max(20, "Phone number is too long")
         .optional()
         .nullable(),
 
@@ -56,17 +56,20 @@ export class CreateSalesInquiryDto extends createZodDto(CreateSalesInquirySchema
 export const UpdateSalesInquirySchema = z.object({
     name: z.string().min(2).max(100).optional(),
     message: z.string().min(10).max(2000).optional(),
-    phone: z.string().min(7).max(20).optional().nullable(),
-    team_size: z.number().int().positive().optional().nullable(),
+    phone: z.string().optional().nullable(),
+    team_size: z.string().refine((size) => {
+        const validSizes = ["1-10", "11-50", "51-100", "100+"];
+        return validSizes.includes(size);
+    }, "Invalid team size. Valid options are: 1-10, 11-50, 51-100, 100+").optional().nullable(),
     country: z.string().min(2).optional().nullable(),
-    status: z.enum(["PENDING", "CONTACTED", "CLOSED", "CONVERTED"]).optional(),
+    status: z.enum([SaleInquiryStatus.PENDING, SaleInquiryStatus.CONTACTED, SaleInquiryStatus.CLOSED, SaleInquiryStatus.CONVERTED]).optional(),
 });
 
 export class UpdateSalesInquiryDto extends createZodDto(UpdateSalesInquirySchema) { };
 
 // Query filters DTO
 export const SalesInquiryFiltersSchema = z.object({
-    status: z.enum(["PENDING", "CONTACTED", "CLOSED", "CONVERTED"]).optional(),
+    status: z.enum([SaleInquiryStatus.PENDING, SaleInquiryStatus.CONTACTED, SaleInquiryStatus.CLOSED, SaleInquiryStatus.CONVERTED]).optional(),
     org_id: z.string().cuid().optional(),
     country: z.string().optional(),
     search: z.string().optional(),

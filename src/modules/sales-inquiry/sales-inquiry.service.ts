@@ -17,6 +17,7 @@ export class SalesInquiryService {
         const inquiry = await this.prisma.salesInquiry.create({
             data: {
                 ...data,
+                team_size: data.team_size || null,
                 org_id: data.org_id || null,
                 status: SaleInquiryStatus.PENDING,
             },
@@ -156,6 +157,7 @@ export class SalesInquiryService {
             where: { id },
             data: {
                 ...data,
+
             },
             include: {
                 organization: {
@@ -234,26 +236,12 @@ export class SalesInquiryService {
 
         // By team size
         const byTeamSize: any = {
-            '1-10': 0,
-            '11-50': 0,
-            '51-100': 0,
-            '100+': 0,
-            'Unknown': 0,
+
         };
 
         allInquiries.forEach((inquiry) => {
-            const size = inquiry.team_size;
-            if (!size) {
-                byTeamSize['Unknown']++;
-            } else if (size <= 10) {
-                byTeamSize['1-10']++;
-            } else if (size <= 50) {
-                byTeamSize['11-50']++;
-            } else if (size <= 100) {
-                byTeamSize['51-100']++;
-            } else {
-                byTeamSize['100+']++;
-            }
+            const size = inquiry?.team_size! || 'Unknown';
+            byTeamSize[size] = (byTeamSize[size] || 0) + 1;
         });
 
         // By status

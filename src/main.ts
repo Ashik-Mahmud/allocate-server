@@ -7,7 +7,9 @@ import { ErrorHandler } from './middleware/error-handler.middleware';
 import { RequestLogger } from './middleware/request-logger.middleware';
 import { cleanupOpenApiDoc, ZodValidationPipe } from 'nestjs-zod';
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    rawBody: true, 
+  });
 
 
 
@@ -22,7 +24,7 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: false,
-      forbidNonWhitelisted: true,
+      forbidNonWhitelisted: true, // previous - true
       transform: true,
     }),
   );

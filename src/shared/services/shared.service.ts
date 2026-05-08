@@ -46,7 +46,13 @@ export class SharedService {
             refId?: string;
             description?: string;
             performedBy: string;
+
+            // PAID Transactions
             price_paid?: number;
+            currency?: string
+            status?: string
+            transaction_id?: string
+            payment_gateway?: string
         }
     ) {
 

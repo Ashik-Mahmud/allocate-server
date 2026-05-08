@@ -20,6 +20,7 @@ import { ErrorHandler } from './middleware/error-handler.middleware';
 import { SchedulerModule } from './modules/scheduler/scheduler.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { SalesInquiryModule } from './modules/sales-inquiry/sales-inquiry.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -46,6 +47,7 @@ import { SalesInquiryModule } from './modules/sales-inquiry/sales-inquiry.module
     ScheduleModule.forRoot(),
     SchedulerModule,
     SalesInquiryModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [

@@ -15,6 +15,11 @@ const envSchema = z.object({
   BREVO_API_KEY: z.string(),
   SENDER_EMAIL: z.string().email(),
   SENDER_NAME: z.string(),
+  STRIPE_SECRET_KEY: z.string(),
+  STRIPE_WEBHOOK_SECRET: z.string(),
+  WEB_APP_LINK: z.string().url(),
+
+  
 });
 
 export const env = envSchema.parse(process.env);
