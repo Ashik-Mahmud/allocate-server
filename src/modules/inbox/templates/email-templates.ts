@@ -624,3 +624,71 @@ export const buildSalesInqueryFollowUpTemplate = (rawOptions: AnnouncementOption
 
     return { subject, htmlContent };
 };
+
+// Subscription activated email template
+export const buildSubscriptionRenewedTemplate = (rawOptions: AnnouncementOptions): EmailTemplate => {
+    const options = withDefaults(rawOptions);
+    const metadata = options.metadata || {};
+
+    // Extract metadata with fallbacks
+    const plan = metadata.planType || 'Pro Plan';
+    const amount = metadata.amount ? `$${metadata.amount}` : 'N/A';
+    const expiry = metadata.expireDate || 'N/A';
+    const credits = metadata.creditsToAdd || 0;
+    const orgName = metadata.orgName || 'Your Organization';
+
+    const subject = `Subscription Activated: ${plan} 🎉`;
+
+    const htmlContent = buildLayout(
+        options,
+        'Subscription Activated',
+        `Hi ${escapeHtml(rawOptions.name)}, your subscription for <strong>${escapeHtml(orgName)}</strong> has been successfully processed!`,
+        `
+        <div style="background-color: #f8fafc; border-radius: 12px; padding: 24px; margin: 20px 0; border: 1px solid #e2e8f0;">
+            <h3 style="margin: 0 0 16px; font-size: 18px; color: #1e293b; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px;">Order Summary</h3>
+            
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 8px 0; color: #64748b; font-size: 14px;">Plan Type</td>
+                    <td style="padding: 8px 0; color: #0f172a; font-size: 14px; font-weight: 600; text-align: right;">${escapeHtml(plan)}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: #64748b; font-size: 14px;">Duration</td>
+                    <td style="padding: 8px 0; color: #0f172a; font-size: 14px; font-weight: 600; text-align: right;">${metadata.months} Month(s)</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: #64748b; font-size: 14px;">Credits Added</td>
+                    <td style="padding: 8px 0; color: #10b981; font-size: 14px; font-weight: 600; text-align: right;">+${credits} Credits</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: #64748b; font-size: 14px;">Amount Paid</td>
+                    <td style="padding: 8px 0; color: #0f172a; font-size: 14px; font-weight: 600; text-align: right;">${amount}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px 0 0; color: #64748b; font-size: 14px; border-top: 1px dashed #cbd5e1;">Valid Until</td>
+                    <td style="padding: 12px 0 0; color: #ef4444; font-size: 14px; font-weight: 600; text-align: right; border-top: 1px dashed #cbd5e1;">${escapeHtml(expiry)}</td>
+                </tr>
+            </table>
+        </div>
+
+        <p style="margin:0 0 20px; font-size:15px; line-height:1.6; color:#334155;">
+            Your credits have been added to your organization balance. You can now continue managing your workforce and resources seamlessly.
+        </p>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="${escapeHtml(options.appUrl)}"
+                style="display:inline-block; padding:14px 32px; border-radius:8px; background:#173b7a; color:#ffffff; text-decoration:none; font-weight:600; font-size:15px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                Go to Dashboard
+            </a>
+        </div>
+
+        <div style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 12px 16px; margin-bottom: 20px;">
+            <p style="margin:0; font-size:13px; color:#1e40af;">
+                <strong>Pro Tip:</strong> You can view and download your full invoice from the Billing section of your dashboard.
+            </p>
+        </div>
+        `
+    );
+
+    return { subject, htmlContent };
+};

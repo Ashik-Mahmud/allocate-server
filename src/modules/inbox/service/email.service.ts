@@ -7,6 +7,7 @@ import {
     buildSalesInqueryFollowUpTemplate,
     buildSalesInquiryThankYouTemplate,
     buildStaffInviteEmailTemplate,
+    buildSubscriptionRenewedTemplate,
     buildUpgradePlanEmailTemplate,
     buildVerifyEmailTemplate,
     buildVerifyOtpEmailTemplate,
@@ -209,6 +210,14 @@ export class EmailService {
                 });
             case 'sales_inquiry':
                 return buildSalesInqueryFollowUpTemplate({
+                    name: options.name,
+                    heading: options.subject,
+                    title: options.subject,
+                    message: options.htmlContent,
+                    metadata: options.metadata,
+                });
+            case 'subscription_renewed':
+                return buildSubscriptionRenewedTemplate({
                     name: options.name,
                     heading: options.subject,
                     title: options.subject,

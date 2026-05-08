@@ -158,7 +158,7 @@ export class PaymentsService {
                     newExpiryDate = new Date();
                 }
                 newExpiryDate.setMonth(newExpiryDate.getMonth() + monthsCount);
-                
+
                 const paymentIntentId = typeof session.payment_intent === 'string'
                     ? session.payment_intent
                     : session.id;
@@ -244,6 +244,17 @@ export class PaymentsService {
                     message: notificationMessage,
                     type: NotificationType.SUBSCRIPTION_RENEWED,
                     emailSubject: `🎉 Subscription Activated: ${planType} Plan`,
+                    emailTemplateId: 'subscription_renewed', // Assuming you have this template set up in your email service
+                    metadata: {
+                        planType,
+                        months: monthsCount,
+                        amount: amountInDollars,
+                        expireDate: formattedExpiry,
+                        creditsToAdd,
+                        frozenCredits,
+                        newBalance,
+                        orgName: organization.name
+                    }
 
                 });
 

@@ -306,6 +306,25 @@ export class StaffService {
         if (staff.id === user.id) {
             throw new BadRequestException('You cannot delete your own account');
         }
+
+
+        // Check If the staff member has any pending and confirmed and checked-in bookings, if yes then prevent deletion
+        const pendingBookings = await this.prisma.bookings.findFirst({
+            where: {
+                user_id: id,
+                status: { in: [BookingStatus.PENDING, BookingStatus.CONFIRMED] },
+            },
+        });
+
+        if (pendingBookings) {
+            throw new BadRequestException('Cannot delete staff member with pending or confirmed bookings. Please resolve the bookings before deletion.');
+        }
+
+        //Check if the staff has credits assigned, if yes then prevent deletion
+        if ((staff.personal_credits || 0) > 0) {
+            throw new BadRequestException('Cannot delete staff member with assigned credits. Please revoke or use the credits before deletion.');
+        }
+
         const deletedStaff = await this.prisma.user.update({
             where: { id, org_id: user.org_id },
             data: {
