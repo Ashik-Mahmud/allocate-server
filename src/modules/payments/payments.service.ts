@@ -143,24 +143,22 @@ export class PaymentsService {
 
                 const currentSub = await tx.subscription.findUnique({
                     where: { org_id: org_id },
-                    select: { end_date: true }
+                    select: { end_date: true, plan_name: true }
                 });
 
 
-                let newStartDate = new Date();
                 let newExpiryDate = new Date();
-
+                const isSamePlan = currentSub?.plan_name === planType;
+                const currentEndDate = currentSub?.end_date ? new Date(currentSub.end_date) : null;
+                const isStillActive = currentEndDate && currentEndDate > new Date();
                 // Check if there's an active subscription and adjust the start and end dates accordingly
-                if (currentSub && currentSub.end_date && currentSub.end_date > new Date()) {
-                    newStartDate = currentSub.end_date;
-                    newExpiryDate = new Date(currentSub.end_date);
-                    newExpiryDate.setMonth(newExpiryDate.getMonth() + monthsCount);
+                if (isSamePlan && isStillActive) {
+                    newExpiryDate = new Date(currentEndDate);
                 } else {
-                    // No active subscription, start from now
-                    newExpiryDate.setMonth(newStartDate.getMonth() + monthsCount);
+                    newExpiryDate = new Date();
                 }
-
-
+                newExpiryDate.setMonth(newExpiryDate.getMonth() + monthsCount);
+                
                 const paymentIntentId = typeof session.payment_intent === 'string'
                     ? session.payment_intent
                     : session.id;
