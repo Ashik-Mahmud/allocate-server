@@ -194,7 +194,7 @@ export class PaymentsService {
                 this.sharedService.createCreditTransaction(tx, {
                     orgId: org_id,
                     userId: userId,
-                    amount: amountInDollars,
+                    amount: creditsToAdd,
                     type: TransactionType.TOP_UP,
                     prevBalance: currentPool,
                     currBalance: newBalance,

@@ -68,6 +68,10 @@ export class SharedService {
                 description: data.description,
                 performedBy: data.performedBy,
                 price_paid: data.price_paid || 0,
+                currency: data.currency,
+                status: data.status,
+                transaction_id: data.transaction_id,
+                payment_gateway: data.payment_gateway
             },
         });
     }
