@@ -9,6 +9,7 @@ import { env } from 'src/shared/config/env';
 import { Request } from 'express';
 import { SharedService } from 'src/shared/services/shared.service';
 import { NotificationManager } from '../inbox/service/notification-manager.service';
+import { fail } from 'assert';
 @Injectable()
 export class PaymentsService {
     private stripe: typeof Stripe;
@@ -49,6 +50,7 @@ export class PaymentsService {
         // amount in cents for Stripe
         const stripeAmount = Math.round(totalAmount * 100);
 
+
         const session = await this.stripe.checkout.sessions.create({
             payment_method_types: ['card'],
             mode: 'payment',
@@ -74,7 +76,8 @@ export class PaymentsService {
                 email: user?.email,
             },
             success_url: `${env.WEB_APP_LINK}/dashboard/billing?payment=success`,
-            cancel_url: `${env.WEB_APP_LINK}/pricing`,
+            cancel_url: `${env.WEB_APP_LINK}/dashboard/billing?payment=cancelled`,
+            // fail_url: `${env.WEB_APP_LINK}/dashboard/billing?payment=failed`,
         });
 
         return { url: session.url };
@@ -86,7 +89,7 @@ export class PaymentsService {
         let event;
 
         try {
-            // payload এর বদলে সরাসরি req.rawBody ব্যবহার করতে হবে
+            // parse the request body
             event = this.stripe.webhooks.constructEvent(
                 req.rawBody,
                 signature,
@@ -99,6 +102,7 @@ export class PaymentsService {
         }
 
         const session = event.data.object;
+
 
         // Idempotency check: Ensure we haven't already processed this session
         const existingSession = await this.prisma.subscription.findFirst({
@@ -135,8 +139,31 @@ export class PaymentsService {
                 const newBalance = currentPool + creditsToAdd + frozenCredits;
 
                 const amountInDollars = parseFloat((session.amount_total / 100).toFixed(2));
-                const expiryDate = new Date();
-                expiryDate.setMonth(expiryDate.getMonth() + monthsCount);
+
+
+                const currentSub = await tx.subscription.findUnique({
+                    where: { org_id: org_id },
+                    select: { end_date: true }
+                });
+
+
+                let newStartDate = new Date();
+                let newExpiryDate = new Date();
+
+                // Check if there's an active subscription and adjust the start and end dates accordingly
+                if (currentSub && currentSub.end_date && currentSub.end_date > new Date()) {
+                    newStartDate = currentSub.end_date;
+                    newExpiryDate = new Date(currentSub.end_date);
+                    newExpiryDate.setMonth(newExpiryDate.getMonth() + monthsCount);
+                } else {
+                    // No active subscription, start from now
+                    newExpiryDate.setMonth(newStartDate.getMonth() + monthsCount);
+                }
+
+
+                const paymentIntentId = typeof session.payment_intent === 'string'
+                    ? session.payment_intent
+                    : session.id;
 
                 // update subscription record
                 await tx.subscription.update({
@@ -145,9 +172,9 @@ export class PaymentsService {
                         plan_name: planType,
                         payment_status: PaymentStatus.COMPLETED,
                         provider: PaymentProvider.STRIPE,
-                        last_transaction_id: session.payment_intent,
+                        last_transaction_id: paymentIntentId,
                         start_date: new Date(),
-                        end_date: expiryDate,
+                        end_date: newExpiryDate,
                         external_id: session.id,
                     }
                 });
@@ -174,7 +201,7 @@ export class PaymentsService {
                     prevBalance: currentPool,
                     currBalance: newBalance,
                     payment_gateway: PaymentProvider.STRIPE,
-                    transaction_id: session.payment_intent as string,
+                    transaction_id: paymentIntentId,
                     performedBy: userId,
                     price_paid: amountInDollars,
                     currency: currency,
@@ -194,7 +221,7 @@ export class PaymentsService {
                 });
 
                 // Send Notifications
-                const formattedExpiry = expiryDate.toLocaleDateString('en-US', {
+                const formattedExpiry = newExpiryDate.toLocaleDateString('en-US', {
                     month: 'long', day: 'numeric', year: 'numeric'
                 });
                 const notificationMessage = `
@@ -247,6 +274,14 @@ export class PaymentsService {
 
 
         return { received: true };
+
+    }
+
+
+    // Create a SSLCOMMERZ checkout session (if you want to implement it in the future)
+    async createSSLCOMMERZSession(dto: CreateCheckoutDto, user: CurrentUserType) {
+        // Implement SSLCOMMERZ session creation logic here
+        return { url: 'https://sandbox.sslcommerz.com/gwprocess/v4/gw.php', sessionId: 'dummy-sslcommerz-session-id', paymentGateway: PaymentProvider.SSLCOMMERZ, payload: dto };
 
     }
 }

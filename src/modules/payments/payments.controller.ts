@@ -1,12 +1,12 @@
-import { Body, Controller, Headers, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Headers, Post, Req, Res, UseGuards, } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { Role, User } from '@prisma/client';
+import { PaymentProvider, Role, User } from '@prisma/client';
 import { Roles } from 'src/shared/decorators/roles.decorator';
 import { RolesGuard } from 'src/shared/guards';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { PaymentsService } from './payments.service';
 import { CreateCheckoutDto } from './payments.dto';
-import { Response } from 'express';
+import e, { Response } from 'express';
 import { CurrentUser, CurrentUserType } from 'src/shared/decorators/user.decorator';
 import { ResponseUtil } from 'src/utils/responses';
 
@@ -19,9 +19,14 @@ export class PaymentsController {
 
     @UseGuards(AuthGuard, RolesGuard) // Add appropriate guards when implementing endpoints
     @Roles(Role.ADMIN, Role.ORG_ADMIN)
-    @Post('stripe/create-checkout')
+    @Post('create-checkout')
     async createCheckout(@Body() dto: CreateCheckoutDto, @Res() res: Response, @CurrentUser() user: CurrentUserType) {
-        const result = await this.paymentsService.createCheckoutSession(dto, user);
+        let result;
+        if (dto?.payment_gateway === PaymentProvider.STRIPE || !dto?.payment_gateway) {
+            result = await this.paymentsService.createCheckoutSession(dto, user);
+        } else {
+            result = await this.paymentsService.createSSLCOMMERZSession(dto, user);
+        }
         return ResponseUtil.success(result, res);
     }
 
@@ -29,7 +34,7 @@ export class PaymentsController {
 
     @Post('webhook')
     async handleStripeWebhook(
-        @Headers('stripe-signature') signature: string, 
+        @Headers('stripe-signature') signature: string,
         @Req() req: Request,
         @Res() res: Response
     ) {
@@ -37,7 +42,7 @@ export class PaymentsController {
             return res.status(400).send('No signature found');
         }
         // Implement webhook handling logic here
-         const result = await this.paymentsService.handleStripeWebhook(signature, req);
+        const result = await this.paymentsService.handleStripeWebhook(signature, req);
         // Verify the event and update subscription status in your database accordingly
         return ResponseUtil.success({ received: true }, res);
     }
