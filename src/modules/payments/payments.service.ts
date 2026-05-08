@@ -113,7 +113,7 @@ export class PaymentsService {
             return { received: true };
         }
 
-        if (event.type === 'checkout.session.completed') {
+        if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
 
             const { userId, planType, months, currency, org_id, email } = session.metadata;
 
@@ -227,6 +227,26 @@ export class PaymentsService {
 
             return subscription;
         }
+
+        if (event.type === 'checkout.session.async_payment_failed') {
+            console.error(`❌ Payment failed for session ${session.id}`);
+            // You can also update your subscription record to mark it as failed if needed
+
+        }
+
+        if (event.type === 'checkout.session.async_payment_succeeded') {
+            console.log(`✅ Payment succeeded for session ${session.id}`);
+            // You can also update your subscription record to mark it as successful if needed
+        }
+
+        if (event.type === 'checkout.session.async_payment_cancelled') {
+            console.log(`❌ Payment cancelled for session ${session.id}`);
+            // You can also update your subscription record to mark it as cancelled if needed
+        }
+
+
+
+        return { received: true };
 
     }
 }
