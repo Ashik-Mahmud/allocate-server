@@ -18,6 +18,11 @@ const envSchema = z.object({
   STRIPE_SECRET_KEY: z.string(),
   STRIPE_WEBHOOK_SECRET: z.string(),
   WEB_APP_LINK: z.string().url(),
+  BACKEND_URL: z.string().url(),
+
+  SSL_STORE_ID: z.string(),
+  SSL_STORE_PASSWORD: z.string(),
+  SSL_API_URL: z.string().url(),
 
   
 });

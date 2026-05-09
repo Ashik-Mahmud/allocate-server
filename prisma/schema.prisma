@@ -183,6 +183,7 @@ model CreditTransaction {
   currency        String? // e.g. "USD" (relevant for TOP_UP transactions)
   status          String? // e.g. "COMPLETED", "PENDING", "FAILED" (relevant for TOP_UP transactions)
   createdAt       DateTime        @default(now())
+  metadata        Json?
 
   booking      Bookings?     @relation(fields: [referenceId], references: [id], onDelete: Cascade)
   user         User          @relation(fields: [user_id], references: [id], onDelete: Cascade)

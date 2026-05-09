@@ -1,4 +1,4 @@
-import { Body, Controller, Headers, Post, Req, Res, UseGuards, } from '@nestjs/common';
+import { Body, Controller, Headers, HttpCode, Post, Req, Res, UseGuards, } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { PaymentProvider, Role, User } from '@prisma/client';
 import { Roles } from 'src/shared/decorators/roles.decorator';
@@ -6,7 +6,7 @@ import { RolesGuard } from 'src/shared/guards';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { PaymentsService } from './payments.service';
 import { CreateCheckoutDto } from './payments.dto';
-import e, { Response } from 'express';
+import e, { Request, Response } from 'express';
 import { CurrentUser, CurrentUserType } from 'src/shared/decorators/user.decorator';
 import { ResponseUtil } from 'src/utils/responses';
 
@@ -45,6 +45,15 @@ export class PaymentsController {
         const result = await this.paymentsService.handleStripeWebhook(signature, req);
         // Verify the event and update subscription status in your database accordingly
         return ResponseUtil.success({ received: true }, res);
+    }
+
+    @Post('ssl-webhook')
+    @HttpCode(200)
+    async handleSSLIPN(@Body() body: any, @Res() res: Response, @Req() req: Request) {
+        console.log('IPN Received');
+        // Implement IPN handling logic here
+        await this.paymentsService.handleSSLIPN(body, req);
+       return res.status(200).send('Ok');
     }
 
 }

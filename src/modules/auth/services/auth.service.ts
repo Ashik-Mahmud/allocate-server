@@ -334,6 +334,16 @@ export class AuthService {
         organization: role === Role.STAFF ? { select: selectOrgFieldsForStaff } : {
           include: {
             subscription: true,
+            // last payment transaction
+            creditTransactions: {
+              where: {
+                type: TransactionType.TOP_UP,
+              },
+              orderBy: {
+                createdAt: 'desc',
+              },
+              take: 1, 
+            },
             _count: {
               select: {
                 resources: true,

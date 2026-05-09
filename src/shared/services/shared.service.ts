@@ -52,7 +52,8 @@ export class SharedService {
             currency?: string
             status?: string
             transaction_id?: string
-            payment_gateway?: string
+            payment_gateway?: string,
+            metadata?: any
         }
     ) {
 
@@ -71,7 +72,8 @@ export class SharedService {
                 currency: data.currency,
                 status: data.status,
                 transaction_id: data.transaction_id,
-                payment_gateway: data.payment_gateway
+                payment_gateway: data.payment_gateway,
+                metadata: data.metadata || {}
             },
         });
     }

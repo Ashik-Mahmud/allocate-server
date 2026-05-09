@@ -6,9 +6,10 @@ import { AppModule } from './app.module';
 import { ErrorHandler } from './middleware/error-handler.middleware';
 import { RequestLogger } from './middleware/request-logger.middleware';
 import { cleanupOpenApiDoc, ZodValidationPipe } from 'nestjs-zod';
+import * as express from 'express';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
-    rawBody: true, 
+    rawBody: true,
   });
 
 
@@ -33,7 +34,10 @@ async function bootstrap() {
   app.useGlobalPipes(new ZodValidationPipe());
   // app.useGlobalFilters(new ErrorHandler());
 
-
+  // FOR SSL
+  app.use(express.urlencoded({ extended: true }));
+  app.use(express.json());
+  
   // Swagger
   const config = new DocumentBuilder()
     .setTitle('Allocate ')
