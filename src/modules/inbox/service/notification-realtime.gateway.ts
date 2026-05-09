@@ -1,65 +1,60 @@
 import {
     OnGatewayConnection,
     OnGatewayDisconnect,
+    SubscribeMessage,
     WebSocketGateway,
     WebSocketServer,
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
-import { Server, Socket } from 'socket.io';
-import { JWTUtils } from 'src/modules/auth/utils/jwt';
-
-type AuthenticatedSocket = Socket & {
-    data: {
-        userId?: string;
-        orgId?: string;
-    };
-};
+import { Server } from 'socket.io';
+import { AuthenticatedSocket, socketAuthMiddleware } from 'src/middleware/socket-auth.middleware';
 
 @WebSocketGateway({
     namespace: '/notifications',
     cors: {
-        origin: true, 
-        credentials: true, 
+        origin: true,
+        credentials: true,
     },
-    transports: ['websocket', 'polling'], 
+    transports: ['websocket', 'polling'],
 })
 export class NotificationRealtimeGateway
-    implements OnGatewayConnection, OnGatewayDisconnect
-{
+    implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly logger = new Logger(NotificationRealtimeGateway.name);
 
-    @WebSocketServer() 
-    private server!: Server; 
+    @WebSocketServer()
+    private server!: Server;
 
-    async handleConnection(client: AuthenticatedSocket) { 
-        const token = this.extractToken(client);
+    constructor() {
+        // Apply shared socket auth middleware
+        // This will be called by the gateway after instantiation
+    }
 
-        if (!token) {
+    /**
+     * Called after server is initialized
+     * Register the shared auth middleware here
+     */
+    afterInit(server: Server) {
+        server.use(socketAuthMiddleware);
+        this.logger.log('Socket auth middleware registered for notifications gateway');
+    }
+
+    async handleConnection(client: AuthenticatedSocket) {
+        if (!client.data.userId) {
             client.disconnect(true);
             return;
         }
 
-        try {
-            const payload = JWTUtils.verifyToken(token);
-
-            if (payload.type !== 'access') {
-                client.disconnect(true);
-                return;
-            }
-
-            client.data.userId = payload.userId;
-            client.data.orgId = payload.orgId;
-
-            await client.join(this.userRoom(payload.userId));
-        } catch (error) {
-            this.logger.warn('Socket connection rejected due to invalid token');
-            client.disconnect(true);
-        }
+        await client.join(this.userRoom(client.data.userId));
+        this.logger.debug(
+            `Notifications socket connected for user ${client.data.userId}`,
+        );
     }
 
     handleDisconnect(client: AuthenticatedSocket) {
         if (client.data?.userId) {
-            this.logger.debug(`Notifications socket disconnected for user ${client.data.userId}`);
+            this.logger.debug(
+                `Notifications socket disconnected for user ${client.data.userId}`,
+            );
         }
     }
 
@@ -71,24 +66,12 @@ export class NotificationRealtimeGateway
         this.server.to(this.userRoom(userId)).emit('notification:new', payload);
     }
 
-    private userRoom(userId: string): string {
-        return `user:${userId}`;
+    @SubscribeMessage('notification:acknowledge')
+    handleNotificationAcknowledgement(client: any, payload: { message: string, notificationId: string }) {
+        this.logger.debug(`Received notification acknowledgement from user ${client.data?.userId}: ${payload.message} (ID: ${payload.notificationId})`);
     }
 
-    private extractToken(client: Socket): string | null {
-        const handshakeToken = client.handshake.auth?.token;
-
-        if (typeof handshakeToken === 'string' && handshakeToken.length > 0) {
-            return handshakeToken.startsWith('Bearer ')
-                ? handshakeToken.substring(7)
-                : handshakeToken;
-        }
-
-        const authHeader = client.handshake.headers.authorization;
-        if (typeof authHeader === 'string') {
-            return JWTUtils.extractToken(authHeader);
-        }
-
-        return null;
+    private userRoom(userId: string): string {
+        return `user:${userId}`;
     }
 }
