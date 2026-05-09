@@ -12,6 +12,7 @@ import { SharedService } from 'src/shared/services/shared.service';
 import { NotificationManager } from '../inbox/service/notification-manager.service';
 import { fail } from 'assert';
 import { isValid } from 'zod/v3';
+import { sslCommerzConfig } from 'src/shared/config/ssl-commerz';
 @Injectable()
 export class PaymentsService {
     private stripe: typeof Stripe;
@@ -347,7 +348,8 @@ export class PaymentsService {
         };
 
 
-        const sslcz = new SSLCommerzPayment(env.SSL_STORE_ID, env.SSL_STORE_PASSWORD, false)
+        const { isLive, store_id, store_password } = sslCommerzConfig('sandbox');
+        const sslcz = new SSLCommerzPayment(store_id, store_password, isLive)
         try {
 
             const apiResponse = await sslcz.init(data);
@@ -573,11 +575,12 @@ export class PaymentsService {
 
     async validateSSLPayment(val_id: string): Promise<{ isValid: boolean; validationData: any }> {
         if (!val_id) return { isValid: false, validationData: null };
-        const validationUrl = `https://sandbox.sslcommerz.com/validator/api/validationserverAPI.php`;
+        const { validationApiUrl, store_id, store_password } = sslCommerzConfig('sandbox');
+        const validationUrl = validationApiUrl;
         const params = new URLSearchParams({
             val_id: val_id,
-            store_id: env.SSL_STORE_ID,
-            store_passwd: env.SSL_STORE_PASSWORD,
+            store_id: store_id,
+            store_passwd: store_password,
             format: 'json'
         });
 

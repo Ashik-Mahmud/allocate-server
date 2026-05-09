@@ -342,7 +342,7 @@ export class AuthService {
               orderBy: {
                 createdAt: 'desc',
               },
-              take: 1, 
+              take: 1,
             },
             _count: {
               select: {
@@ -371,7 +371,12 @@ export class AuthService {
           { status: BookingStatus.CHECKED_IN },
           {
             status: BookingStatus.CONFIRMED,
-            start_time: { gt: new Date() }
+            start_time: {
+              // show the next booking if the start time is within the next 24 hours
+              gte: new Date(),
+              lte: new Date(Date.now() + 24 * 60 * 60 * 1000)
+
+            }
           }
         ]
       },
