@@ -368,7 +368,7 @@ export class PaymentsService {
 
     // Handle SSLCommerz IPN (Instant Payment Notification)
     async handleSSLIPN(body: any, req: Request) {
-        console.log('Handling SSLCommerz IPN:', body);
+        // console.log('Handling SSLCommerz IPN:', body);
         // Implement logic to handle SSLCommerz IPN events here
         const { tran_id, status, val_id, amount, value_a, value_b, value_c, value_d } = body;
         const org_id = value_a;
