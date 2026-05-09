@@ -4,10 +4,19 @@ import { InboxService } from './service/inbox.service';
 import { EmailService } from './service/email.service';
 import { NotificationManager } from './service/notification-manager.service';
 import { SharedService } from 'src/shared/services/shared.service';
+import { NotificationRealtimeGateway } from './service/notification-realtime.gateway';
+import { NotificationRealtimeService } from './service/notification-realtime.service';
 
 @Module({
     controllers: [InboxController],
-    providers: [InboxService, EmailService, NotificationManager, SharedService],
+    providers: [
+        InboxService,
+        EmailService,
+        NotificationManager,
+        SharedService,
+        NotificationRealtimeGateway,
+        NotificationRealtimeService,
+    ],
     exports: [EmailService, NotificationManager],
 })
 export class InboxModule {}

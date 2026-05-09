@@ -7,6 +7,7 @@ import {
     NotificationDispatchResult,
 } from 'src/utils/notification-dispatcher';
 import { Prisma } from '@prisma/client';
+import { NotificationRealtimeService } from './notification-realtime.service';
 
 /**
  * Notification Manager Service
@@ -31,6 +32,7 @@ export class NotificationManager {
     constructor(
         private prisma: PrismaService,
         private emailService: EmailService,
+        private notificationRealtimeService: NotificationRealtimeService,
     ) { }
 
     /**
@@ -108,8 +110,7 @@ export class NotificationManager {
             },
         });
 
-        // TODO: Integrate with Socket.io or Firebase for real-time delivery
-        // this.socketService.sendToUser(data.userId, notification);
+        this.notificationRealtimeService.emitInAppNotification(notification);
 
         return notification;
     }

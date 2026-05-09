@@ -7,6 +7,7 @@ import { CurrentUserType } from "src/shared/decorators/user.decorator";
 import { NotificationManager } from "./notification-manager.service";
 import { SharedService } from "src/shared/services/shared.service";
 import { Response } from "express";
+import { NotificationRealtimeService } from "./notification-realtime.service";
 
 // Write inbox service code
 @Injectable()
@@ -15,7 +16,9 @@ export class InboxService {
         private prisma: PrismaService,
         private emailService: EmailService,
         private notificationManager: NotificationManager,
-        private sharedService: SharedService, // Replace with actual SharedService type
+        private sharedService: SharedService,
+        private notificationRealtimeService: NotificationRealtimeService,
+
     ) {
         // Initialize any necessary properties or dependencies here
     }
@@ -39,7 +42,7 @@ export class InboxService {
             },
         });
 
-        // this.socketService.sendToUser(data.userId, notification);
+        this.notificationRealtimeService.emitInAppNotification(notification);
 
         return notification;
     }
