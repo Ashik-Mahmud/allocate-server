@@ -17,7 +17,11 @@ async function bootstrap() {
   // Security
   (app as any).set('trust proxy', 1);
   app.use(helmet());
-  app.enableCors()
+  app.enableCors({
+    origin: true,
+    credentials: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+  })
   // Middleware
   app.use(new RequestLogger().use);
 
@@ -37,7 +41,7 @@ async function bootstrap() {
   // FOR SSL
   app.use(express.urlencoded({ extended: true }));
   app.use(express.json());
-  
+
   // Swagger
   const config = new DocumentBuilder()
     .setTitle('Allocate ')
