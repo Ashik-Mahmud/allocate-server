@@ -137,7 +137,7 @@ export class AdminController {
      * @param request - The incoming request object
      * @param response - The outgoing response object
      */
-    @Patch('/organizations/:orgId/credits')
+    @Post('/organizations/:orgId/credits')
     @ApiParam({ name: 'orgId', description: 'ID of the organization to top up credits' })
     @ApiResponse({ status: 200, description: 'Organization credits topped up successfully.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
