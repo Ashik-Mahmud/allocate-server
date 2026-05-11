@@ -2,14 +2,16 @@ import { Injectable, BadRequestException, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../inbox/service/email.service';
 import { CreateSalesInquiryDto, UpdateSalesInquiryDto, SalesInquiryFiltersDto } from './sales-inquiry.dto';
-import { Prisma, SaleInquiryStatus, User } from '@prisma/client';
+import { NotificationType, Prisma, Role, SaleInquiryStatus, User } from '@prisma/client';
 import { CurrentUserType } from 'src/shared/decorators/user.decorator';
+import { InboxService } from '../inbox/service/inbox.service';
 
 @Injectable()
 export class SalesInquiryService {
     constructor(
         private prisma: PrismaService,
         private emailService: EmailService,
+        private inboxService: InboxService,
     ) { }
 
     // Create a new sales inquiry
@@ -31,6 +33,22 @@ export class SalesInquiryService {
                 },
             },
         });
+
+        // Send in App notification to org admin if org_id is provided
+        const systemAdmin = await this.prisma.user.findFirst({
+            where: { role: Role.ADMIN, org_id: null },
+            select: { id: true },
+        });
+
+        const message = `A new sales inquiry has been received from ${inquiry.name} (${inquiry.business_email}). Please review and follow up accordingly. Inquiry details: ${inquiry.message}`;
+
+        this.inboxService.createNotification({
+            userId: systemAdmin?.id || '', // Assuming system admin is the recipient
+            orgId: inquiry?.org_id || '',
+            type: NotificationType.CONTACT_SALES,
+            title: `New Sales Inquiry Received : ${inquiry.organization?.name || 'Unknown Organization'}`,
+            message: message,
+        }).catch(err => console.error('Failed to create in-app notification:', err));
 
         this.sendInquiryEmails(inquiry).catch(err =>
             console.error('Email background process failed:', err)

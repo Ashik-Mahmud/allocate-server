@@ -152,7 +152,7 @@ export class AuthService {
   async login(dto: LoginDto, res: Response): Promise<TokenPair & { user: Partial<User> & { needUpdateOrg: boolean } }> {
     // Find user
     const user = await this.prisma.user.findUnique({
-      where: { email: dto.email, },
+      where: { email: dto.email, deletedAt: null },
       include: { organization: true }
     });
 

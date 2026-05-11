@@ -25,7 +25,7 @@ export class InboxService {
     // create notification for user
     async createNotification(data: {
         userId: string;
-        orgId: string;
+        orgId: string ;
         type: NotificationType;
         title: string;
         message: string;
@@ -35,7 +35,7 @@ export class InboxService {
         const notification = await this.prisma.notification.create({
             data: {
                 user_id: data.userId,
-                org_id: data.orgId,
+                org_id: data.orgId ,
                 type: data.type,
                 title: data.title,
                 message: data.message,
@@ -43,7 +43,6 @@ export class InboxService {
                 metadata: data.metadata
             },
         });
-
         this.notificationRealtimeService.emitInAppNotification(notification);
 
         return notification;

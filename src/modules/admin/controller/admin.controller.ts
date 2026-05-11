@@ -8,7 +8,7 @@ import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
 import { RolesGuard } from 'src/shared/guards';
 import { Roles } from 'src/shared/decorators/roles.decorator';
 import { Role, User } from '@prisma/client';
-import { AllUserFilterDto, BroadcastAnnouncementDto, OrganizationCreditTopUpDto, OrganizationFilterDto, RevenueAnalyticsFilterDto, SubscriptionTransactionFilterDto, UpdateSystemSettingsDto, UserActivityLogFilterDto } from '../dto/admin.dto';
+import { AllUserFilterDto, BroadcastAnnouncementDto, OrganizationCreditTopUpDto, OrganizationFilterDto, RevenueAnalyticsFilterDto, SubscriptionTransactionFilterDto, UpdateOrganizationDto, UpdateSystemSettingsDto, UserActivityLogFilterDto } from '../dto/admin.dto';
 import { CurrentUser } from 'src/shared/decorators/user.decorator';
 import { ResponseUtil } from 'src/utils/responses';
 import { Public } from 'src/shared/decorators/public.decorator';
@@ -101,7 +101,6 @@ export class AdminController {
     async getAllOrganizations(@CurrentUser() user: User, @Query() query: OrganizationFilterDto, @Res() response: Response) {
         // Implement logic to retrieve all organizations with their verification status here
         // You can use this.adminService to call service methods for business logic
-        console.log(query, 'query')
         const result = await this.adminService.getAllOrganizations(user, query);
         ResponseUtil.paginated(result.items, result.total, result.page, result.limit, response);
     }
@@ -133,15 +132,54 @@ export class AdminController {
      */
     @UseGuards(AuthGuard, RolesGuard)
     @Roles(Role.ADMIN)
-    @Patch('/organizations/:orgId/verification')
-    @ApiParam({ name: 'orgId', description: 'ID of the organization to update verification status' })
-    @ApiResponse({ status: 200, description: 'Organization verification status updated successfully.' })
+    @Patch('/organizations/:orgId')
+    @ApiParam({ name: 'orgId', description: 'ID of the organization to update' })
+    @ApiResponse({ status: 200, description: 'Organization updated successfully.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
-    @ApiOperation({ summary: 'Update organization verification status' })
-    async updateOrganizationVerificationStatus(@CurrentUser() user: User, @Param('orgId') orgId: string, @Body() body: { verified: boolean }, @Res() response: Response) {
+    @ApiOperation({ summary: 'Update organization details' })
+    async updateOrganization(@CurrentUser() user: User, @Param('orgId') orgId: string, @Body() body: UpdateOrganizationDto, @Res() response: Response) {
         // Implement logic to update organization verification status here
         // You can use this.adminService to call service methods for business logic
-        const result = await this.adminService.updateOrganizationVerificationStatus(user, orgId, body.verified, response);
+        const result = await this.adminService.updateOrganization(user, orgId, body, response);
+        ResponseUtil.success(result, response);
+    }
+
+    /**
+     *  Add endpoint to delete an organization
+     * @param request - The incoming request object
+     * @param response - The outgoing response object
+     * This endpoint allows the admin to delete an organization
+     */
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @Patch('/organizations/:orgId/delete')
+    @ApiParam({ name: 'orgId', description: 'ID of the organization to delete' })
+    @ApiResponse({ status: 200, description: 'Organization deleted successfully.' })
+    @ApiResponse({ status: 403, description: 'Forbidden.' })
+    @ApiOperation({ summary: 'Delete an organization' })
+    async deleteOrganization(@CurrentUser() user: User, @Param('orgId') orgId: string, @Res() response: Response) {
+        // Implement logic to delete an organization here
+        // You can use this.adminService to call service methods for business logic
+        const result = await this.adminService.deleteOrganization(user, orgId, response);
+        ResponseUtil.success(result, response);
+    }
+
+    /**
+     * Add endpoint to restore a deleted organization
+     * @param request - The incoming request object
+     * @param response - The outgoing response object
+     */
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @Patch('/organizations/:orgId/restore')
+    @ApiParam({ name: 'orgId', description: 'ID of the organization to restore' })
+    @ApiResponse({ status: 200, description: 'Organization restored successfully.' })
+    @ApiResponse({ status: 403, description: 'Forbidden.' })
+    @ApiOperation({ summary: 'Restore a deleted organization' })
+    async restoreOrganization(@CurrentUser() user: User, @Param('orgId') orgId: string, @Res() response: Response) {
+        // Implement logic to restore a deleted organization here
+        // You can use this.adminService to call service methods for business logic
+        const result = await this.adminService.restoreOrganization(user, orgId, response);
         ResponseUtil.success(result, response);
     }
 

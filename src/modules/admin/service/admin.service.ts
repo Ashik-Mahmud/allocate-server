@@ -1,7 +1,7 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { NotificationType, Prisma, Role, TransactionType, User } from "@prisma/client";
 import { PrismaService } from "src/modules/prisma/prisma.service";
-import { BroadcastAnnouncementDto, OrganizationCreditTopUpDto, OrganizationFilterDto, RevenueAnalyticsFilterDto, SubscriptionTransactionFilterDto, UpdateSystemSettingsDto, UserActivityLogFilterDto } from "../dto/admin.dto";
+import { BroadcastAnnouncementDto, OrganizationCreditTopUpDto, OrganizationFilterDto, RevenueAnalyticsFilterDto, SubscriptionTransactionFilterDto, UpdateOrganizationDto, UpdateSystemSettingsDto, UserActivityLogFilterDto } from "../dto/admin.dto";
 import { SharedService } from "src/shared/services/shared.service";
 import { EmailService } from "src/modules/inbox/service/email.service";
 import { Response } from "express";
@@ -85,12 +85,12 @@ export class AdminService {
             },
         });
 
-       if (targetUsers.length === 0) {
-        return { 
-            count: 0, 
-            message: 'No users found in the selected organizations' 
-        };
-    }
+        if (targetUsers.length === 0) {
+            return {
+                count: 0,
+                message: 'No users found in the selected organizations'
+            };
+        }
 
         const chunkSize = 50;
         let successCount = 0;
@@ -126,7 +126,7 @@ export class AdminService {
         if (user.role !== Role.ADMIN) {
             throw new Error('Unauthorized');
         }
-        const { organizationId, name, verified, page, limit, search } = query;
+        const { organizationId, name, verified, page, limit, search, showDeletedOrg, planType } = query;
         const pageNumber = Number(page) || 1;
         const pageSize = Number(limit) || 10;
 
@@ -134,6 +134,7 @@ export class AdminService {
             ...(organizationId ? { id: organizationId } : {}),
             ...(name ? { name: { contains: name, mode: 'insensitive' } } : {}),
             ...(verified !== undefined ? { isVerified: verified } : {}),
+            ...(showDeletedOrg === false ? { deletedAt: null } : {deletedAt: { not: null }}),
             ...(search ? {
                 users: {
                     some: {
@@ -141,6 +142,7 @@ export class AdminService {
                     }
                 }
             } : {}),
+            ...(planType ? { plan_type: planType } : {}),
         };
         const skip = (pageNumber - 1) * pageSize;
         const [organizations, total] = await this.prisma.$transaction([
@@ -149,8 +151,12 @@ export class AdminService {
                 skip,
                 take: pageSize,
                 include: {
-                    users: true,
+                    _count: {
+                        select: { users: true }
+                    }
                 },
+                orderBy: { createdAt: 'desc' },
+
             }),
             this.prisma.organizations.count({ where: whereClause }),
         ]);
@@ -182,7 +188,7 @@ export class AdminService {
     }
 
     // Update organization verification status
-    async updateOrganizationVerificationStatus(user: User, orgId: string, verified: boolean, response: Response) {
+    async updateOrganization(user: User, orgId: string, data: UpdateOrganizationDto, response: Response) {
         if (user.role !== Role.ADMIN) {
             throw new Error('Unauthorized');
         }
@@ -191,35 +197,46 @@ export class AdminService {
         }
 
         try {
-            // check if organization exists and update
             const updatedOrg = await this.prisma.organizations.update({
                 where: { id: orgId },
-                data: { isVerified: verified },
+                data: {
+                    ...data,
+                    updatedAt: new Date(),
+                },
+                include: {
+                    users: {
+                        where: { role: Role.ORG_ADMIN },
+                    },
+                },
             });
 
             // log activity
-            await this.shared.logActivity(this.prisma, {
-                orgId: orgId,
-                userId: user.id,
-                action: verified ? 'ORG_VERIFIED' : 'ORG_UNVERIFIED',
-                details: `Organization ${updatedOrg.name} verification status set to ${verified}`,
-                ipAddress: response.req.ip || '',
-                userAgent: response.get('User-Agent') || '',
-                metadata: { org_id: orgId, role: user.role },
-            });
+            if (data?.isVerified !== undefined) {
+                await this.shared.logActivity(this.prisma, {
+                    orgId: orgId,
+                    userId: updatedOrg?.users?.[0]?.id || user.id,
+                    action: updatedOrg.isVerified ? 'ORG_VERIFIED' : 'ORG_UNVERIFIED',
+                    details: `Organization ${updatedOrg.name} verification status set to ${updatedOrg.isVerified}`,
+                    ipAddress: response.req.ip || '',
+                    userAgent: response.get('User-Agent') || '',
+                    metadata: { org_id: orgId, role: user.role },
+                });
 
-            this.notificationManager.createNotification({
-                userId: user.id,
-                orgId: orgId,
-                type: NotificationType.SYSTEM_ALERT,
-                title: verified ? 'Organization Verified' : 'Organization Unverified',
-                message: `Organization ${updatedOrg.name} is now ${verified ? 'verified' : 'unverified'}`,
-                metadata: { org_id: orgId, role: user.role },
-            });
+                this.notificationManager.send({
+                    userId: updatedOrg?.users?.[0]?.id || user.id,
+                    orgId: orgId,
+                    type: NotificationType.SYSTEM_ALERT,
+                    title: updatedOrg.isVerified ? 'Organization Verified' : 'Organization Unverified',
+                    message: `Organization ${updatedOrg.name} is now ${updatedOrg.isVerified ? 'verified' : 'unverified'}`,
+                    metadata: { org_id: orgId, role: user.role },
+                    userEmail: user.email,
+                    userName: user.name,
+                });
+            }
 
             return {
                 success: true,
-                message: `Organization is now ${verified ? 'verified' : 'unverified'}`
+                message: `Organization updated successfully`,
             };
         } catch (error: any) {
             if (error.code === 'P2025') {
@@ -228,6 +245,170 @@ export class AdminService {
         }
     }
 
+    // Delete organization by ID
+    async deleteOrganization(user: User, orgId: string, response: Response) {
+        if (user.role !== Role.ADMIN) {
+            throw new Error('Unauthorized');
+        }
+        if (!orgId) {
+            throw new Error('Organization ID is required');
+        }
+        try {
+
+            // Fetch users BEFORE starting the transaction to keep the TX fast
+            const targetUsers = await this.prisma.user.findMany({
+                where: { org_id: orgId },
+                select: { id: true, name: true, email: true, role: true },
+            });
+
+            await this.prisma.$transaction(async (tx) => {
+                // 2. Soft Delete Organization
+                const deletedOrg = await tx.organizations.update({
+                    where: { id: orgId },
+                    data: {
+                        deletedAt: new Date(),
+                        is_active: false
+                    },
+                });
+
+                // 3. Soft Delete All Users
+                await tx.user.updateMany({
+                    where: { org_id: orgId },
+                    data: { deletedAt: new Date() },
+                });
+
+                // 4. Hard Delete Old Notifications (Clean up db)
+                await tx.notification.deleteMany({
+                    where: { org_id: orgId }
+                });
+
+                // 5. Activity Logging (using the transaction client tx)
+                await this.shared.logActivity(tx, {
+                    orgId: orgId,
+                    userId: user.id, // Admin who performed the action
+                    action: 'ORG_DELETED',
+                    details: `Organization ${deletedOrg.name} deleted and ${targetUsers.length} users suspended.`,
+                    ipAddress: response.req.ip || '',
+                    userAgent: response.get('User-Agent') || '',
+                    metadata: { org_id: orgId, admin_id: user.id },
+                });
+                return deletedOrg;
+            });
+            if (targetUsers.length > 0) {
+                targetUsers.forEach(u => {
+                    this.emailService.sendGlobalEmail({
+                        name: u.name,
+                        to: u.email,
+                        subject: 'Organization Deleted',
+                        htmlContent: `Your organization has been deleted by the administrator. Your account has been suspended. If you have any questions, please contact support.`,
+                    }).catch(err => console.error(`Email failed for ${u.email}`, err));
+                });
+            }
+
+            return {
+                success: true,
+                message: `Organization and its ${targetUsers.length} users have been suspended.`,
+            };
+        } catch (error: any) {
+            if (error.code === 'P2025') {
+                throw new NotFoundException('Organization not found');
+            }
+        }
+    }
+
+    // Restore deleted organization by ID
+    async restoreOrganization(user: User, orgId: string, response: Response) {
+        // 1. Authorization Guard
+        if (user.role !== Role.ADMIN) {
+            throw new ForbiddenException('Unauthorized: System Admin access required');
+        }
+        if (!orgId) {
+            throw new BadRequestException('Organization ID is required');
+        }
+
+        try {
+            // Get accociated users by orgId
+            const targetUsers = await this.prisma.user.findMany({
+                where: { org_id: orgId },
+                select: { id: true, email: true },
+            });
+
+            const { organization, usersSkipped } = await this.prisma.$transaction(async (tx) => {
+                // restore organization
+                const org = await tx.organizations.update({
+                    where: { id: orgId },
+                    data: {
+                        deletedAt: null,
+                        is_active: true
+                    },
+                });
+
+                //Check if any user is in other org
+                const usersInOtherOrg = await tx.user.findMany({
+                    where: {
+                        email: { in: targetUsers.map(u => u.email) },
+                        org_id: { not: orgId },
+                        deletedAt: null
+                    },
+                    select: { email: true },
+                });
+
+                const skippedEmails = usersInOtherOrg.map(u => u.email);
+
+                // restore others users who are not in other org
+                await tx.user.updateMany({
+                    where: {
+                        org_id: orgId,
+                        email: { notIn: skippedEmails.length > 0 ? skippedEmails : [''] }
+                    },
+                    data: { deletedAt: null },
+                });
+
+                return { organization: org, usersSkipped: skippedEmails };
+            });
+
+            // log activity for org restore with skipped users info
+            await this.shared.logActivity(this.prisma, {
+                orgId: orgId,
+                userId: user.id, // Admin id who performed the restore
+                action: 'ORG_RESTORED',
+                details: `Organization ${organization.name} restored. ${usersSkipped.length} users skipped as they joined other orgs.`,
+                ipAddress: response.req.ip || '',
+                userAgent: response.get('User-Agent') || '',
+                metadata: { org_id: orgId, skippedUsers: usersSkipped },
+            });
+
+            // Send notification to restored users
+            const restoredUsers = await this.prisma.user.findMany({
+                where: { org_id: orgId, deletedAt: null }
+            });
+
+            restoredUsers.forEach(u => {
+                this.notificationManager.send({
+                    userId: u.id,
+                    orgId: orgId,
+                    type: NotificationType.SYSTEM_ALERT,
+                    title: 'Account Restored',
+                    message: `The organization ${organization.name} and your account have been restored. Welcome back!`,
+                    metadata: { restoredBy: user.id },
+                    userEmail: u.email,
+                    userName: u.name,
+                }).catch(e => console.error(`Failed to send restore notification to ${u.email}`));
+            });
+
+            return {
+                success: true,
+                message: `Organization restored successfully. ${usersSkipped.length} users were skipped.`,
+                data: { organization, skippedCount: usersSkipped.length }
+            };
+
+        } catch (error: any) {
+            if (error.code === 'P2025') {
+                throw new NotFoundException('Organization not found');
+            }
+            throw error;
+        }
+    }
     // Top up organization credits
     async topUpOrganizationCredits(user: User, orgId: string, data: OrganizationCreditTopUpDto, response: Response) {
         if (user.role !== Role.ADMIN) {
