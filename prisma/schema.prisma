@@ -292,8 +292,10 @@ model CommunityHub {
   authorName   String?
   authorRole   Role?
   comments     Json? // For future extensibility, e.g. [{ "userId": "abc", "comment": "Great post!", "timestamp": "2024-01-01T12:00:00Z" }]
-  status       CommunityHubStatus   @default(DRAFT)
+  visibility   Json?                @default("{\"showToStaff\": true, \"showToOrgAdmin\": true, \"showToAdmin\": true}")
+  isPrivate    Boolean              @default(false) // If true, only visible to yourself
   postType     CommunityHubPostType @default(GENERAL_DISCUSSION)
+  status       CommunityHubStatus   @default(DRAFT)
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
 
@@ -308,6 +310,7 @@ enum CommunityHubPostType {
   ISSUES
   RESOLVED
   GENERAL_DISCUSSION
+  SYSTEM_QUERY
   OTHER
 }
 
