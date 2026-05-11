@@ -50,6 +50,11 @@ model Organizations {
   settings            Json?               @default("{\"notificationPreference\":{\"email\":true,\"sms\":false,\"push\":false, \"inApp\":true}}") // For future extensibility (e.g. notification preferences, etc.)
   isVerified          Boolean?            @default(false)
   weeklyReportEnabled Boolean?            @default(false)
+  //TRIAL
+  isTrialAllowed      Boolean             @default(true)
+  hasUsedTrial        Boolean             @default(false) // Indicates if the organization is currently in the free trial period
+  trialStartAt        DateTime?
+  trialEndsAt         DateTime? // For tracking free trial period for new organizations
   deletedAt           DateTime?
   createdAt           DateTime?           @default(now())
   updatedAt           DateTime?           @updatedAt
@@ -62,6 +67,7 @@ model Organizations {
   bookings            Bookings[]
   creditTransactions  CreditTransaction[]
   salesInquiries      SalesInquiry[]
+  communityHubs       CommunityHub[]
 
   @@index([name, id])
   @@map("organizations")
@@ -273,6 +279,42 @@ model SalesInquiry {
   updatedAt      DateTime          @updatedAt
 
   @@map("sales_inquiries")
+}
+
+model CommunityHub {
+  id           String               @id @default(cuid())
+  org_id       String?
+  organization Organizations?       @relation(fields: [org_id], references: [id])
+  title        String
+  content      String               @db.Text
+  imageUrl     String?
+  authorId     String?
+  authorName   String?
+  authorRole   Role?
+  comments     Json? // For future extensibility, e.g. [{ "userId": "abc", "comment": "Great post!", "timestamp": "2024-01-01T12:00:00Z" }]
+  status       CommunityHubStatus   @default(DRAFT)
+  postType     CommunityHubPostType @default(GENERAL_DISCUSSION)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@map("community_hub")
+}
+
+enum CommunityHubPostType {
+  ANNOUNCEMENT
+  RESOURCE_SPOTLIGHT
+  USER_STORY
+  EVENT
+  ISSUES
+  RESOLVED
+  GENERAL_DISCUSSION
+  OTHER
+}
+
+enum CommunityHubStatus {
+  PUBLISHED
+  DRAFT
+  ARCHIVED
 }
 
 enum SaleInquiryStatus {
