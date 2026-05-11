@@ -17,6 +17,6 @@ import { NotificationRealtimeService } from './service/notification-realtime.ser
         NotificationRealtimeGateway,
         NotificationRealtimeService,
     ],
-    exports: [EmailService, NotificationManager],
+    exports: [EmailService, NotificationManager, InboxService, NotificationRealtimeService],
 })
 export class InboxModule {}

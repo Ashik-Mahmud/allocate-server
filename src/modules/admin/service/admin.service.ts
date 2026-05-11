@@ -8,22 +8,40 @@ import { Response } from "express";
 import { NotificationManager } from "src/modules/inbox/service/notification-manager.service";
 import { CryptoUtils } from "src/modules/auth/utils/crypto";
 import { getDateKeyInTimezone, getEndOfDayUtc, getMonthKeyInTimezone, getStartOfDayUtc, getWeekKeyInTimezone, resolveUserTimezone } from "src/shared/utils/timezone.util";
+import { InboxService } from "src/modules/inbox/service/inbox.service";
 
 // Write admin service code
 @Injectable()
 export class AdminService {
-    constructor(private prisma: PrismaService, private shared: SharedService, private emailService: EmailService, private notificationManager: NotificationManager) {
+    constructor(
+        private prisma: PrismaService,
+        private shared: SharedService,
+        private emailService: EmailService,
+        private notificationManager: NotificationManager,
+        private inboxService: InboxService,
+    ) {
         // Initialize any necessary properties or dependencies here
     }
 
     // Get system settings
     async getSystemSettings(user: User) {
-        if (user.role !== Role.ADMIN) {
-            throw new Error('Unauthorized');
-        }
+        const isLoggedInUser = user?.id && user?.role !== Role.ADMIN ? true : false;
         const settings = await this.prisma.systemSettings.findUnique({
             where: { id: 'default' },
+            select: {
+                id: true,
+                features_flags: isLoggedInUser ? true : false,
+                global_alert_message: true,
+                maintenance_mode: true,
+                support_email: true,
+                createdAt: true,
+                updatedAt: true,
+
+            }
         });
+
+
+
         return settings;
     }
 
@@ -45,60 +63,61 @@ export class AdminService {
             throw new Error('Unauthorized');
         }
 
-        const { title, message, userIds, type, metadata, receiverType } = announcementData;
-        const targetRole =
-            receiverType === 'ORG'
-                ? Role.ORG_ADMIN
-                : receiverType === 'STAFF'
-                    ? Role.STAFF
-                    : undefined;
-
-        const users = await this.prisma.user.findMany({
+        const { title, message, orgIds, type, metadata, receiverType } = announcementData;
+        const targetRole = {
+            'ORG': Role.ORG_ADMIN,
+            'STAFF': Role.STAFF,
+            'ALL': null,
+            'INDIVIDUAL': null,
+        }[receiverType];
+        const targetUsers = await this.prisma.user.findMany({
             where: {
-                ...(userIds && userIds.length > 0 ? { id: { in: userIds } } : {}),
-                ...(targetRole ? { role: targetRole } : {}),
                 deletedAt: null,
+                org_id: { not: null },
+                // If orgIds are provided, pull users from those specific orgs
+                ...(orgIds?.length ? { org_id: { in: orgIds } } : {}),
+                // Narrow by role if needed (e.g., only send to Staff of selected orgs)
+                ...(targetRole ? { role: targetRole } : {}),
             },
             select: {
                 id: true,
-                org_id: true,
+                org_id: true
             },
         });
 
-        if (users.length === 0) {
-            return { count: 0, message: 'No users matched the announcement target' };
+       if (targetUsers.length === 0) {
+        return { 
+            count: 0, 
+            message: 'No users found in the selected organizations' 
+        };
+    }
+
+        const chunkSize = 50;
+        let successCount = 0;
+
+        for (let i = 0; i < targetUsers.length; i += chunkSize) {
+            const chunk = targetUsers.slice(i, i + chunkSize);
+            const tasks = chunk.map(targetUser =>
+                this.inboxService.createNotification({
+                    userId: targetUser.id,
+                    orgId: targetUser.org_id as string,
+                    type: type || NotificationType.SYSTEM_ALERT,
+                    title,
+                    message,
+                    metadata: { ...metadata, broadcastBy: user.id, receiverType: receiverType },
+                }).catch(err => {
+                    console.error(`Failed for user ${targetUser.id}:`, err);
+                    return null;
+                })
+            );
+            const results = await Promise.all(tasks);
+            successCount += results.filter(r => r !== null).length;
         }
-
-        const notificationType = type || NotificationType.SYSTEM_ALERT;
-        const announcementRows = users
-            .filter((targetUser) => Boolean(targetUser.org_id))
-            .map((targetUser) => ({
-                user_id: targetUser.id,
-                org_id: targetUser.org_id as string,
-                type: notificationType,
-                title,
-                message,
-                reference_id: null,
-                metadata: {
-                    ...(metadata || {}),
-                    receiverType,
-                    broadcastBy: user.id,
-                    broadcastRole: user.role,
-                },
-            }));
-
-        if (announcementRows.length === 0) {
-            return { count: 0, message: 'No valid organization users were found for broadcast' };
-        }
-
-        const result = await this.prisma.notification.createMany({
-            data: announcementRows,
-        });
 
         return {
-            count: result.count,
-            message: 'Announcement broadcasted successfully',
-            targetUsers: announcementRows.length,
+            count: successCount,
+            totalAttempted: targetUsers.length,
+            message: 'Broadcast completed',
         };
     }
 
@@ -108,18 +127,27 @@ export class AdminService {
             throw new Error('Unauthorized');
         }
         const { organizationId, name, verified, page, limit, search } = query;
+        const pageNumber = Number(page) || 1;
+        const pageSize = Number(limit) || 10;
+
         const whereClause: any = {
             ...(organizationId ? { id: organizationId } : {}),
             ...(name ? { name: { contains: name, mode: 'insensitive' } } : {}),
             ...(verified !== undefined ? { isVerified: verified } : {}),
-            ...(search ? { users: { OR: [{ email: { contains: search, mode: 'insensitive' } }, { name: { contains: search, mode: 'insensitive' } }] } } : {}),
+            ...(search ? {
+                users: {
+                    some: {
+                        OR: [{ email: { contains: search, mode: 'insensitive' } }, { name: { contains: search, mode: 'insensitive' } }]
+                    }
+                }
+            } : {}),
         };
-        const skip = (page - 1) * limit;
+        const skip = (pageNumber - 1) * pageSize;
         const [organizations, total] = await this.prisma.$transaction([
             this.prisma.organizations.findMany({
                 where: whereClause,
                 skip,
-                take: limit,
+                take: pageSize,
                 include: {
                     users: true,
                 },
@@ -129,9 +157,9 @@ export class AdminService {
         return {
             items: organizations,
             total,
-            page,
-            limit,
-            totalPages: Math.ceil(total / limit)
+            page: pageNumber,
+            limit: pageSize,
+            totalPages: Math.ceil(total / pageSize)
         };
     }
 

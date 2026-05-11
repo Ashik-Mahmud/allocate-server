@@ -3,6 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { JWTUtils } from '../utils/jwt';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import { resolveUserTimezone } from 'src/shared/utils/timezone.util';
+import { IS_PUBLIC_KEY } from 'src/shared/decorators/public.decorator';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -15,7 +16,15 @@ export class AuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const token = JWTUtils.extractToken(request.headers.authorization);
 
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
     if (!token) {
+      if (isPublic) {
+        return true;
+      }
       throw new UnauthorizedException('No token provided');
     }
 

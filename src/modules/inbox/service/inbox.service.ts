@@ -30,6 +30,7 @@ export class InboxService {
         title: string;
         message: string;
         refId?: string;
+        metadata?: Record<string, any>;
     }) {
         const notification = await this.prisma.notification.create({
             data: {
@@ -39,6 +40,7 @@ export class InboxService {
                 title: data.title,
                 message: data.message,
                 reference_id: data.refId,
+                metadata: data.metadata
             },
         });
 

@@ -4,6 +4,8 @@ import { AdminController } from './controller/admin.controller';
 import { SharedService } from 'src/shared/services/shared.service';
 import { EmailService } from '../inbox/service/email.service';
 import { InboxModule } from '../inbox/inbox.module';
+import { InboxService } from '../inbox/service/inbox.service';
+import { NotificationRealtimeService } from '../inbox/service/notification-realtime.service';
 
 @Module({
     imports: [InboxModule],

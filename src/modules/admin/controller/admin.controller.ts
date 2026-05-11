@@ -11,11 +11,11 @@ import { Role, User } from '@prisma/client';
 import { AllUserFilterDto, BroadcastAnnouncementDto, OrganizationCreditTopUpDto, OrganizationFilterDto, RevenueAnalyticsFilterDto, SubscriptionTransactionFilterDto, UpdateSystemSettingsDto, UserActivityLogFilterDto } from '../dto/admin.dto';
 import { CurrentUser } from 'src/shared/decorators/user.decorator';
 import { ResponseUtil } from 'src/utils/responses';
+import { Public } from 'src/shared/decorators/public.decorator';
 
 @ApiTags('Admin')
 @ApiBearerAuth()
-@UseGuards(AuthGuard, RolesGuard)
-@Roles(Role.ADMIN) // Only allow users with the 'admin' role to access these endpoints
+// Only allow users with the 'admin' role to access these endpoints
 @Controller('admin')
 export class AdminController {
 
@@ -29,7 +29,8 @@ export class AdminController {
      * @param response - The outgoing response object
      */
 
-
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
     @Patch('/system-settings')
     @ApiResponse({ status: 200, description: 'System settings updated successfully.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
@@ -46,6 +47,9 @@ export class AdminController {
      * @param request - The incoming request object
      * @param response - The outgoing response object
      */
+
+    @UseGuards(AuthGuard)
+    @Public()
     @Get('/system-settings')
     @ApiResponse({ status: 200, description: 'System settings retrieved successfully.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
@@ -62,7 +66,9 @@ export class AdminController {
      * @param request - The incoming request object
      * @param response - The outgoing response object
      */
-    @Post('/announcements')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @Post('announcements')
     @ApiResponse({ status: 200, description: 'Announcement broadcasted successfully.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
     @ApiOperation({ summary: 'Broadcast announcement' })
@@ -80,7 +86,9 @@ export class AdminController {
      * @param request - The incoming request object
      * @param response - The outgoing response object
      */
-    @Get('/organizations')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @Get('organizations')
     @ApiResponse({ status: 200, description: 'Organizations retrieved successfully.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
     @ApiQuery({ name: 'verified', description: 'Filter by verification status', required: false, type: Boolean })
@@ -93,6 +101,7 @@ export class AdminController {
     async getAllOrganizations(@CurrentUser() user: User, @Query() query: OrganizationFilterDto, @Res() response: Response) {
         // Implement logic to retrieve all organizations with their verification status here
         // You can use this.adminService to call service methods for business logic
+        console.log(query, 'query')
         const result = await this.adminService.getAllOrganizations(user, query);
         ResponseUtil.paginated(result.items, result.total, result.page, result.limit, response);
     }
@@ -102,6 +111,8 @@ export class AdminController {
      * @param request - The incoming request object
      * @param response - The outgoing response object
      */
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
     @Get('/organizations/:orgId')
     @ApiParam({ name: 'orgId', description: 'ID of the organization to retrieve' })
     @ApiResponse({ status: 200, description: 'Organization details retrieved successfully.' })
@@ -120,6 +131,8 @@ export class AdminController {
      * @param response - The outgoing response object
      * This endpoint allows the admin to verify or unverify an organization
      */
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
     @Patch('/organizations/:orgId/verification')
     @ApiParam({ name: 'orgId', description: 'ID of the organization to update verification status' })
     @ApiResponse({ status: 200, description: 'Organization verification status updated successfully.' })
@@ -137,6 +150,8 @@ export class AdminController {
      * @param request - The incoming request object
      * @param response - The outgoing response object
      */
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
     @Post('/organizations/:orgId/credits')
     @ApiParam({ name: 'orgId', description: 'ID of the organization to top up credits' })
     @ApiResponse({ status: 200, description: 'Organization credits topped up successfully.' })
@@ -154,6 +169,8 @@ export class AdminController {
      * @param request - The incoming request object
      * @param response - The outgoing response object
      */
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
     @Get('/users')
     @ApiResponse({ status: 200, description: 'Users retrieved successfully.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
@@ -178,6 +195,8 @@ export class AdminController {
      * @param response - The outgoing response object
      * This endpoint allows the admin to reset a user's password
      */
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
     @Patch('/users/:userId/reset-password')
     @ApiParam({ name: 'userId', description: 'ID of the user to reset password' })
     @ApiResponse({ status: 200, description: 'User password reset successfully.' })
@@ -195,6 +214,8 @@ export class AdminController {
      * @param request - The incoming request object
      * @param response - The outgoing response object
      */
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
     @Get('/subscriptions/transactions')
     @ApiResponse({ status: 200, description: 'Subscription history retrieved successfully.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
@@ -221,6 +242,8 @@ export class AdminController {
      * @param request - The incoming request object
      * @param response - The outgoing response object
      */
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
     @Get('/analytics/revenue')
     @ApiResponse({ status: 200, description: 'Revenue analytics retrieved successfully.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
@@ -242,6 +265,8 @@ export class AdminController {
      * @param response - The outgoing response object
      * This endpoint allows the admin to retrieve user activity logs
      */
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
     @Get('/users/:userId/activity-logs')
     @ApiParam({ name: 'userId', description: 'ID of the user to retrieve activity logs' })
     @ApiResponse({ status: 200, description: 'User activity logs retrieved successfully.' })

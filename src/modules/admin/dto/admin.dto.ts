@@ -27,10 +27,11 @@ export const UpdateSystemSettingsDtoSchema = z.object({
 export const BroadcastAnnouncementSchema = z.object({
     title: z.string(),
     message: z.string(),
-    userIds: z.array(z.string()).optional(),
+    orgIds: z.array(z.string()).optional(),
     type: z.enum(['SYSTEM_ALERT', 'MAINTENANCE_NOTICE']).default('SYSTEM_ALERT'),
     metadata: z.record(z.string(), z.any()).optional(),
     receiverType: z.enum(['ALL', 'ORG', 'STAFF', 'INDIVIDUAL']).default('ALL'),
+
 });
 
 
@@ -38,8 +39,8 @@ export const OrganizationFilterSchema = z.object({
     organizationId: z.string().optional(),
     name: z.string().optional(),
     verified: z.boolean().optional(),
-    page: z.number().default(1),
-    limit: z.number().default(10),
+    page: z.coerce.number().min(1, 'Page must be at least 1').default(1),
+    limit: z.coerce.number().min(1, 'Limit must be at least 1').max(100, 'Limit cannot exceed 100').default(10),
     search: z.string().optional(),
 });
 
@@ -54,8 +55,8 @@ export const AllUserFilterSchema = z.object({
     name: z.string().optional(),
     email: z.string().email().optional(),
     role: z.enum(['STAFF', 'ADMIN']).optional(),
-    page: z.number().default(1),
-    limit: z.number().default(10),
+    page: z.coerce.number().min(1, 'Page must be at least 1').default(1),
+    limit: z.coerce.number().min(1, 'Limit must be at least 1').max(100, 'Limit cannot exceed 100').default(10),
     search: z.string().optional(),
 });
 
@@ -63,8 +64,8 @@ export const SubscriptionTransactionFilterSchema = z.object({
     organizationId: z.string().optional(),
     startDate: z.string().optional(),
     endDate: z.string().optional(),
-    page: z.number().default(1),
-    limit: z.number().default(10),
+    page: z.coerce.number().min(1, 'Page must be at least 1').default(1),
+    limit: z.coerce.number().min(1, 'Limit must be at least 1').max(100, 'Limit cannot exceed 100').default(10),
     type: z.string().optional(),
 });
 
@@ -79,8 +80,8 @@ export const RevenueAnalyticsFilterSchema = z.object({
 export const UserActivityLogFilterSchema = z.object({
     startDate: z.string().optional(),
     endDate: z.string().optional(),
-    page: z.number().default(1),
-    limit: z.number().default(10),
+    page: z.coerce.number().min(1, 'Page must be at least 1').default(1),
+    limit: z.coerce.number().min(1, 'Limit must be at least 1').max(100, 'Limit cannot exceed 100').default(10),
 });
 
 export class UpdateSystemSettingsDto extends createZodDto(UpdateSystemSettingsDtoSchema) { }
