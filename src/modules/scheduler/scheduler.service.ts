@@ -468,8 +468,28 @@ export class SchedulerService {
                             frozen_credits: { increment: excessCredits }
 
                         }
-                    })
+                    }),
+                    ...(excessCredits > 0 ? [
+                        this.prisma.creditTransaction.create({
+                            data: {
+                                org_id: orgId,
+                                amount: excessCredits,
+                                type: TransactionType.DEDUCT,
+                                previousBalance: currentPool,
+                                currentBalance: freeLimit,
+                                user_id: subscription.organization?.users?.[0]?.id,
+                                performedBy: 'system',
+                                description: `Subscription expired (${expiredPlanName}). ${excessCredits} excess credits have been frozen.`,
+                                metadata: {
+                                    expired_plan: expiredPlanName,
+                                    is_trial: subscription.payment_status === PlanType.TRIAL
+                                }
+                            }
+                        })
+                    ] : [])
                 ]);
+
+
 
 
                 // const broadMessage = `Your "${orgName}" ${expiredPlanName} plan has expired. Your excess ${excessCredits} credits are frozen and your account is moved to the Free Tier. Don't worry, your remaining ${excessCredits} credits will be restored immediately once you upgrade back to Pro!. `;
@@ -494,7 +514,7 @@ export class SchedulerService {
                             userId: admin.id,
                             message: broadMessage,
                             type: NotificationType.SUBSCRIPTION_EXPIRED,
-                            title: `${isTrial ? 'PRO Trial' : 'PRO'} ${expiredPlanName} Plan Expired: ${orgName}`,
+                            title: `${planLabel} ${expiredPlanName} Plan Expired: ${orgName}`,
                             orgId: subscription.org_id,
                             userEmail: admin.email,
                             userName: admin.name

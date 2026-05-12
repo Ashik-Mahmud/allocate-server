@@ -238,6 +238,29 @@ export class AdminService {
                 });
             }
 
+            if (data?.trialEndsAt) {
+                // Log activity for extend trial end date
+                await this.shared.logActivity(this.prisma, {
+                    orgId: orgId,
+                    userId: updatedOrg?.users?.[0]?.id || user.id,
+                    action: 'ORG_TRIAL_EXTENDED',
+                    details: `Organization ${updatedOrg.name} trial end date extended to ${updatedOrg.trialEndsAt}`,
+                    ipAddress: response.req.ip || '',
+                    userAgent: response.get('User-Agent') || '',
+                    metadata: { org_id: orgId, role: user.role },
+                });
+                this.notificationManager.send({
+                    userId: updatedOrg?.users?.[0]?.id || user.id,
+                    orgId: orgId,
+                    type: NotificationType.SYSTEM_ALERT,
+                    title: 'Trial Extended',
+                    message: `Organization ${updatedOrg.name} trial end date has been extended to ${updatedOrg.trialEndsAt}`,
+                    metadata: { org_id: orgId, role: user.role },
+                    userEmail: user.email,
+                    userName: user.name,
+                });
+            }
+
             return {
                 success: true,
                 message: `Organization updated successfully`,
@@ -280,12 +303,12 @@ export class AdminService {
                 // 3. Soft Delete All Users
                 await tx.user.updateMany({
                     where: { org_id: orgId },
-                    data: { 
+                    data: {
                         deletedAt: new Date(),
-                        personal_credits: 0, 
+                        personal_credits: 0,
                         is_verified: false,
 
-                     },
+                    },
                 });
 
                 // 4. Hard Delete Old Notifications (Clean up db)

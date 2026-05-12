@@ -183,7 +183,7 @@ model CreditTransaction {
   currentBalance  Float           @default(0) // Balance after the transaction
   referenceId     String? // Booking ID or Top-up ID
   description     String?
-  performedBy     String // Admin ID who performed the action
+  performedBy     String? // Admin ID who performed the action
   payment_gateway String? // e.g. "Stripe", "PayPal" (relevant for TOP_UP transactions)
   transaction_id  String? // ID from the payment gateway (relevant for TOP_UP transactions)
   currency        String? // e.g. "USD" (relevant for TOP_UP transactions)

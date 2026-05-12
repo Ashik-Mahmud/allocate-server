@@ -697,7 +697,7 @@ export class PaymentsService {
                     start_date: new Date(),
                     end_date: trialEndDate,
                     payment_status: PlanType.TRIAL,
-                    
+
                 }
             });
 
@@ -714,6 +714,7 @@ export class PaymentsService {
                 }
             })
 
+
             const detailMessage = `Your ${dayDiff}-day PRO trial is now active! 🚀 You have received ${trialCredits} credits and full access to all premium features until ${formattedDate}. Enjoy scaling your organization!`;
 
             // activity log
@@ -728,6 +729,22 @@ export class PaymentsService {
                     planType: PlanType.PRO,
                     trialEndDate: trialEndDate.toISOString(),
                     trialCredits
+                }
+            });
+
+            // Credit transaction log
+            await this.sharedService.createCreditTransaction(tx, {
+                orgId,
+                userId: user.id,
+                amount: trialCredits,
+                type: TransactionType.FREE_ALLOCATION,
+                prevBalance: Number(credit_pool) || 0,
+                currBalance: newBalance,
+                description: `Trial activation bonus: ${trialCredits} credits added for 7-day PRO trial.`,
+                performedBy: user.id,
+                metadata: {
+                    plan_type: PlanType.PRO,
+                    activated_by: user.id
                 }
             });
 
