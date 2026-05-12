@@ -22,10 +22,9 @@ export class AuthService {
 
     // Check if user already exists
     const existingUser = await this.prisma.user.findUnique({
-      where: { email: dto.email, deletedAt: null },
+      where: { email: dto.email },
     });
-
-    if (existingUser) {
+    if (existingUser && existingUser.deletedAt === null) {
       throw new ConflictException('User with this email already exists');
     }
 
@@ -52,26 +51,38 @@ export class AuthService {
       });
 
       // user
-      const createdUser = await prisma.user.create({
-        data: {
-          ...dto,
-          password: hashedPassword,
-          org_id: organization.id,
-        },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          role: true,
-          org_id: true,
-          is_verified: true,
-          organization: {
-            select: {
-              needUpdateOrg: true,
-            },
+      let finalUser;
+
+      if (existingUser && existingUser.deletedAt !== null) {
+        finalUser = await prisma.user.update({
+          where: { email: dto.email },
+          data: {
+            ...dto,
+            password: hashedPassword,
+            org_id: organization.id,
+            deletedAt: null,
+            is_active: true,
+            is_verified: false,
           },
-        },
-      });
+          select: {
+            id: true, email: true, name: true, role: true, org_id: true, is_verified: true,
+            organization: { select: { needUpdateOrg: true } },
+          },
+        });
+      } else {
+
+        finalUser = await prisma.user.create({
+          data: {
+            ...dto,
+            password: hashedPassword,
+            org_id: organization.id,
+          },
+          select: {
+            id: true, email: true, name: true, role: true, org_id: true, is_verified: true,
+            organization: { select: { needUpdateOrg: true } },
+          },
+        });
+      }
 
       // subscription creation for new organization
       await prisma.subscription.create({
@@ -90,31 +101,31 @@ export class AuthService {
           org_id: organization.id,
           amount: GLOBAL_CONFIG.FREE_PLAN_CREDITS || 100,
           type: TransactionType.FREE_ALLOCATION,
-          performedBy: createdUser.id,
+          performedBy: finalUser?.id,
           previousBalance: 0,
           currentBalance: GLOBAL_CONFIG.FREE_PLAN_CREDITS || 100,
           description: 'Free plan allocation',
-          user_id: createdUser.id,
+          user_id: finalUser?.id,
         },
       });
 
       // Log activity for organization creation and user registration
       await this.sharedService.logActivity(prisma, {
-        userId: createdUser.id,
+        userId: finalUser?.id,
         orgId: organization.id,
         action: 'USER_REGISTERED',
-        details: `User ${createdUser.email} registered and organization ${organization.name} created`,
-        metadata: { plan_type: organization.plan_type, createdBy: createdUser.id, creatorName: createdUser.name, defaultCredit: GLOBAL_CONFIG.FREE_PLAN_CREDITS || 100 },
+        details: `User ${finalUser?.email} registered and organization ${organization.name} created`,
+        metadata: { plan_type: organization.plan_type, createdBy: finalUser?.id, creatorName: finalUser?.name, defaultCredit: GLOBAL_CONFIG.FREE_PLAN_CREDITS || 100 },
       });
       await this.sharedService.logActivity(prisma, {
-        userId: createdUser.id,
+        userId: finalUser?.id,
         orgId: organization.id,
         action: 'ORGANIZATION_CREATED',
         details: `Organization ${organization.name} created with ID ${organization.id}`,
-        metadata: { plan_type: organization.plan_type, createdBy: createdUser.id, creatorName: createdUser.name, defaultCredit: GLOBAL_CONFIG.FREE_PLAN_CREDITS || 100 },
+        metadata: { plan_type: organization.plan_type, createdBy: finalUser?.id, creatorName: finalUser?.name, defaultCredit: GLOBAL_CONFIG.FREE_PLAN_CREDITS || 100 },
       });
 
-      return createdUser;
+      return finalUser;
     });
 
     // Generate tokens
