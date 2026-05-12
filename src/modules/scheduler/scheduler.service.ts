@@ -2,7 +2,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
-import { BookingStatus, NotificationType, PlanType, Role, TransactionType } from '@prisma/client';
+import { BookingStatus, NotificationType, PaymentStatus, PlanType, Role, TransactionType } from '@prisma/client';
 import { NotificationManager } from '../inbox/service/notification-manager.service';
 import { SUBSCRIPTION_LIMITS } from 'src/shared/constant/subscription.constant';
 import { getDateKeyInTimezone } from 'src/shared/utils/timezone.util';
@@ -435,6 +435,8 @@ export class SchedulerService {
             const notificationPromises: Promise<unknown>[] = [];
 
             for (const subscription of expiredSubscriptions) {
+                const isTrial = subscription.payment_status === PlanType.TRIAL;
+                const planLabel = isTrial ? 'Trial' : subscription.plan_name;
                 const admins = subscription?.organization?.users;
                 const orgName = subscription?.organization?.name;
                 const orgId = subscription?.organization?.id;
@@ -454,6 +456,7 @@ export class SchedulerService {
                             plan_name: PlanType.FREE,
                             last_reminder_sent: now,
                             end_date: thirtyDaysFromNow,
+                            payment_status: PaymentStatus.COMPLETED
                         }
                     }),
                     this.prisma.organizations.update({
@@ -463,6 +466,7 @@ export class SchedulerService {
                             plan_type: PlanType.FREE,
                             weeklyReportEnabled: false,
                             frozen_credits: { increment: excessCredits }
+
                         }
                     })
                 ]);
@@ -471,7 +475,13 @@ export class SchedulerService {
                 // const broadMessage = `Your "${orgName}" ${expiredPlanName} plan has expired. Your excess ${excessCredits} credits are frozen and your account is moved to the Free Tier. Don't worry, your remaining ${excessCredits} credits will be restored immediately once you upgrade back to Pro!. `;
                 const maxStaff = SUBSCRIPTION_LIMITS[PlanType.FREE].MAX_USERS;
                 const maxResources = SUBSCRIPTION_LIMITS[PlanType.FREE].MAX_RESOURCES;
-                const broadMessage = `Your "${orgName}" ${expiredPlanName} plan has expired. \n
+                const broadMessage = isTrial
+                    ? `Your 7-day PRO Trial for "${orgName}" has expired. 
+           Your account has been moved back to the Free Tier. 
+           1. Your trial credits (${excessCredits}) are now frozen.
+           2. Free Tier limits apply (Max ${maxResources} Resources & ${maxStaff} Staff). 
+           Upgrade to Pro to restore your credits and keep your advanced configuration!`
+                    : `Your "${orgName}" ${expiredPlanName} plan has expired. \n
                                     Your account has been moved to the Free Tier. As a result: \n
                                     1. Your excess ${excessCredits} credits are now frozen (Upgrade to restore them).\n
                                     2. If your organization exceeds the Free Tier limits (Max ${maxResources} Resources & ${maxStaff} Staff) ⚠️ Booking will be DISABLED until you upgrade or reduce your usage of resources and staff.\n
@@ -484,7 +494,7 @@ export class SchedulerService {
                             userId: admin.id,
                             message: broadMessage,
                             type: NotificationType.SUBSCRIPTION_EXPIRED,
-                            title: `${expiredPlanName} Plan Expired: ${orgName}`,
+                            title: `${isTrial ? 'PRO Trial' : 'PRO'} ${expiredPlanName} Plan Expired: ${orgName}`,
                             orgId: subscription.org_id,
                             userEmail: admin.email,
                             userName: admin.name

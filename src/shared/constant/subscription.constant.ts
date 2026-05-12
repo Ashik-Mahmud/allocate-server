@@ -1,6 +1,6 @@
 import { PlanType } from "@prisma/client";
 
-
+export const FREE_TRIAL_DAYS = 7
 export const SUBSCRIPTION_LIMITS = {
     [PlanType.FREE]: {
         MAX_USERS: 5,
@@ -33,6 +33,17 @@ export const SUBSCRIPTION_LIMITS = {
             AI_INSIGHTS: true,
             ADVANCED_RULES: true,
             PRIORITY_SUPPORT: true,
+        },
+    },
+    [PlanType.TRIAL]: {
+        MAX_USERS: 10,        
+        MAX_RESOURCES: 5,
+        INITIAL_CREDITS: 200,  
+        BOOKING_WINDOW_DAYS: 14, 
+        FEATURES: {
+            AI_INSIGHTS: true,      
+            ADVANCED_RULES: true,  
+            PRIORITY_SUPPORT: false, 
         },
     },
 };
@@ -80,6 +91,7 @@ export const SUBSCRIPTION_PLAN_LABELS: Record<PlanType, string> = {
     [PlanType.FREE]: 'Free',
     [PlanType.PRO]: 'Pro',
     [PlanType.ENTERPRISE]: 'Enterprise',
+    [PlanType.TRIAL]: 'Trial',
 };
 
 export const getSubscriptionPlanLabel = (plan?: PlanType | null) => {

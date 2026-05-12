@@ -53,7 +53,7 @@ export class BookingsService {
             this.prisma.user.count({ where: { org_id: currentUser?.org_id, deletedAt: null } }),
         ]);
         const currentPlan = currentUser?.plan_type as PlanType || PlanType.FREE;
-        const { MAX_RESOURCES, MAX_USERS } = getSubscriptionLimits(currentPlan);
+        const { MAX_RESOURCES, MAX_USERS } = getSubscriptionLimits(currentPlan );
 
         if (currentPlan === PlanType.FREE && (resourceCount > MAX_RESOURCES || staffCount > MAX_USERS)) {
             throw new ForbiddenException(

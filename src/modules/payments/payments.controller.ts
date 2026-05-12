@@ -56,4 +56,13 @@ export class PaymentsController {
        return res.status(200).send('Ok');
     }
 
+
+    @Post('activate-trial')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN, Role.ORG_ADMIN)
+    async activateTrial(@CurrentUser() user: CurrentUserType, @Res() res: Response) {
+        const result = await this.paymentsService.activateTrial(user);
+        return ResponseUtil.success(result, res);
+    }
+
 }

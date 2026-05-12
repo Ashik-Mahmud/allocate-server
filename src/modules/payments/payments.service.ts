@@ -1,7 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateCheckoutDto } from './payments.dto';
 import { CurrentUserType } from 'src/shared/decorators/user.decorator';
-import { SUBSCRIPTION_LIMITS, SUBSCRIPTION_PRICING } from 'src/shared/constant/subscription.constant';
+import { FREE_TRIAL_DAYS, SUBSCRIPTION_LIMITS, SUBSCRIPTION_PRICING } from 'src/shared/constant/subscription.constant';
 import { NotificationType, PaymentProvider, PaymentStatus, PlanType, Role, TransactionType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 const Stripe = require('stripe');
@@ -624,6 +624,134 @@ export class PaymentsService {
         } catch (error) {
             return parseFloat((amount / 120).toFixed(2));
         }
+    }
+
+
+    // Service method to activate trial subscription for an organization
+    async activateTrial(user: CurrentUserType) {
+        const orgId = user.org_id;
+
+
+        const result = await this.prisma.$transaction(async (tx) => {
+            const organization = await tx.organizations.findUnique({
+                where: { id: orgId },
+                select: {
+                    id: true,
+                    name: true,
+                    business_email: true,
+                    credit_pool: true,
+                    frozen_credits: true,
+                    timezone: true,
+                    isTrialAllowed: true,
+                    trialStartAt: true,
+                    trialEndsAt: true,
+                    hasUsedTrial: true,
+                    users: {
+                        where: {
+                            role: Role.ORG_ADMIN
+                        },
+                        select: { email: true, id: true, name: true }
+                    }
+                },
+            });
+
+            if (!organization) throw new NotFoundException('Organization not found');
+            if (!organization.isTrialAllowed) throw new BadRequestException('Trial activation is not allowed');
+            if (organization.hasUsedTrial) throw new BadRequestException('Trial has already been used');
+
+
+            const { credit_pool, frozen_credits, } = organization;
+            const orgAdmin = organization.users?.[0];
+            const trialCredits = SUBSCRIPTION_LIMITS[PlanType.TRIAL]?.INITIAL_CREDITS || 0;
+            const newBalance = (Number(credit_pool) || 0) + trialCredits;
+            const orgTimezone = organization.timezone || 'UTC';
+
+            let trialEndDate = new Date();
+            trialEndDate.setDate(trialEndDate.getDate() + FREE_TRIAL_DAYS);
+
+            if (organization?.trialEndsAt) {
+                const adminSetDate = new Date(organization?.trialEndsAt);
+
+                if (adminSetDate > new Date()) {
+                    trialEndDate = adminSetDate;
+                }
+            }
+
+            const now = new Date();
+            const diffInTime = trialEndDate.getTime() - now.getTime();
+            const dayDiff = Math.ceil(diffInTime / (1000 * 3600 * 24)); // in days
+
+            const formattedDate = trialEndDate.toLocaleDateString('en-GB', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+                timeZone: orgTimezone,
+            });
+
+            // Update organization's subscription to trial
+            await tx.subscription.update({
+                where: { org_id: orgId },
+                data: {
+                    plan_name: PlanType.PRO,
+                    is_active: true,
+                    start_date: new Date(),
+                    end_date: trialEndDate,
+                    payment_status: PlanType.TRIAL,
+                    
+                }
+            });
+
+            // Update organization's credit pool and frozen credits
+            await tx.organizations.update({
+                where: { id: orgId },
+                data: {
+                    plan_type: PlanType.PRO,
+                    credit_pool: newBalance,
+                    frozen_credits: frozen_credits,
+                    hasUsedTrial: true,
+                    trialStartAt: new Date(),
+                    trialEndsAt: trialEndDate
+                }
+            })
+
+            const detailMessage = `Your ${dayDiff}-day PRO trial is now active! 🚀 You have received ${trialCredits} credits and full access to all premium features until ${formattedDate}. Enjoy scaling your organization!`;
+
+            // activity log
+            await this.sharedService.logActivity(tx, {
+                orgId,
+                userId: user.id,
+                action: 'TRIAL_ACTIVATED',
+                details: detailMessage,
+                ipAddress: '',
+                userAgent: '',
+                metadata: {
+                    planType: PlanType.PRO,
+                    trialEndDate: trialEndDate.toISOString(),
+                    trialCredits
+                }
+            });
+
+            // Send notification
+            await this.notificationManager.send({
+                userId: user.id,
+                orgId,
+                type: NotificationType.TRIAL_ACTIVATED,
+                title: '🚀 PRO Trial Activated!',
+                message: detailMessage,
+                userEmail: orgAdmin?.email,
+                userName: orgAdmin?.name,
+                emailSubject: `Welcome to your PRO Trial - ${dayDiff} Days of Premium Access`,
+            });
+            return {
+                success: true,
+                message: 'Trial subscription activated successfully.',
+                data: null
+            };
+
+        });
+
+        return result;
+
     }
 
 }
