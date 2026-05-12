@@ -619,9 +619,9 @@ export class AdminService {
             name: userToUpdate.name,
             subject: 'Your password has been reset',
             htmlContent: `
-                    <p>Dear ${userToUpdate.name},</p>
-                    <p>This is to inform you that your password has been reset. Your new password is: <strong>${newPassword}</strong></p>
-                    <p>If you did not request this, please contact support immediately.</p>
+                    Hello ${userToUpdate.name},
+                    Your password has been reset by the administrator. Your new temporary password is: ${result.data.newPassword} 
+                    Please change your password once you log in. 
                 `,
 
         }).catch(err => console.error('Failed to send reset email:', err));;
