@@ -134,7 +134,7 @@ export class AdminService {
             ...(organizationId ? { id: organizationId } : {}),
             ...(name ? { name: { contains: name, mode: 'insensitive' } } : {}),
             ...(verified !== undefined ? { isVerified: verified } : {}),
-            ...(showDeletedOrg === false ? { deletedAt: null } : {deletedAt: { not: null }}),
+            ...(showDeletedOrg === false ? { deletedAt: null } : { deletedAt: { not: null } }),
             ...(search ? {
                 users: {
                     some: {
@@ -181,7 +181,11 @@ export class AdminService {
         const organization = await this.prisma.organizations.findUnique({
             where: { id: orgId },
             include: {
-                users: true,
+                users: {
+                    select: { id: true, name: true, email: true, role: true, createdAt: true, personal_credits: true, last_login: true, },
+                    take: 5,
+                },
+                subscription: true,
             },
         });
         return organization;
@@ -267,14 +271,21 @@ export class AdminService {
                     where: { id: orgId },
                     data: {
                         deletedAt: new Date(),
-                        is_active: false
+                        is_active: false,
+                        is_verified: false,
+                        
                     },
                 });
 
                 // 3. Soft Delete All Users
                 await tx.user.updateMany({
                     where: { org_id: orgId },
-                    data: { deletedAt: new Date() },
+                    data: { 
+                        deletedAt: new Date(),
+                        personal_credits: 0, 
+                        is_verified: false,
+
+                     },
                 });
 
                 // 4. Hard Delete Old Notifications (Clean up db)

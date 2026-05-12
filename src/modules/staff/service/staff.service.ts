@@ -29,14 +29,6 @@ export class StaffService {
         if (!targetOrgId) {
             throw new ForbiddenException('You must belong to an organization to create staff');
         }
-        // Check if the email already exists in the organization
-        const existingUser = await this.prisma.user.findUnique({
-            where: { email, deletedAt: null },
-        });
-
-        if (existingUser) {
-            throw new ConflictException('A user with this email already exists in the system');
-        }
 
         const organization = await this.prisma.organizations.findUnique({
             where: { id: targetOrgId },
@@ -44,17 +36,16 @@ export class StaffService {
                 id: true,
                 plan_type: true,
                 is_active: true,
+                name: true,
                 _count: {
                     select: {
-                        users: {
-                            where: { deletedAt: null }
-                        }
+                        users: { where: { deletedAt: null } }
                     }
                 }
             },
-        })
+        });
         if (!organization || !organization.is_active) {
-            throw new NotFoundException('Organization not found');
+            throw new NotFoundException('Organization not found or inactive');
         }
 
         const currentPlan = organization.plan_type ?? PlanType.FREE;
@@ -62,40 +53,59 @@ export class StaffService {
 
         if (isSubscriptionLimitReached(currentPlan, 'MAX_USERS', currentUsersCount)) {
             const { MAX_USERS } = getSubscriptionLimits(currentPlan);
-            throw new ForbiddenException(
-                buildSubscriptionLimitMessage(currentPlan, 'users', MAX_USERS),
-            );
+            throw new ForbiddenException(buildSubscriptionLimitMessage(currentPlan, 'users', MAX_USERS));
         }
 
 
-        // Hashed password 
         const tempPassword = password || this.sharedService.generatePassword();
         const hashedPassword = await CryptoUtils.hashPassword(tempPassword);
-
-
-        // Create the staff member
-        const staff = await this.prisma.user.create({
-            data: {
-                email,
-                name,
-                password: hashedPassword,
-                photo,
-                role: Role.STAFF,
-                org_id: targetOrgId,
-                is_verified: true, // Staff accounts created by admin are considered verified
-            },
-            include: {
-                organization: { select: { name: true } }
-            }
+        const existingUser = await this.prisma.user.findUnique({
+            where: { email },
         });
+
+        let staff;
+        if (existingUser) {
+            if (existingUser.deletedAt !== null) {
+                staff = await this.prisma.user.update({
+                    where: { email },
+                    data: {
+                        org_id: targetOrgId,
+                        role: Role.STAFF,
+                        name: name || existingUser.name,
+                        password: hashedPassword,
+                        deletedAt: null,
+                        is_verified: true
+                    },
+                    include: { organization: { select: { name: true } } }
+                });
+            } else {
+                throw new BadRequestException('User is already active in another organization');
+            }
+        } else {
+
+            staff = await this.prisma.user.create({
+                data: {
+                    email,
+                    name,
+                    password: hashedPassword,
+                    photo,
+                    role: Role.STAFF,
+                    org_id: targetOrgId,
+                    is_verified: true,
+                },
+                include: { organization: { select: { name: true } } }
+            });
+        }
+
+
         // Log the activity
         const ipAddress = (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '';
         const userAgent: string = res.req.headers['user-agent'] || 'unknown';
         await this.sharedService.logActivity(this.prisma, {
             userId: user.id,
             orgId: targetOrgId,
-            action: 'CREATE_STAFF',
-            details: `Created staff member with email ${email}`,
+            action: existingUser ? 'RESTORE_STAFF' : 'CREATE_STAFF',
+            details: `${existingUser ? 'Restored' : 'Created'} staff member with email ${email}`,
             ipAddress: ipAddress,
             userAgent: userAgent,
             metadata: { org_id: targetOrgId, role: user.role },

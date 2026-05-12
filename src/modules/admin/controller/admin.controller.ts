@@ -3,7 +3,7 @@
 import { Request, response, Response } from 'express';
 import { AdminService } from '../service/admin.service';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Body, Controller, Get, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
 import { RolesGuard } from 'src/shared/guards';
 import { Roles } from 'src/shared/decorators/roles.decorator';
@@ -152,7 +152,7 @@ export class AdminController {
      */
     @UseGuards(AuthGuard, RolesGuard)
     @Roles(Role.ADMIN)
-    @Patch('/organizations/:orgId/delete')
+    @Delete('/organizations/:orgId/delete')
     @ApiParam({ name: 'orgId', description: 'ID of the organization to delete' })
     @ApiResponse({ status: 200, description: 'Organization deleted successfully.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
