@@ -69,7 +69,7 @@ export class EmailService {
             invitedBy: options.invitedBy,
         });
 
-        return this.sendTemplateEmail(options.to, options.staffName, template);
+        return await this.sendTemplateEmail(options.to, options.staffName, template);
     }
 
     async sendUpdateStaffProfileInfoByOrganizationEmail(to: string, name: string, updatedFields: string[]) {

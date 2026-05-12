@@ -17,7 +17,9 @@ export class ErrorHandler implements ExceptionFilter {
     let message: any = 'Internal Server Error';
     let code = exception?.constructor?.name || 'Error';
 
-    // 1. Handle Zod Specific Errors
+    if (response.headersSent) {
+      return;
+    }
     // 1. Handle Zod Specific Errors
     if (exception instanceof ZodValidationException) {
       status = HttpStatus.BAD_REQUEST;
@@ -64,7 +66,7 @@ export class ErrorHandler implements ExceptionFilter {
 
       console.error(`[${new Date().toISOString()}] ${request.url} - ${code}:`, exception);
 
-      
+
       const user = (request as any).user;
 
       this.shared.logActivity(this.prisma, {

@@ -272,8 +272,8 @@ export class AdminService {
                     data: {
                         deletedAt: new Date(),
                         is_active: false,
-                        is_verified: false,
-                        
+                        isVerified: false,
+
                     },
                 });
 

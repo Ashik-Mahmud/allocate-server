@@ -60,8 +60,8 @@ export class AuthService {
             ...dto,
             password: hashedPassword,
             org_id: organization.id,
+            role: Role.ORG_ADMIN,
             deletedAt: null,
-            is_active: true,
             is_verified: false,
           },
           select: {
@@ -74,6 +74,7 @@ export class AuthService {
         finalUser = await prisma.user.create({
           data: {
             ...dto,
+            role: Role.ORG_ADMIN,
             password: hashedPassword,
             org_id: organization.id,
           },
