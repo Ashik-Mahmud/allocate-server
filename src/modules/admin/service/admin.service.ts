@@ -201,7 +201,7 @@ export class AdminService {
         }
 
         try {
-       
+
 
             const result = await this.prisma.$transaction(async (tx) => {
                 //  Update organization details
@@ -226,11 +226,11 @@ export class AdminService {
 
                 // 
                 if (data.trialEndsAt) {
-                  
+
                     await tx.subscription.update({
                         where: { org_id: orgId },
                         data: {
-                            end_date: data.trialEndsAt, 
+                            end_date: data.trialEndsAt,
                             is_active: true,
                         },
                     });
@@ -240,7 +240,7 @@ export class AdminService {
                         timeZone: orgTimezone
                     });
 
-                   
+
                     await this.shared.logActivity(tx, {
                         orgId: orgId,
                         userId: orgAdmin?.id || user.id,
@@ -539,7 +539,7 @@ export class AdminService {
             ...(organizationId ? { org_id: organizationId } : {}),
             ...(name ? { name: { contains: name, mode: 'insensitive' } } : {}),
             ...(email ? { email: { contains: email, mode: 'insensitive' } } : {}),
-            ...(role ? { role: role } : {}),
+            ...(role ? { role: role } : {role: { in: [Role.STAFF, Role.ORG_ADMIN] } }),
             ...(search ? { OR: [{ name: { contains: search, mode: 'insensitive' } }, { email: { contains: search, mode: 'insensitive' } }] } : {}),
         };
         const skip = (Number(page) - 1) * Number(limit);
@@ -550,20 +550,20 @@ export class AdminService {
                 take: limit,
                 orderBy: { createdAt: 'desc' },
                 select: {
+                    password: false,
                     id: true,
                     name: true,
                     email: true,
-                    role: true,
+                    last_login: true,
                     createdAt: true,
+                    is_verified: true,
+                    personal_credits: true,
                     org_id: true,
-                    organization: {
-                        select: {
-                            name: true,
-                            photo: true,
-                            tagline: true,
-                            isVerified: true,
-                        }
-                    }
+                    deletedAt: true,
+                    photo: true,
+                    role: true,
+                    _count: { select: { notifications: true, bookings: true, } },
+                    organization: true,
                 }
             }),
             this.prisma.user.count({ where: whereClause }),

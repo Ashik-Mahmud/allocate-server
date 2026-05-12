@@ -16,7 +16,7 @@
 import { string, z } from 'zod';
 import { createZodDto } from "nestjs-zod"
 import { meta } from 'zod/v4/core';
-import { PlanType } from '@prisma/client';
+import { PlanType, Role } from '@prisma/client';
 
 export const UpdateSystemSettingsDtoSchema = z.object({
     maintenance_mode: z.boolean().optional(),
@@ -78,7 +78,7 @@ export const AllUserFilterSchema = z.object({
     organizationId: z.string().optional(),
     name: z.string().optional(),
     email: z.string().email().optional(),
-    role: z.enum(['STAFF', 'ADMIN']).optional(),
+    role: z.enum([Role.STAFF, Role.ORG_ADMIN]).optional(),
     page: z.coerce.number().min(1, 'Page must be at least 1').default(1),
     limit: z.coerce.number().min(1, 'Limit must be at least 1').max(100, 'Limit cannot exceed 100').default(10),
     search: z.string().optional(),
