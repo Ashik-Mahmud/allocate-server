@@ -102,6 +102,8 @@ export const RevenueAnalyticsFilterSchema = z.object({
 });
 
 export const UserActivityLogFilterSchema = z.object({
+    organizationId: z.string().optional(),
+    userId: z.string().optional(),
     startDate: z.string().optional(),
     endDate: z.string().optional(),
     page: z.coerce.number().min(1, 'Page must be at least 1').default(1),

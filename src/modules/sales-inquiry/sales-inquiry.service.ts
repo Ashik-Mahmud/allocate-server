@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../inbox/service/email.service';
-import { CreateSalesInquiryDto, UpdateSalesInquiryDto, SalesInquiryFiltersDto } from './sales-inquiry.dto';
+import { CreateSalesInquiryDto, UpdateSalesInquiryDto, SalesInquiryFiltersDto, SalesInquiryStatsFiltersDto } from './sales-inquiry.dto';
 import { NotificationType, Prisma, Role, SaleInquiryStatus, User } from '@prisma/client';
 import { CurrentUserType } from 'src/shared/decorators/user.decorator';
 import { InboxService } from '../inbox/service/inbox.service';
@@ -106,7 +106,9 @@ export class SalesInquiryService {
         const where: Prisma.SalesInquiryWhereInput = {
             ...(status && { status }),
             ...(org_id && { org_id }),
-            ...(country && { country }),
+            ...(country && { 
+                country: { contains: country, mode: 'insensitive' }
+             }),
             ...(search && {
                 OR: [
                     { name: { contains: search, mode: 'insensitive' } },
@@ -209,7 +211,8 @@ export class SalesInquiryService {
     }
 
     // Get statistics
-    async getStats(org_id?: string, startDate?: string, endDate?: string) {
+    async getStats(filters: SalesInquiryStatsFiltersDto) {
+        const { org_id, startDate, endDate } = filters;
         const where: any = {};
         if (org_id) where.org_id = org_id;
         if (startDate || endDate) {
@@ -217,6 +220,8 @@ export class SalesInquiryService {
             if (startDate) where.createdAt.gte = new Date(startDate);
             if (endDate) where.createdAt.lte = new Date(endDate);
         }
+
+        console.log(where, 'where')
 
         // Get all inquiries for stats
         const allInquiries = await this.prisma.salesInquiry.findMany({

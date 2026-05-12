@@ -305,15 +305,14 @@ export class AdminController {
      */
     @UseGuards(AuthGuard, RolesGuard)
     @Roles(Role.ADMIN)
-    @Get('/users/:userId/activity-logs')
-    @ApiParam({ name: 'userId', description: 'ID of the user to retrieve activity logs' })
+    @Get('/users/activity-logs')
     @ApiResponse({ status: 200, description: 'User activity logs retrieved successfully.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
     @ApiOperation({ summary: 'Get user activity logs' })
-    async getUserActivityLogs(@CurrentUser() user: User, @Param('userId') userId: string, @Query() query: UserActivityLogFilterDto, @Res() response: Response) {
+    async getUserActivityLogs(@CurrentUser() user: User,  @Query() query: UserActivityLogFilterDto, @Res() response: Response) {
         // Implement logic to retrieve user activity logs here
         // You can use this.adminService to call service methods for business logic
-        const result = await this.adminService.getUserActivityLogs(user, userId, query);
+        const result = await this.adminService.getUserActivityLogs(user,  query);
         ResponseUtil.success(result, response);
     }
 

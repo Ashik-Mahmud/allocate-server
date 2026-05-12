@@ -130,6 +130,7 @@ export class AdminService {
         const pageNumber = Number(page) || 1;
         const pageSize = Number(limit) || 10;
 
+        console.log(name, search)
         const whereClause: any = {
             ...(organizationId ? { id: organizationId } : {}),
             ...(name ? { name: { contains: name, mode: 'insensitive' } } : {}),
@@ -160,6 +161,8 @@ export class AdminService {
             }),
             this.prisma.organizations.count({ where: whereClause }),
         ]);
+
+        console.log(organizations, 'organizations')
         return {
             items: organizations,
             total,
@@ -539,7 +542,7 @@ export class AdminService {
             ...(organizationId ? { org_id: organizationId } : {}),
             ...(name ? { name: { contains: name, mode: 'insensitive' } } : {}),
             ...(email ? { email: { contains: email, mode: 'insensitive' } } : {}),
-            ...(role ? { role: role } : {role: { in: [Role.STAFF, Role.ORG_ADMIN] } }),
+            ...(role ? { role: role } : { role: { in: [Role.STAFF, Role.ORG_ADMIN] } }),
             ...(search ? { OR: [{ name: { contains: search, mode: 'insensitive' } }, { email: { contains: search, mode: 'insensitive' } }] } : {}),
         };
         const skip = (Number(page) - 1) * Number(limit);
@@ -844,17 +847,18 @@ export class AdminService {
 
 
     // Get user activity logs for admin dashboard
-    async getUserActivityLogs(user: User, userId: string, query: UserActivityLogFilterDto) {
+    async getUserActivityLogs(user: User, query: UserActivityLogFilterDto) {
         if (user.role !== Role.ADMIN) {
             throw new Error('Unauthorized');
         }
-        const { startDate, endDate, page = 1, limit = 10 } = query;
+        const { startDate, endDate, page = 1, limit = 10, userId, organizationId } = query;
         const timezone = resolveUserTimezone(user as any);
         const dateFilter: Prisma.DateTimeFilter = {};
         if (startDate) dateFilter.gte = getStartOfDayUtc(startDate, timezone);
         if (endDate) dateFilter.lte = getEndOfDayUtc(endDate, timezone);
         const whereClause: Prisma.ActivityLogWhereInput = {
             user_id: userId,
+            ...(organizationId ? { org_id: organizationId } : {}),
             ...(Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {}),
         };
         const skip = (Number(page) - 1) * Number(limit);

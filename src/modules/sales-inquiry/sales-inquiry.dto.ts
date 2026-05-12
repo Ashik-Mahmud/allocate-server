@@ -73,10 +73,10 @@ export const SalesInquiryFiltersSchema = z.object({
     org_id: z.string().cuid().optional(),
     country: z.string().optional(),
     search: z.string().optional(),
-    sortBy: z.enum(["createdAt", "name", "status"]).optional().default("createdAt"),
+    sortBy: z.enum(["createdAt", "name", "status", "updatedAt", "business_email", "country"]).optional().default("createdAt"),
     sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
-    page: z.number().int().positive().optional().default(1),
-    limit: z.number().int().positive().max(100).optional().default(10),
+    page: z.coerce.number().min(1, 'Page must be at least 1').default(1),
+    limit: z.coerce.number().min(1, 'Limit must be at least 1').max(100, 'Limit cannot exceed 100').default(10),
 });
 
 export class SalesInquiryFiltersDto extends createZodDto(SalesInquiryFiltersSchema) { };

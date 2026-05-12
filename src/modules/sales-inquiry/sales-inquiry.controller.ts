@@ -19,7 +19,7 @@ import { RolesGuard } from 'src/shared/guards';
 import { Roles } from 'src/shared/decorators/roles.decorator';
 import { Role, SalesInquiry } from '@prisma/client';
 import { SalesInquiryService } from './sales-inquiry.service';
-import { CreateSalesInquiryDto, UpdateSalesInquiryDto, SalesInquiryFiltersDto } from './sales-inquiry.dto';
+import { CreateSalesInquiryDto, UpdateSalesInquiryDto, SalesInquiryFiltersDto, SalesInquiryStatsFiltersDto, SalesInquiryStatsFiltersSchema } from './sales-inquiry.dto';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { CreateSalesInquirySchema, UpdateSalesInquirySchema, SalesInquiryFiltersSchema } from './sales-inquiry.dto';
 import { PaginatedResponse, ResponseUtil } from 'src/utils/responses';
@@ -73,6 +73,26 @@ export class SalesInquiryController {
     }
 
     /**
+    * Get sales inquiry statistics
+    * Admin only endpoint
+    */
+    @Get('admin/stats')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiQuery({ name: 'org_id', required: false })
+    @ApiQuery({ name: 'startDate', required: false })
+    @ApiQuery({ name: 'endDate', required: false })
+    async getStats(
+        @Res() response: Response,
+        @Query(new ZodValidationPipe(SalesInquiryStatsFiltersSchema)) filters: SalesInquiryStatsFiltersDto,
+    ): Promise<any> {
+
+        const stats = await this.salesInquiryService.getStats(filters);
+        return ResponseUtil.success(stats, response);
+    }
+
+    /**
      * Get sales inquiry details by ID
      * Admin only endpoint
      */
@@ -116,24 +136,5 @@ export class SalesInquiryController {
         return ResponseUtil.success(result, response);
     }
 
-    /**
-     * Get sales inquiry statistics
-     * Admin only endpoint
-     */
-    @Get('admin/stats')
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.ADMIN)
-    @ApiBearerAuth()
-    @ApiQuery({ name: 'org_id', required: false })
-    @ApiQuery({ name: 'startDate', required: false })
-    @ApiQuery({ name: 'endDate', required: false })
-    async getStats(
-        @Res() response: Response,
-        @Query('org_id') org_id?: string,
-        @Query('startDate') startDate?: string,
-        @Query('endDate') endDate?: string,
-    ) {
-        const stats = await this.salesInquiryService.getStats(org_id, startDate, endDate);
-        return ResponseUtil.success(stats, response);
-    }
+
 }
