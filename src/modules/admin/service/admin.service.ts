@@ -680,7 +680,7 @@ export class AdminService {
             limit: Number(limit),
             totalPages: Math.ceil(total / limit),
             metadata: {
-                totalRevenue: Number(totalAmount._sum.price_paid || 0),
+                totalRevenue: Number(totalAmount?._sum.price_paid || 0),
             }
         };
     }

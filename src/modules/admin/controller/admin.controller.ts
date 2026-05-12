@@ -270,7 +270,7 @@ export class AdminController {
             userAgent: response?.req?.headers['user-agent'] || 'unknown',
         }
         const result = await this.adminService.getOrganizationSubscriptionHistory(user, query, metadata);
-        ResponseUtil.paginated(result.items, result.total, result.page, result.limit, response);
+        ResponseUtil.paginated(result.items, result.total, result.page, result.limit, response, result.metadata);
 
     }
 
