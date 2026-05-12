@@ -130,7 +130,6 @@ export class AdminService {
         const pageNumber = Number(page) || 1;
         const pageSize = Number(limit) || 10;
 
-        console.log(name, search)
         const whereClause: any = {
             ...(organizationId ? { id: organizationId } : {}),
             ...(name ? { name: { contains: name, mode: 'insensitive' } } : {}),
@@ -162,7 +161,6 @@ export class AdminService {
             this.prisma.organizations.count({ where: whereClause }),
         ]);
 
-        console.log(organizations, 'organizations')
         return {
             items: organizations,
             total,
@@ -676,16 +674,14 @@ export class AdminService {
             _sum: { price_paid: true }
         });
         return {
-            items: [
-                {
-                    transactions,
-                    totalRevenue: totalAmount._sum.price_paid || 0,
-                }
-            ],
+            items: transactions,
             total,
             page: Number(page),
             limit: Number(limit),
             totalPages: Math.ceil(total / limit),
+            metadata: {
+                totalRevenue: Number(totalAmount._sum.price_paid || 0),
+            }
         };
     }
 
@@ -868,6 +864,14 @@ export class AdminService {
                 orderBy: { createdAt: 'desc' },
                 skip: skip,
                 take: Number(limit),
+                include: {
+                    organization: {
+                        select: { name: true, id: true, }
+                    },
+                    user: {
+                        select: { name: true, email: true, id: true, role: true, }
+                    }
+                }
             }),
             this.prisma.activityLog.count({ where: whereClause }),
         ]);

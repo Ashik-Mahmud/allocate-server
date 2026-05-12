@@ -221,8 +221,6 @@ export class SalesInquiryService {
             if (endDate) where.createdAt.lte = new Date(endDate);
         }
 
-        console.log(where, 'where')
-
         // Get all inquiries for stats
         const allInquiries = await this.prisma.salesInquiry.findMany({
             where,

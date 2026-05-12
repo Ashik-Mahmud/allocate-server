@@ -30,6 +30,7 @@ model User {
 
   @@index([email, org_id])
   @@map("users")
+  activityLogs ActivityLog[]
 }
 
 model Organizations {
@@ -71,6 +72,7 @@ model Organizations {
 
   @@index([name, id])
   @@map("organizations")
+  activityLogs ActivityLog[]
 }
 
 model Resources {
@@ -230,6 +232,9 @@ model ActivityLog {
   metadata  Json?
   createdAt DateTime @default(now())
   details   String?
+
+  organization Organizations @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([org_id, user_id])
   @@map("activity_logs")

@@ -313,7 +313,7 @@ export class AdminController {
         // Implement logic to retrieve user activity logs here
         // You can use this.adminService to call service methods for business logic
         const result = await this.adminService.getUserActivityLogs(user,  query);
-        ResponseUtil.success(result, response);
+        ResponseUtil.paginated(result.items, result.total, result.page, result.limit, response);
     }
 
 
