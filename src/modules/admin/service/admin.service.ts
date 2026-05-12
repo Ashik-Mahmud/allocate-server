@@ -201,65 +201,82 @@ export class AdminService {
         }
 
         try {
-            const updatedOrg = await this.prisma.organizations.update({
-                where: { id: orgId },
-                data: {
-                    ...data,
-                    updatedAt: new Date(),
-                },
-                include: {
-                    users: {
-                        where: { role: Role.ORG_ADMIN },
+       
+
+            const result = await this.prisma.$transaction(async (tx) => {
+                //  Update organization details
+                const updatedOrg = await tx.organizations.update({
+                    where: { id: orgId },
+                    data: {
+                        ...data,
+                        hasUsedTrial: data.trialEndsAt ? true : undefined, // if trialEndsAt is set, mark trial as used
+                        updatedAt: new Date(),
                     },
-                },
+                    include: {
+                        users: {
+                            where: { role: Role.ORG_ADMIN },
+                            select: { id: true, email: true, name: true }
+                        },
+                        subscription: true,
+                    },
+                });
+
+                const orgAdmin = updatedOrg.users?.[0];
+                const orgTimezone = updatedOrg.timezone || 'UTC';
+
+                // 
+                if (data.trialEndsAt) {
+                  
+                    await tx.subscription.update({
+                        where: { org_id: orgId },
+                        data: {
+                            end_date: data.trialEndsAt, 
+                            is_active: true,
+                        },
+                    });
+
+                    const formattedDate = new Date(data.trialEndsAt).toLocaleDateString('en-GB', {
+                        day: 'numeric', month: 'long', year: 'numeric',
+                        timeZone: orgTimezone
+                    });
+
+                   
+                    await this.shared.logActivity(tx, {
+                        orgId: orgId,
+                        userId: orgAdmin?.id || user.id,
+                        action: 'ORG_TRIAL_EXTENDED',
+                        details: `System admin extended "${updatedOrg.name}" trial until ${formattedDate}`,
+                        ipAddress: response.req.ip || '',
+                        userAgent: response.get('User-Agent') || '',
+                        metadata: { extended_by: user.id, new_date: data.trialEndsAt },
+                    });
+
+                    this.notificationManager.send({
+                        userId: orgAdmin?.id || user.id,
+                        orgId: orgId,
+                        type: NotificationType.SYSTEM_ALERT,
+                        title: '🚀 Trial Period Extended',
+                        message: `Great news! Your organization's trial has been extended until ${formattedDate}. Enjoy our premium features!`,
+                        userEmail: orgAdmin?.email,
+                        userName: orgAdmin?.name,
+                    });
+                }
+
+
+                if (data.isVerified !== undefined) {
+                    await this.shared.logActivity(tx, {
+                        orgId: orgId,
+                        userId: orgAdmin?.id || user.id,
+                        action: updatedOrg.isVerified ? 'ORG_VERIFIED' : 'ORG_UNVERIFIED',
+                        details: `Organization verification status updated to ${updatedOrg.isVerified}`,
+                        ipAddress: response.req.ip || '',
+                        userAgent: response.get('User-Agent') || '',
+                        metadata: { admin_id: user.id },
+                    });
+                }
+
+                return updatedOrg;
             });
-
-            // log activity
-            if (data?.isVerified !== undefined) {
-                await this.shared.logActivity(this.prisma, {
-                    orgId: orgId,
-                    userId: updatedOrg?.users?.[0]?.id || user.id,
-                    action: updatedOrg.isVerified ? 'ORG_VERIFIED' : 'ORG_UNVERIFIED',
-                    details: `Organization ${updatedOrg.name} verification status set to ${updatedOrg.isVerified}`,
-                    ipAddress: response.req.ip || '',
-                    userAgent: response.get('User-Agent') || '',
-                    metadata: { org_id: orgId, role: user.role },
-                });
-
-                this.notificationManager.send({
-                    userId: updatedOrg?.users?.[0]?.id || user.id,
-                    orgId: orgId,
-                    type: NotificationType.SYSTEM_ALERT,
-                    title: updatedOrg.isVerified ? 'Organization Verified' : 'Organization Unverified',
-                    message: `Organization ${updatedOrg.name} is now ${updatedOrg.isVerified ? 'verified' : 'unverified'}`,
-                    metadata: { org_id: orgId, role: user.role },
-                    userEmail: user.email,
-                    userName: user.name,
-                });
-            }
-
-            if (data?.trialEndsAt) {
-                // Log activity for extend trial end date
-                await this.shared.logActivity(this.prisma, {
-                    orgId: orgId,
-                    userId: updatedOrg?.users?.[0]?.id || user.id,
-                    action: 'ORG_TRIAL_EXTENDED',
-                    details: `Organization ${updatedOrg.name} trial end date extended to ${updatedOrg.trialEndsAt}`,
-                    ipAddress: response.req.ip || '',
-                    userAgent: response.get('User-Agent') || '',
-                    metadata: { org_id: orgId, role: user.role },
-                });
-                this.notificationManager.send({
-                    userId: updatedOrg?.users?.[0]?.id || user.id,
-                    orgId: orgId,
-                    type: NotificationType.SYSTEM_ALERT,
-                    title: 'Trial Extended',
-                    message: `Organization ${updatedOrg.name} trial end date has been extended to ${updatedOrg.trialEndsAt}`,
-                    metadata: { org_id: orgId, role: user.role },
-                    userEmail: user.email,
-                    userName: user.name,
-                });
-            }
 
             return {
                 success: true,
