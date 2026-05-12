@@ -563,7 +563,7 @@ export const buildSalesInquiryThankYouTemplate = (rawOptions: AnnouncementOption
 export const buildSalesInqueryFollowUpTemplate = (rawOptions: AnnouncementOptions): EmailTemplate => {
     const options = withDefaults(rawOptions);
     const inquiry = options.metadata?.inquiry; // Accessing the object passed in your service
-    const subject = `🔥 New Sales Lead: ${inquiry?.name || 'Inquiry Received'}`;
+    const subject = `🔥 New Sales Lead: ${inquiry?.organization.name || 'Inquiry Received'}`;
 
     const htmlContent = buildLayout(
         options,

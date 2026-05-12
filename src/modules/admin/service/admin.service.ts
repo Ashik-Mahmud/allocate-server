@@ -657,6 +657,7 @@ export class AdminService {
                     organization: {
                         select: {
                             name: true, id: true,
+                            org_type: true,
                         }
                     },
                     user: {
