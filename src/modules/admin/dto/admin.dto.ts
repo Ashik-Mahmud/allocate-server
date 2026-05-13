@@ -69,8 +69,9 @@ export const UpdateOrganizationSchema = z.object({
 });
 
 export const OrganizationCreditTopUpSchema = z.object({
-    amount: z.number().positive(),
+    credits: z.number().positive(),
     price: z.number().positive(),
+    extendDate: z.string().optional(),
 });
 
 

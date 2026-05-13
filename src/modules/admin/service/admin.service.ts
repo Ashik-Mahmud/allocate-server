@@ -151,6 +151,9 @@ export class AdminService {
                 skip,
                 take: pageSize,
                 include: {
+                    subscription: {
+                        select:{plan_name: true, start_date: true, end_date: true, is_active: true}
+                    },
                     _count: {
                         select: { users: true }
                     }
@@ -471,12 +474,18 @@ export class AdminService {
         }
         const organization = await this.prisma.organizations.findUnique({
             where: { id: orgId },
+            include:{
+                users:{
+                    where: { role: Role.ORG_ADMIN },
+                    select: { id: true, name: true, email: true }
+                }
+            }
         });
         if (!organization) {
             throw new NotFoundException('Organization not found');
         }
         const prevBalance = Number(organization.credit_pool || 0);
-        const topUpAmount = Number(data.amount || 0);
+        const topUpAmount = Number(data.credits || 0);
         const newBalance = prevBalance + topUpAmount;
 
         const result = await this.prisma.$transaction(async (tx) => {
@@ -484,6 +493,34 @@ export class AdminService {
                 where: { id: orgId },
                 data: { credit_pool: newBalance },
             });
+
+            // If extendDate is provided, also extend the subscription end date
+            const subscription = await tx.subscription.findUnique({ where: { org_id: orgId } });
+            const currentEndDate = subscription?.end_date || new Date();
+            const orgAdmin = organization.users?.[0]; // Assuming there's at least one org admin, otherwise use system admin as fallback
+            const isAlreadyExpired = subscription?.end_date ? subscription.end_date < new Date() : true;
+
+            if (isAlreadyExpired && !data?.extendDate) {
+                throw new BadRequestException('Subscription is already expired. Please provide an extend date to reactivate the subscription.');
+            }
+
+            if (data?.extendDate || subscription?.is_active === false) {
+                const extendDate = data?.extendDate ? new Date(data.extendDate) : currentEndDate;
+                if (extendDate < currentEndDate) {
+                    throw new BadRequestException('Extend date must be greater than current subscription end date');
+                }
+                await tx.subscription.update({
+                    where: { org_id: orgId },
+                    data: {
+                        end_date: extendDate,
+                        is_active: true,
+                        updatedAt: new Date()
+
+                    },
+                });
+            }
+
+
             // Log credit transaction
             await this.shared.createCreditTransaction(tx, {
                 orgId: orgId,
@@ -492,8 +529,8 @@ export class AdminService {
                 prevBalance,
                 currBalance: newBalance,
                 performedBy: user.id,
-                description: `Admin top up of ${topUpAmount} credits to organization ${organization.name}`,
-                refId: orgId,
+                description: `Manual top up of ${topUpAmount} credits to organization ${organization.name} by ${user.name || 'System Admin'}`,
+                // refId: orgId,
                 userId: user.id,
                 price_paid: data.price || 0,
             });
@@ -501,17 +538,17 @@ export class AdminService {
                 orgId: orgId,
                 userId: user.id,
                 action: 'CREDIT_TOPUP',
-                details: `Organization ${organization.name} top up of ${topUpAmount} credits`,
+                details: `System Admin manually topped up ${topUpAmount} credits to organization ${organization.name}. New balance is ${newBalance} credits.`,
                 ipAddress: response.req.ip || '',
                 userAgent: response.get('User-Agent') || '',
                 metadata: { org_id: orgId, role: user.role, prevBalance, newBalance, price: data.price || 0 },
             });
             this.notificationManager.createNotification({
-                userId: user.id,
+                userId: orgAdmin?.id,
                 orgId: orgId,
                 type: NotificationType.SYSTEM_ALERT,
-                title: 'Credits Added Successfully',
-                message: `Your organization has been credited with ${topUpAmount} credits.`,
+                title: 'Organization Credit Top-Up',
+                message: `You have successfully topped up ${topUpAmount} credits to organization ${organization.name}. New balance is ${newBalance} credits.`,
                 metadata: { org_id: orgId, role: user.role, newBalance },
             }).catch(err => console.error('Notification failed', err));;
             return {
