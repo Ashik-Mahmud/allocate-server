@@ -126,7 +126,7 @@ export class AdminService {
         if (user.role !== Role.ADMIN) {
             throw new Error('Unauthorized');
         }
-        const { organizationId, name, verified, page, limit, search, showDeletedOrg, planType } = query;
+        const { organizationId, name, verified, is_active, page, limit, search, showDeletedOrg, planType } = query;
         const pageNumber = Number(page) || 1;
         const pageSize = Number(limit) || 10;
 
@@ -134,6 +134,7 @@ export class AdminService {
             ...(organizationId ? { id: organizationId } : {}),
             ...(name ? { name: { contains: name, mode: 'insensitive' } } : {}),
             ...(verified !== undefined ? { isVerified: verified } : {}),
+            ...(is_active !== undefined ? { is_active } : {}),
             ...(showDeletedOrg === false ? { deletedAt: null } : { deletedAt: { not: null } }),
             ...(search ? {
                 users: {

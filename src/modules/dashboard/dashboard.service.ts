@@ -721,8 +721,6 @@ export class DashboardService {
             activeOrgIdsByActivity,
             errorLogs,
             failedTransactions,
-            globalAnnouncementStatus,
-            pendingSupportRequestsCount,
         ] = await Promise.all([
             // totalOrganizations
             this.prisma.organizations.count({ where: { deletedAt: null } }),
@@ -735,13 +733,13 @@ export class DashboardService {
             }),
             // globalCreditsSoldAgg - lifetime
             this.prisma.creditTransaction.aggregate({
-                where: { type: 'TOP_UP' },
+                where: { type: TransactionType.TOP_UP },
                 _sum: { price_paid: true },
             }),
             // monthlyCreditRevenueAgg - last 30 days
             this.prisma.creditTransaction.aggregate({
                 where: {
-                    type: 'TOP_UP',
+                    type: TransactionType.TOP_UP,
                     createdAt: { gte: thirtyDaysAgo },
                 },
                 _sum: { price_paid: true },
@@ -760,7 +758,7 @@ export class DashboardService {
             // topUpRows
             this.prisma.creditTransaction.findMany({
                 where: {
-                    type: 'TOP_UP',
+                    type: TransactionType.TOP_UP,
                     createdAt: { gte: thirtyDaysAgo },
                 },
                 select: { createdAt: true, amount: true, price_paid: true },
@@ -775,6 +773,8 @@ export class DashboardService {
                     plan_type: true,
                     createdAt: true,
                     credit_pool: true,
+                    isVerified: true,
+                    is_active: true,
                     _count: {
                         select: {
                             users: {
@@ -837,6 +837,7 @@ export class DashboardService {
                 },
                 orderBy: { createdAt: 'desc' },
                 take: 10,
+               
                 select: {
                     id: true,
                     action: true,
@@ -844,6 +845,13 @@ export class DashboardService {
                     createdAt: true,
                     org_id: true,
                     user_id: true,
+                    metadata: true,
+                    user: {
+                        select: { name: true, role: true, id: true },
+                    },
+                    organization: {
+                        select: { name: true },
+                    },
                 },
             }),
             // failedTransactions
@@ -864,22 +872,7 @@ export class DashboardService {
                     },
                 },
             }),
-            // supportRequests
-            this.prisma.systemSettings.findUnique({
-                where: { id: 'default' },
-                select: {
-                    id: true,
-                    maintenance_mode: true,
-                    global_alert_message: true,
-                    updatedAt: true,
-                },
-            }),
-            // pendingSupportRequests
-            this.prisma.activityLog.count({
-                where: {
-                    action: { contains: 'SUPPORT_REQUEST_PENDING', mode: 'insensitive' },
-                },
-            }),
+
         ]);
 
         const orgIds = organizations.map((org) => org.id);
@@ -888,7 +881,7 @@ export class DashboardService {
                 by: ['org_id'],
                 where: {
                     org_id: { in: orgIds },
-                    type: 'SPEND',
+                    type: TransactionType.SPEND,
                 },
                 _sum: { amount: true },
             }),
@@ -896,7 +889,7 @@ export class DashboardService {
                 by: ['org_id'],
                 where: {
                     org_id: { in: orgIds },
-                    type: { in: ['ALLOCATE', 'TOP_UP', 'ADJUSTMENT'] },
+                    type: { in: [TransactionType.ALLOCATE, TransactionType.TOP_UP, TransactionType.ADJUSTMENT] },
                 },
                 _sum: { amount: true },
             }),
@@ -914,6 +907,7 @@ export class DashboardService {
             creditConsumption: spendMap.get(org.id) || 0,
             totalAssignedCredits: assignedMap.get(org.id) || 0,
             creditPool: Number(org.credit_pool || 0),
+            is_active: org.is_active,
         }));
 
         const top5Organizations = [...organizationsWithStats]
@@ -951,9 +945,8 @@ export class DashboardService {
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([weekKey, amount]) => ({ weekKey, amount }));
 
-        const activeOrgIdsSet = new Set(activeOrgIdsByActivity.map((row) => row.org_id));
         const inactiveOrganizations = organizationsWithStats
-            .filter((org) => !activeOrgIdsSet.has(org.id))
+            .filter((org) => !org?.is_active)
             .map((org) => ({
                 id: org.id,
                 name: org.name,
@@ -1019,14 +1012,6 @@ export class DashboardService {
                     api: 'UP',
                     checkedAt: new Date().toISOString(),
                 },
-            },
-            administrativeControls: {
-                globalAnnouncementStatus: {
-                    maintenanceMode: globalAnnouncementStatus?.maintenance_mode || false,
-                    activeBanner: globalAnnouncementStatus?.global_alert_message || null,
-                    updatedAt: globalAnnouncementStatus?.updatedAt || null,
-                },
-                pendingSupportRequests: pendingSupportRequestsCount,
             },
             dataNotes: {
                 revenueComputation:

@@ -45,6 +45,12 @@ export const OrganizationFilterSchema = z.object({
         )
         .optional()
         .transform((val) => val === 'true' ? true : val === 'false' ? false : undefined),
+    is_active: z
+        .preprocess((val) => String(val).toLowerCase(), // Force to lowercase string first
+            z.enum(['true', 'false'])
+        )
+        .optional()
+        .transform((val) => val === 'true' ? true : val === 'false' ? false : undefined),
     page: z.coerce.number().min(1, 'Page must be at least 1').default(1),
     limit: z.coerce.number().min(1, 'Limit must be at least 1').max(100, 'Limit cannot exceed 100').default(10),
     search: z.string().optional(),
