@@ -40,7 +40,8 @@ export class SalesInquiryService {
             select: { id: true },
         });
 
-        const message = `A new sales inquiry has been received from ${inquiry.name} (${inquiry.business_email}). Please review and follow up accordingly. Inquiry details: ${inquiry.message}`;
+        const message = `A new sales inquiry has been received from ${inquiry.name} (${inquiry.business_email}). Please review and follow up accordingly. Inquiry details: 
+        ${inquiry.message}`;
 
         this.inboxService.createNotification({
             userId: systemAdmin?.id || '', // Assuming system admin is the recipient

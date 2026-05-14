@@ -152,7 +152,7 @@ export class AdminService {
                 take: pageSize,
                 include: {
                     subscription: {
-                        select:{plan_name: true, start_date: true, end_date: true, is_active: true}
+                        select: { plan_name: true, start_date: true, end_date: true, is_active: true }
                     },
                     _count: {
                         select: { users: true }
@@ -474,8 +474,8 @@ export class AdminService {
         }
         const organization = await this.prisma.organizations.findUnique({
             where: { id: orgId },
-            include:{
-                users:{
+            include: {
+                users: {
                     where: { role: Role.ORG_ADMIN },
                     select: { id: true, name: true, email: true }
                 }
@@ -489,22 +489,28 @@ export class AdminService {
         const newBalance = prevBalance + topUpAmount;
 
         const result = await this.prisma.$transaction(async (tx) => {
-            await tx.organizations.update({
-                where: { id: orgId },
-                data: { credit_pool: newBalance },
-            });
+
 
             // If extendDate is provided, also extend the subscription end date
             const subscription = await tx.subscription.findUnique({ where: { org_id: orgId } });
             const currentEndDate = subscription?.end_date || new Date();
             const orgAdmin = organization.users?.[0]; // Assuming there's at least one org admin, otherwise use system admin as fallback
             const isAlreadyExpired = subscription?.end_date ? subscription.end_date < new Date() : true;
+            const planType = data?.planType || subscription?.plan_name || organization.plan_type || 'FREE';
 
             if (isAlreadyExpired && !data?.extendDate) {
                 throw new BadRequestException('Subscription is already expired. Please provide an extend date to reactivate the subscription.');
             }
 
-            if (data?.extendDate || subscription?.is_active === false) {
+            // Update organization details
+            await tx.organizations.update({
+                where: { id: orgId },
+                data: {
+                    credit_pool: newBalance,
+                    plan_type: planType,
+                },
+            });
+            if (data?.extendDate || data?.planType || subscription?.is_active === false) {
                 const extendDate = data?.extendDate ? new Date(data.extendDate) : currentEndDate;
                 if (extendDate < currentEndDate) {
                     throw new BadRequestException('Extend date must be greater than current subscription end date');
@@ -514,9 +520,15 @@ export class AdminService {
                     data: {
                         end_date: extendDate,
                         is_active: true,
-                        updatedAt: new Date()
+                        updatedAt: new Date(),
+                        plan_name: planType,
 
                     },
+                });
+
+                await tx.organizations.update({
+                    where: { id: orgId },
+                    data: { plan_type: planType },
                 });
             }
 
@@ -529,7 +541,7 @@ export class AdminService {
                 prevBalance,
                 currBalance: newBalance,
                 performedBy: user.id,
-                description: `Manual top up of ${topUpAmount} credits to organization ${organization.name} by ${user.name || 'System Admin'}`,
+                description: `Manual top up of ${topUpAmount} credits to organization ${organization.name} with Plan Type: ${planType} by ${user.name || 'System Admin'}`,
                 // refId: orgId,
                 userId: user.id,
                 price_paid: data.price || 0,
@@ -538,18 +550,21 @@ export class AdminService {
                 orgId: orgId,
                 userId: user.id,
                 action: 'CREDIT_TOPUP',
-                details: `System Admin manually topped up ${topUpAmount} credits to organization ${organization.name}. New balance is ${newBalance} credits.`,
+                details: `System Admin manually topped up ${topUpAmount} credits to organization ${organization.name} and updated the plan type to ${planType}. New balance is ${newBalance} credits.`,
                 ipAddress: response.req.ip || '',
                 userAgent: response.get('User-Agent') || '',
                 metadata: { org_id: orgId, role: user.role, prevBalance, newBalance, price: data.price || 0 },
             });
-            this.notificationManager.createNotification({
+            this.notificationManager.send({
                 userId: orgAdmin?.id,
                 orgId: orgId,
                 type: NotificationType.SYSTEM_ALERT,
                 title: 'Organization Credit Top-Up',
-                message: `You have successfully topped up ${topUpAmount} credits to organization ${organization.name}. New balance is ${newBalance} credits.`,
+                message: `Manual top-up successful! You have successfully topped up ${topUpAmount} credits to your organization. Your current plan is now ${planType}. New balance is ${newBalance} credits.`,
+                userEmail: orgAdmin?.email,
                 metadata: { org_id: orgId, role: user.role, newBalance },
+                userName: orgAdmin?.name,
+                emailSubject: `Credits Topped Up: New Balance ${newBalance} Credits`,
             }).catch(err => console.error('Notification failed', err));;
             return {
                 success: true,
@@ -559,6 +574,7 @@ export class AdminService {
                     newBalance,
                     topUpAmount,
                     price: data.price || 0,
+                    planType: data.planType || planType,
                 }
             };
         });

@@ -72,6 +72,7 @@ export const OrganizationCreditTopUpSchema = z.object({
     credits: z.number().positive(),
     price: z.number().positive(),
     extendDate: z.string().optional(),
+    planType: z.enum([PlanType.FREE, PlanType.PRO, PlanType.ENTERPRISE]).optional(),
 });
 
 
