@@ -25,7 +25,7 @@ export class AdminService {
 
     // Get system settings
     async getSystemSettings(user: User) {
-        const isLoggedInUser = user?.id && user?.role !== Role.ADMIN ? true : false;
+        const isLoggedInUser = user?.id  ? true : false;
         const settings = await this.prisma.systemSettings.findUnique({
             where: { id: 'default' },
             select: {

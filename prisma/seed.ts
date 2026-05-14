@@ -57,6 +57,7 @@ async function main() {
       features_flags: {
         can_export_logs: false,
         ui_dark_mode: false,
+        language_changer: false
       },
     },
   });
