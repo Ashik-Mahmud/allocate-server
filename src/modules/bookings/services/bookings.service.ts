@@ -91,7 +91,7 @@ export class BookingsService {
             }
 
             // Validate booking against resource rules (if any)
-            const rules = resource?.resourcesRules[0];
+            const rules = resource?.resourcesRules;
             const hoursDifference = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
 
 
@@ -504,7 +504,7 @@ export class BookingsService {
             }
 
             // Validate booking against resource rules (if any)
-            const rules = resource?.resourcesRules[0];
+            const rules = resource?.resourcesRules;
             const hoursDifference = Number(((endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60)).toFixed(2));
 
 
@@ -685,7 +685,7 @@ export class BookingsService {
         if (!resource) throw new NotFoundException('Resource not found');
 
         const resolvedTimezone = resolveTimezone(timezone, resource.organization?.timezone, process.env.DEFAULT_TIMEZONE, 'UTC');
-        const rules = resource.resourcesRules[0];
+        const rules = resource.resourcesRules;
         const availableDays = (rules?.availableDays as string[]) || [];
 
 
@@ -698,8 +698,8 @@ export class BookingsService {
         const workStart = parseDateTimeInTimezone(`${date}T${String(rules?.opening_hours).padStart(2, '0')}:00:00`, resolvedTimezone);
         const workEnd = parseDateTimeInTimezone(`${date}T${String(rules?.closing_hours || 18).padStart(2, '0')}:00:00`, resolvedTimezone);
 
-        const slotDurationMs = (rules.slot_duration_min || 30) * 60 * 1000;
-        const bufferMs = (rules.buffer_time || 0) * 60 * 60 * 1000;
+        const slotDurationMs = (rules?.slot_duration_min || 30) * 60 * 1000;
+        const bufferMs = (rules?.buffer_time || 0) * 60 * 60 * 1000;
 
 
         const bookings = await this.prisma.bookings.findMany({
@@ -887,7 +887,7 @@ export class BookingsService {
             throw new NotFoundException('Resource not found');
         }
 
-        const rules = resource.resourcesRules[0];
+        const rules = resource?.resourcesRules;
         const calendarData: BookingCalendarData[] = [];
 
         // Loop through each day of the month to get available slots and booking status

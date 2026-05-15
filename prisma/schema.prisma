@@ -12,21 +12,21 @@ model User {
   password           String
   name               String
   photo              String?
-  personal_credits   Int?                @default(0) // Credits allocated to the user by the organization admin  
+  personal_credits   Int?                @default(0)
   role               Role                @default(ORG_ADMIN)
   last_login         DateTime?
-  is_verified        Boolean?            @default(false)
-  verification_token String?             @unique
-  token_expiry       DateTime?
   deletedAt          DateTime?
   createdAt          DateTime?           @default(now())
   updatedAt          DateTime?           @updatedAt
   org_id             String?
-  organization       Organizations?      @relation(fields: [org_id], references: [id], onDelete: Cascade)
-  notifications      Notification[]
-  bookings           Bookings[]          @relation("BookingUser")
+  is_verified        Boolean?            @default(false)
+  token_expiry       DateTime?
+  verification_token String?             @unique
   createdBookings    Bookings[]          @relation("BookingCreator")
+  bookings           Bookings[]          @relation("BookingUser")
   creditTransactions CreditTransaction[]
+  notifications      Notification[]
+  organization       Organizations?      @relation(fields: [org_id], references: [id], onDelete: Cascade)
 
   @@index([email, org_id])
   @@map("users")
@@ -36,39 +36,38 @@ model User {
 model Organizations {
   id                  String              @id @default(cuid())
   name                String
-  slug                String?             @unique
   org_type            String?
   tagline             String?
   photo               String?
   plan_type           PlanType?           @default(FREE)
   credit_pool         Int?                @default(100)
-  frozen_credits      Int?                @default(0) // Credits that are reserved for upcoming bookings but not yet spent
   is_active           Boolean?            @default(true)
-  timezone            String              @default("UTC")
-  address             Json?
-  business_email      String?
-  needUpdateOrg       Boolean?            @default(true)
-  settings            Json?               @default("{\"notificationPreference\":{\"email\":true,\"sms\":false,\"push\":false, \"inApp\":true}}") // For future extensibility (e.g. notification preferences, etc.)
-  isVerified          Boolean?            @default(false)
-  weeklyReportEnabled Boolean?            @default(false)
-  //TRIAL
-  isTrialAllowed      Boolean             @default(true)
-  hasUsedTrial        Boolean             @default(false) // Indicates if the organization is currently in the free trial period
-  trialStartAt        DateTime?
-  trialEndsAt         DateTime? // For tracking free trial period for new organizations
   deletedAt           DateTime?
   createdAt           DateTime?           @default(now())
   updatedAt           DateTime?           @updatedAt
-  subscription        Subscription?
-  users               User[]
+  address             Json?
+  business_email      String?
+  slug                String?             @unique
+  timezone            String              @default("UTC")
+  needUpdateOrg       Boolean?            @default(true)
+  isVerified          Boolean?            @default(false)
+  settings            Json?               @default("{\"notificationPreference\": {\"sms\": false, \"push\": false, \"email\": true, \"inApp\": true}}")
+  frozen_credits      Int?                @default(0)
+  weeklyReportEnabled Boolean?            @default(false)
+  hasUsedTrial        Boolean             @default(false)
+  isTrialAllowed      Boolean             @default(true)
+  trialEndsAt         DateTime?
+  trialStartAt        DateTime?
+  bookings            Bookings[]
+  communityHubs       CommunityHub[]
+  creditTransactions  CreditTransaction[]
+  invitations         Invitation[]
+  notifications       Notification[]
   resources           Resources[]
   resourcesRules      ResourcesRule[]
-  notifications       Notification[]
-  invitations         Invitation[]
-  bookings            Bookings[]
-  creditTransactions  CreditTransaction[]
   salesInquiries      SalesInquiry[]
-  communityHubs       CommunityHub[]
+  subscription        Subscription?
+  users               User[]
 
   @@index([name, id])
   @@map("organizations")
@@ -76,28 +75,26 @@ model Organizations {
 }
 
 model Resources {
-  id             String        @id @default(cuid())
-  org_id         String
-  organization   Organizations @relation(fields: [org_id], references: [id])
-  name           String
-  type           String
-  hourly_rate    Decimal
-  photo          String?
-  metadata       Json
-  is_available   Boolean       @default(true) // Indicates if the resource is currently available for booking (e.g. not under maintenance)
-  is_active      Boolean       @default(true) // Indicates if the resource is active in the system (e.g. not archived or deleted)
-  is_maintenance Boolean       @default(false)
-  is_occupied    Boolean       @default(false) // Indicates if the resource is currently occupied (i.e. has an active booking)
-  isAutoConfirm  Boolean       @default(false) // If true, bookings for this resource will be auto-confirmed without admin approval
-
-  currentBookingId String?   @unique
-  currentBooking   Bookings? @relation("CurrentResourceBooking", fields: [currentBookingId], references: [id], onDelete: SetNull)
-
-  deletedAt      DateTime?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  resourcesRules ResourcesRule[]
-  bookings       Bookings[]      @relation("AllResourceBookings")
+  id               String         @id @default(cuid())
+  org_id           String
+  name             String
+  type             String
+  metadata         Json
+  is_available     Boolean        @default(true)
+  is_active        Boolean        @default(true)
+  deletedAt        DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  hourly_rate      Decimal
+  is_maintenance   Boolean        @default(false)
+  photo            String?
+  currentBookingId String?        @unique
+  is_occupied      Boolean        @default(false)
+  isAutoConfirm    Boolean        @default(false)
+  bookings         Bookings[]     @relation("AllResourceBookings")
+  currentBooking   Bookings?      @relation("CurrentResourceBooking", fields: [currentBookingId], references: [id])
+  organization     Organizations  @relation(fields: [org_id], references: [id])
+  resourcesRules   ResourcesRule?
 
   @@index([org_id])
   @@map("resources")
@@ -106,20 +103,20 @@ model Resources {
 model ResourcesRule {
   id                 String        @id @default(cuid())
   org_id             String
-  organization       Organizations @relation(fields: [org_id], references: [id], onDelete: Cascade)
   resource_id        String        @unique
-  resource           Resources     @relation(fields: [resource_id], references: [id], onDelete: Cascade)
   max_booking_hours  Float?
   min_lead_time      Float?
   buffer_time        Float?
-  opening_hours      Int?          @default(9) // in 24h format, e.g. 9 for 9 AM
-  closing_hours      Int?          @default(18) // in 24h format, e.g. 17
-  slot_duration_min  Int           @default(30) // in minutes
-  is_weekend_allowed Boolean       @default(false)
-  availableDays      Json?         @default("[]") // e.g. ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
   deletedAt          DateTime?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
+  availableDays      Json?         @default("[]")
+  closing_hours      Int?          @default(18)
+  is_weekend_allowed Boolean       @default(false)
+  opening_hours      Int?          @default(9)
+  slot_duration_min  Int           @default(30)
+  organization       Organizations @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  resource           Resources     @relation(fields: [resource_id], references: [id], onDelete: Cascade)
 
   @@index([org_id, resource_id])
   @@map("resources_rules")
@@ -128,47 +125,46 @@ model ResourcesRule {
 model Subscription {
   id                  String           @id @default(cuid())
   org_id              String           @unique
-  organization        Organizations    @relation(fields: [org_id], references: [id])
   plan_name           PlanType
   start_date          DateTime
   end_date            DateTime?
   payment_status      PaymentStatus?
   is_active           Boolean?         @default(true)
-  last_reminder_sent  DateTime?
-  provider            PaymentProvider? // e.g. "Stripe", "PayPal", "SSLCOMMERZ"
-  external_id         String?          @unique
-  last_transaction_id String?
   deletedAt           DateTime?
   createdAt           DateTime?        @default(now())
   updatedAt           DateTime?        @updatedAt
+  last_reminder_sent  DateTime?
+  external_id         String?          @unique
+  last_transaction_id String?
+  provider            PaymentProvider?
+  organization        Organizations    @relation(fields: [org_id], references: [id])
 
   @@index([org_id])
   @@map("subscriptions")
 }
 
 model Bookings {
-  id                  String         @id @default(cuid())
+  id                  String              @id @default(cuid())
   user_id             String
   resource_id         String
   org_id              String
-  created_by          String?
   start_time          DateTime
   end_time            DateTime
-  total_cost          Int?           @default(0) // Calculated based on resource hourly_rate and duration
-  status              BookingStatus? @default(PENDING)
+  total_cost          Int?                @default(0)
   cancellation_reason String?
-  notes               String?
-  metadata            Json?
   deletedAt           DateTime?
-  createdAt           DateTime?      @default(now())
-  updatedAt           DateTime?      @updatedAt
-
-  user               User                @relation("BookingUser", fields: [user_id], references: [id], onDelete: Cascade)
-  organization       Organizations       @relation(fields: [org_id], references: [id], onDelete: Cascade)
-  resource           Resources           @relation("AllResourceBookings", fields: [resource_id], references: [id], onDelete: Cascade)
-  creator            User?               @relation("BookingCreator", fields: [created_by], references: [id], onDelete: SetNull)
-  creditTransactions CreditTransaction[]
-  currentOfResource  Resources?          @relation("CurrentResourceBooking")
+  createdAt           DateTime?           @default(now())
+  updatedAt           DateTime?           @updatedAt
+  status              BookingStatus?      @default(PENDING)
+  created_by          String?
+  metadata            Json?
+  notes               String?
+  creator             User?               @relation("BookingCreator", fields: [created_by], references: [id])
+  organization        Organizations       @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  resource            Resources           @relation("AllResourceBookings", fields: [resource_id], references: [id], onDelete: Cascade)
+  user                User                @relation("BookingUser", fields: [user_id], references: [id], onDelete: Cascade)
+  creditTransactions  CreditTransaction[]
+  currentOfResource   Resources?          @relation("CurrentResourceBooking")
 
   @@index([user_id, resource_id, org_id, status])
   @@map("bookings")
@@ -178,24 +174,23 @@ model CreditTransaction {
   id              String          @id @default(uuid())
   org_id          String
   user_id         String
-  amount          Float           @default(0) // +50.00 or -10.00 
-  price_paid      Float?          @default(0) // Actual amount paid by the organization for this transaction (relevant for TOP_UP and DEDUCT)
-  type            TransactionType // Enum: SPEND, ALLOCATE, REFUND
-  previousBalance Float           @default(0) // Balance before the transaction
-  currentBalance  Float           @default(0) // Balance after the transaction
-  referenceId     String? // Booking ID or Top-up ID
+  amount          Float           @default(0)
+  type            TransactionType
+  previousBalance Float           @default(0)
+  currentBalance  Float           @default(0)
+  referenceId     String?
   description     String?
-  performedBy     String? // Admin ID who performed the action
-  payment_gateway String? // e.g. "Stripe", "PayPal" (relevant for TOP_UP transactions)
-  transaction_id  String? // ID from the payment gateway (relevant for TOP_UP transactions)
-  currency        String? // e.g. "USD" (relevant for TOP_UP transactions)
-  status          String? // e.g. "COMPLETED", "PENDING", "FAILED" (relevant for TOP_UP transactions)
+  performedBy     String?
   createdAt       DateTime        @default(now())
+  price_paid      Float?          @default(0)
+  currency        String?
+  payment_gateway String?
+  status          String?
+  transaction_id  String?
   metadata        Json?
-
-  booking      Bookings?     @relation(fields: [referenceId], references: [id], onDelete: Cascade)
-  user         User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  organization Organizations @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  organization    Organizations   @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  booking         Bookings?       @relation(fields: [referenceId], references: [id], onDelete: Cascade)
+  user            User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([org_id, user_id])
   @@map("credit_transactions")
@@ -209,14 +204,12 @@ model Notification {
   title        String
   message      String
   is_read      Boolean          @default(false)
-  reference_id String? // e.g. Booking ID, Credit Transaction ID, etc.
-  metadata     Json? // Additional data related to the notification
-
-  user         User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  organization Organizations @relation(fields: [org_id], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  reference_id String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  metadata     Json?
+  organization Organizations    @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  user         User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id, org_id, is_read])
   @@map("notifications")
@@ -253,17 +246,16 @@ model SystemSettings {
 }
 
 model Invitation {
-  id        String           @id @default(cuid())
-  org_id    String
-  email     String
-  role      Role             @default(ORG_ADMIN)
-  token     String           @unique
-  expiresAt DateTime
-  status    InvitationStatus @default(PENDING)
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-
-  organization Organizations @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  id           String           @id @default(cuid())
+  org_id       String
+  email        String
+  role         Role             @default(ORG_ADMIN)
+  token        String           @unique
+  expiresAt    DateTime
+  status       InvitationStatus @default(PENDING)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  organization Organizations    @relation(fields: [org_id], references: [id], onDelete: Cascade)
 
   @@index([org_id, email])
   @@map("invitations")
@@ -272,16 +264,16 @@ model Invitation {
 model SalesInquiry {
   id             String            @id @default(cuid())
   org_id         String?
-  organization   Organizations?    @relation(fields: [org_id], references: [id])
   name           String
   business_email String
   phone          String?
-  message        String            @db.Text
+  message        String
   team_size      String?
   country        String?
   status         SaleInquiryStatus @default(PENDING)
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
+  organization   Organizations?    @relation(fields: [org_id], references: [id])
 
   @@map("sales_inquiries")
 }
@@ -289,20 +281,21 @@ model SalesInquiry {
 model CommunityHub {
   id           String               @id @default(cuid())
   org_id       String?
-  organization Organizations?       @relation(fields: [org_id], references: [id])
   title        String
-  content      String               @db.Text
+  content      String
   imageUrl     String?
   authorId     String?
   authorName   String?
   authorRole   Role?
-  comments     Json? // For future extensibility, e.g. [{ "userId": "abc", "comment": "Great post!", "timestamp": "2024-01-01T12:00:00Z" }]
-  visibility   Json?                @default("{\"showToStaff\": true, \"showToOrgAdmin\": true, \"showToAdmin\": true}")
-  isPrivate    Boolean              @default(false) // If true, only visible to yourself
-  postType     CommunityHubPostType @default(GENERAL_DISCUSSION)
+  comments     Json?
   status       CommunityHubStatus   @default(DRAFT)
+  postType     CommunityHubPostType @default(GENERAL_DISCUSSION)
+  deletedAt    DateTime?
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
+  isPrivate    Boolean              @default(false)
+  visibility   Json?                @default("{\"showToAdmin\": true, \"showToStaff\": true, \"showToOrgAdmin\": true}")
+  organization Organizations?       @relation(fields: [org_id], references: [id])
 
   @@map("community_hub")
 }
@@ -315,8 +308,8 @@ enum CommunityHubPostType {
   ISSUES
   RESOLVED
   GENERAL_DISCUSSION
-  SYSTEM_QUERY
   OTHER
+  SYSTEM_QUERY
 }
 
 enum CommunityHubStatus {
@@ -354,66 +347,47 @@ enum InvitationStatus {
 }
 
 enum NotificationType {
-  // Booking Related
-  BOOKING_REQUESTED
   BOOKING_CONFIRMED
   BOOKING_REJECTED
-  BOOKING_REMINDER
-  BOOKING_CANCELLED
-  BOOKING_COMPLETED
-  BOOKING_CHECKED_IN
-  BOOKING_RESCHEDULED
-
-  // RESOURCE Related
-  RESOURCE_MAINTENANCE
-  RESOURCE_AVAILABLE
-
-  // Credit Related
   CREDIT_RECEIVED
+  SYSTEM_ALERT
+  INVITATION_RECEIVED
+  BOOKING_REMINDER
   CREDIT_REVOKED
   LOW_CREDIT_WARNING
-
-  // Invitation & Staff
-  INVITATION_RECEIVED
   STAFF_JOINED
-
-  // Subscription (Paid Feature)
   SUBSCRIPTION_EXPIRING
   SUBSCRIPTION_EXPIRED
+  MAINTENANCE_NOTICE
+  BOOKING_REQUESTED
+  BOOKING_CANCELLED
+  RESOURCE_MAINTENANCE
+  RESOURCE_AVAILABLE
+  BOOKING_COMPLETED
   UPGRADE_PLAN_REMINDER
   SUBSCRIPTION_RENEWED
   SUBSCRIPTION_CANCELLED
+  CREDIT_RESET
+  BOOKING_CHECKED_IN
+  WEEKLY_REPORT
+  BOOKING_RESCHEDULED
+  CONTACT_SALES
   TRIAL_ACTIVATED
   TRIAL_EXPIRING
   TRIAL_EXPIRED
-  CREDIT_RESET
-
-  // Weekly Report
-  WEEKLY_REPORT
-
-  // System
-  SYSTEM_ALERT
-  MAINTENANCE_NOTICE
-  CONTACT_SALES
+  CREATE_COMMUNITY_POST
+  PUBLISHED_COMMUNITY_POST
 }
 
 enum TransactionType {
-  // Free Credit Allocation
-  FREE_ALLOCATION // When system allocates free credits to new organizations or users
-  // Admin to Staff
-  ALLOCATE // When admin allocates credits to staff
-  REVOKE // When admin revokes credits from staff
-
-  // Staff Usage
-  SPEND // When staff spend credits
-  REFUND // When staff are refunded credits
-
-  // Organization Pool (System Admin to Org Admin)
-  TOP_UP // When system admin adds credits to an organization's main pool
-  DEDUCT // When credits are deducted from an organization's pool for a specific reason
-
-  // Bonus/System
-  ADJUSTMENT // When the balance needs to be adjusted due to an error or other reason
+  SPEND
+  ALLOCATE
+  REFUND
+  REVOKE
+  TOP_UP
+  DEDUCT
+  ADJUSTMENT
+  FREE_ALLOCATION
 }
 
 enum Role {

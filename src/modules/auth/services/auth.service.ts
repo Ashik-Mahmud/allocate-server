@@ -204,17 +204,19 @@ export class AuthService {
     });
 
     // log activity
-    const ipAddress = (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '';
-    const userAgent: string = res.req.headers['user-agent'] || 'unknown';
-    await this.sharedService.logActivity(this.prisma, {
-      userId: user.id,
-      orgId: user.org_id || '',
-      action: 'USER_LOGIN',
-      details: `User ${user.email} logged in`,
-      ipAddress: ipAddress,
-      userAgent: userAgent,
-      metadata: { org_id: user?.organization?.id || user?.org_id || '', role: user.role },
-    });
+    if (user?.role !== Role.ADMIN) {
+      const ipAddress = (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '';
+      const userAgent: string = res.req.headers['user-agent'] || 'unknown';
+      await this.sharedService.logActivity(this.prisma, {
+        userId: user.id,
+        orgId: user.org_id || '',
+        action: 'USER_LOGIN',
+        details: `User ${user.email} logged in`,
+        ipAddress: ipAddress,
+        userAgent: userAgent,
+        metadata: { org_id: user?.organization?.id || user?.org_id || '', role: user.role },
+      });
+    }
     return {
       ...tokens,
       user: {
