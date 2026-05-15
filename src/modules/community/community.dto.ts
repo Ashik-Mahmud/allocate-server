@@ -12,7 +12,23 @@ export const PostCommunitySchema = z.object({
     status: z.enum(CommunityHubStatus).optional().default(CommunityHubStatus.DRAFT),
 });
 
+
+export const CommunityPostFilterSchema = z.object({
+    postType: z.enum(CommunityHubPostType).optional(),
+    status: z.enum(CommunityHubStatus).optional(),
+    authorId: z.string().optional(),
+    orgId: z.string().optional(),
+    isPrivate: z.boolean().optional(),
+    search: z.string().optional(),
+    page: z.coerce.number().min(1, 'Page must be at least 1').default(1),
+    limit: z.coerce.number().min(1, 'Limit must be at least 1').max(100, 'Limit cannot exceed 100').default(10),
+    visibility: z.record(z.string(), z.boolean()).optional().default({ showToStaff: true, showToOrgAdmin: true, showToAdmin: true }),
+
+});
+
+
 export class UpdatePostCommunityDto extends createZodDto(
   PostCommunitySchema.partial()
 ) {}
 export class CreatePostCommunityDto extends createZodDto(PostCommunitySchema) { }
+export class CommunityPostFilterDto extends createZodDto(CommunityPostFilterSchema) { }

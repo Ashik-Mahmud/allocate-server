@@ -1,10 +1,11 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationManager } from '../inbox/service/notification-manager.service';
-import { CreatePostCommunityDto, UpdatePostCommunityDto } from './community.dto';
+import { CommunityPostFilterDto, CreatePostCommunityDto, UpdatePostCommunityDto } from './community.dto';
 import { CurrentUserType } from 'src/shared/decorators/user.decorator';
-import { CommunityHubPostType, CommunityHubStatus, NotificationType, Role } from '@prisma/client';
+import { CommunityHubPostType, CommunityHubStatus, NotificationType, Prisma, Role } from '@prisma/client';
 import { SharedService } from 'src/shared/services/shared.service';
+import { email } from 'zod';
 
 @Injectable()
 export class CommunityService {
@@ -232,5 +233,219 @@ export class CommunityService {
     }
 
 
-    
+    // Service to get community posts with filters and pagination
+    async getPostCommunity(filters: CommunityPostFilterDto, user: CurrentUserType) {
+        // Implementation for getting community posts goes here
+        const { postType, status, authorId, orgId, isPrivate, search, page = 1, limit = 10, visibility } = filters;
+        const { showToStaff, showToOrgAdmin, showToAdmin } = visibility
+
+        const where: Prisma.CommunityHubWhereInput = {
+            deletedAt: null,
+            org_id: user.org_id,
+            ...(postType && { postType }),
+
+
+            ...(authorId === user.id
+                ? (status ? { status } : {})
+                : { status: CommunityHubStatus.PUBLISHED, isPrivate: false }
+            ),
+
+            ...(authorId !== user.id && {
+                AND: [
+                    {
+                        OR: [
+                            ...(user.role === Role.STAFF ? [{ visibility: { path: ['showToStaff'], equals: true } }] : []),
+                            ...(user.role === Role.ORG_ADMIN ? [{ visibility: { path: ['showToOrgAdmin'], equals: true } }] : []),
+                            ...(user.role === Role.ADMIN ? [{ visibility: { path: ['showToAdmin'], equals: true } }] : []),
+                        ]
+                    }
+                ]
+            }),
+
+            ...(authorId && { authorId }),
+            ...(search && {
+                OR: [
+                    { title: { contains: search, mode: 'insensitive' } },
+                    { content: { contains: search, mode: 'insensitive' } },
+                ]
+            }),
+        };
+        const skip = (Number(page) - 1) * Number(limit);
+        const take = Number(limit);
+
+        const [posts, total] = await this.prisma.$transaction([
+            this.prisma.communityHub.findMany({
+                where,
+                skip,
+                take,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    author: { select: { id: true, name: true, photo: true } }
+                }
+            }),
+            this.prisma.communityHub.count({ where }),
+        ]);
+        return {
+            items: posts,
+            total,
+            page: Number(page),
+            limit: Number(limit),
+            totalPages: Math.ceil(total / Number(limit)),
+
+        };
+
+    }
+
+
+    // Service to get a specific community post by ID
+    async getPostCommunityById(postId: string, user: CurrentUserType) {
+        // Implementation for getting a specific community post by ID goes here
+        const post = await this.prisma.communityHub.findUnique({
+            where: { id: postId },
+            include: {
+                author: { select: { id: true, name: true, photo: true } }
+            }
+        });
+        if (!post || post.deletedAt) {
+            throw new Error('Post not found');
+        }
+        if (post.isPrivate && user.role !== Role.ADMIN) {
+            throw new ForbiddenException('You do not have permission to view this post');
+        }
+        return post;
+    }
+
+
+    // Service to get community posts created by the current user with filters and pagination
+    async getMyPostCommunity(filters: CommunityPostFilterDto, user: CurrentUserType) {
+        // Implementation for getting community posts created by the current user goes here
+        const { postType, status, isPrivate, search, page = 1, limit = 10 } = filters;
+        const where: Prisma.CommunityHubWhereInput = {
+            // deletedAt: null,
+            org_id: user.org_id,
+            authorId: user.id,
+            ...(postType && { postType }),
+            ...(status && { status }),
+            ...(isPrivate !== undefined && { isPrivate }),
+            ...(search && {
+                OR: [
+                    { title: { contains: search, mode: 'insensitive' } },
+                    { content: { contains: search, mode: 'insensitive' } },
+                ]
+            }),
+        };
+        const skip = (Number(page) - 1) * Number(limit);
+        const take = Number(limit);
+        const [posts, total] = await this.prisma.$transaction([
+            this.prisma.communityHub.findMany({
+                where,
+                skip,
+                take,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    author: { select: { id: true, name: true, photo: true } }
+                }
+            }),
+            this.prisma.communityHub.count({ where }),
+        ]);
+        return {
+            items: posts,
+            total,
+            page: Number(page),
+            limit: Number(limit),
+            totalPages: Math.ceil(total / Number(limit)),
+        };
+    }
+
+
+    // Service to leave a comment on a community post
+    async commentOnPostCommunity(postId: string, comment: string, user: CurrentUserType) {
+        // Implementation for leaving a comment on a community post goes here
+        const post = await this.prisma.communityHub.findUnique({ where: { id: postId } });
+        if (!post) {
+            throw new NotFoundException('Post not found');
+        }
+        const newCommentData = {
+            id: crypto.randomUUID(), // Better than Date.now()
+            content: comment,
+            authorName: user.name,
+            authorId: user.id,
+            email: user.email,
+            createdAt: new Date().toISOString()
+        };
+        const newComment = await this.prisma.communityHub.update({
+            where: { id: postId },
+            data: {
+                comments: {
+                    push: newCommentData
+                }
+            },
+        });
+        return newComment;
+    }
+
+    // Service to delete a comment on a community post
+    async deleteComment(commentId: string, user: CurrentUserType) {
+
+        const post = await this.prisma.communityHub.findFirst({
+            where: {
+                comments: {
+                    path: [],
+                    array_contains: [{ id: commentId }]
+                }
+            }
+        });
+
+        if (!post) {
+            throw new NotFoundException('Comment not found');
+        }
+
+
+        const currentComments = (post.comments as any[]) || [];
+
+
+        const commentToDelete = currentComments.find(c => c.id === commentId);
+        if (!commentToDelete) throw new NotFoundException('Comment not found in list');
+
+        if (commentToDelete.authorId !== user.id && user.role !== Role.ADMIN) {
+            throw new ForbiddenException('You cannot delete this comment');
+        }
+
+        const updatedComments = currentComments.filter(c => c.id !== commentId);
+
+
+        return await this.prisma.communityHub.update({
+            where: { id: post.id },
+            data: {
+                comments: updatedComments
+            }
+        });
+    }
+
+
+    // Service to toggleAcknowledgePostCommunity a community post (if needed in the future)
+    async toggleAcknowledgePostCommunity(postId: string, user: CurrentUserType) {
+        const post = await this.prisma.communityHub.findUnique({ where: { id: postId } });
+        if (!post) throw new NotFoundException('Post not found');
+
+        const acknowledgments = (post.acknowledgments as string[]) || [];
+
+   
+        const userIndex = acknowledgments.indexOf(user.id);
+        let updatedAcknowledgments;
+
+        if (userIndex > -1) {
+            updatedAcknowledgments = acknowledgments.filter(id => id !== user.id);
+        } else {
+            updatedAcknowledgments = [...acknowledgments, user.id];
+        }
+
+        return await this.prisma.communityHub.update({
+            where: { id: postId },
+            data: {
+                acknowledgments: updatedAcknowledgments
+            }
+        });
+    }
+
 }

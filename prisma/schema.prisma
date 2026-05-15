@@ -27,10 +27,11 @@ model User {
   creditTransactions CreditTransaction[]
   notifications      Notification[]
   organization       Organizations?      @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  activityLogs       ActivityLog[]
+  communityHubs      CommunityHub[]
 
   @@index([email, org_id])
   @@map("users")
-  activityLogs ActivityLog[]
 }
 
 model Organizations {
@@ -68,10 +69,10 @@ model Organizations {
   salesInquiries      SalesInquiry[]
   subscription        Subscription?
   users               User[]
+  activityLogs        ActivityLog[]
 
   @@index([name, id])
   @@map("organizations")
-  activityLogs ActivityLog[]
 }
 
 model Resources {
@@ -279,23 +280,25 @@ model SalesInquiry {
 }
 
 model CommunityHub {
-  id           String               @id @default(cuid())
-  org_id       String?
-  title        String
-  content      String
-  imageUrl     String?
-  authorId     String?
-  authorName   String?
-  authorRole   Role?
-  comments     Json?
-  status       CommunityHubStatus   @default(DRAFT)
-  postType     CommunityHubPostType @default(GENERAL_DISCUSSION)
-  deletedAt    DateTime?
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @updatedAt
-  isPrivate    Boolean              @default(false)
-  visibility   Json?                @default("{\"showToAdmin\": true, \"showToStaff\": true, \"showToOrgAdmin\": true}")
-  organization Organizations?       @relation(fields: [org_id], references: [id])
+  id              String               @id @default(cuid())
+  org_id          String?
+  title           String
+  content         String
+  imageUrl        String?
+  authorId        String?
+  authorName      String?
+  authorRole      Role?
+  comments        Json?
+  acknowledgments Json?
+  status          CommunityHubStatus   @default(DRAFT)
+  postType        CommunityHubPostType @default(GENERAL_DISCUSSION)
+  deletedAt       DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  isPrivate       Boolean              @default(false)
+  visibility      Json?                @default("{\"showToAdmin\": true, \"showToStaff\": true, \"showToOrgAdmin\": true}")
+  organization    Organizations?       @relation(fields: [org_id], references: [id])
+  author          User?                @relation(fields: [authorId], references: [id])
 
   @@map("community_hub")
 }
