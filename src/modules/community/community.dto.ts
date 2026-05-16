@@ -22,8 +22,11 @@ export const CommunityPostFilterSchema = z.object({
     search: z.string().optional(),
     page: z.coerce.number().min(1, 'Page must be at least 1').default(1),
     limit: z.coerce.number().min(1, 'Limit must be at least 1').max(100, 'Limit cannot exceed 100').default(10),
-    visibility: z.record(z.string(), z.boolean()).optional().default({ showToStaff: true, showToOrgAdmin: true, showToAdmin: true }),
 
+});
+
+export const CreateCommunityPostCommentSchema = z.object({
+    content: z.string().min(1, 'Comment content is required'),
 });
 
 
@@ -32,3 +35,4 @@ export class UpdatePostCommunityDto extends createZodDto(
 ) {}
 export class CreatePostCommunityDto extends createZodDto(PostCommunitySchema) { }
 export class CommunityPostFilterDto extends createZodDto(CommunityPostFilterSchema) { }
+export class CreateCommunityPostCommentDto extends createZodDto(CreateCommunityPostCommentSchema) { }

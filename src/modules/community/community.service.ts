@@ -1,7 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationManager } from '../inbox/service/notification-manager.service';
-import { CommunityPostFilterDto, CreatePostCommunityDto, UpdatePostCommunityDto } from './community.dto';
+import { CommunityPostFilterDto, CreateCommunityPostCommentDto, CreatePostCommunityDto, UpdatePostCommunityDto } from './community.dto';
 import { CurrentUserType } from 'src/shared/decorators/user.decorator';
 import { CommunityHubPostType, CommunityHubStatus, NotificationType, Prisma, Role } from '@prisma/client';
 import { SharedService } from 'src/shared/services/shared.service';
@@ -21,7 +21,6 @@ export class CommunityService {
     async createPostCommunity(createPostCommunityDto: CreatePostCommunityDto, user: CurrentUserType, ip: string, agent: string) {
         // Implementation for creating a new community hub goes here
         const { title, content, imageUrl, visibility, isPrivate, postType, status } = createPostCommunityDto;
-
         const result = await this.prisma.$transaction(async (tx) => {
             const post = await tx.communityHub.create({
                 data: {
@@ -39,55 +38,57 @@ export class CommunityService {
                 }
             });
 
-            // Log the creation of the new community post
-            this.sharedService.logActivity(tx, {
-                action: 'CREATE_COMMUNITY_POST',
-                details: `User ${user.name} created a new community post titled "${post.title}"`,
-                userId: user.id,
-                orgId: user.org_id,
-                ipAddress: ip,
-                userAgent: agent,
-                metadata: {
-                    postId: post.id,
-                    postTitle: post.title,
-                    authorName: user.name,
-                    authorRole: user.role,
-                    authorId: user.id,
-                    orgId: user.org_id,
-                    isPrivate: post.isPrivate,
-                    postType: post.postType,
-                    status: post.status,
-                    entityType: 'COMMUNITY_HUB'
-                }
-            })
 
             return post;
         })
 
-
-
-        // Send notification about the new community post
-        this.notificationManager.createNotification({
-            type: NotificationType.CREATE_COMMUNITY_POST,
-            title: 'New Community Post Created',
-            message: `A new post titled "${result?.title}" has been ${result?.isPrivate ? 'private' : 'public'} in the Community Hub. `,
+        // Log the creation of the new community post
+        this.sharedService.logActivity(this.prisma, {
+            action: 'CREATE_COMMUNITY_POST',
+            details: `User ${user.name} created a new community post titled "${result.title}"`,
             userId: user.id,
-            orgId: user.org_id,
+            orgId: user.org_id || null,
+            ipAddress: ip,
+            userAgent: agent,
             metadata: {
-                postId: result?.id,
-                postTitle: result?.title,
+                postId: result.id,
+                postTitle: result.title,
                 authorName: user.name,
                 authorRole: user.role,
                 authorId: user.id,
                 orgId: user.org_id,
-                isPrivate: result?.isPrivate,
-                postType: result?.postType,
-                status: result?.status,
-                visibility: result?.visibility,
+                isPrivate: result.isPrivate,
+                postType: result.postType,
+                status: result.status,
+                entityType: 'COMMUNITY_HUB'
             }
-        }).catch((error) => {
-            console.error(`Failed to create notification for new community post "${result?.title}":`, error);
-        });
+        })
+
+
+        // Send notification about the new community post
+        if (result.status === CommunityHubStatus.PUBLISHED) {
+            this.notificationManager.createNotification({
+                type: NotificationType.CREATE_COMMUNITY_POST,
+                title: 'New Community Post Created',
+                message: `A new post titled "${result?.title}" has been ${result?.isPrivate ? 'private' : 'public'} in the Community Hub. `,
+                userId: user.id,
+                orgId: user.org_id,
+                metadata: {
+                    postId: result?.id,
+                    postTitle: result?.title,
+                    authorName: user.name,
+                    authorRole: user.role,
+                    authorId: user.id,
+                    orgId: user.org_id,
+                    isPrivate: result?.isPrivate,
+                    postType: result?.postType,
+                    status: result?.status,
+                    visibility: result?.visibility,
+                }
+            }).catch((error) => {
+                console.error(`Failed to create notification for new community post "${result?.title}":`, error);
+            });
+        }
         return result;
     }
 
@@ -236,8 +237,8 @@ export class CommunityService {
     // Service to get community posts with filters and pagination
     async getPostCommunity(filters: CommunityPostFilterDto, user: CurrentUserType) {
         // Implementation for getting community posts goes here
-        const { postType, status, authorId, orgId, isPrivate, search, page = 1, limit = 10, visibility } = filters;
-        const { showToStaff, showToOrgAdmin, showToAdmin } = visibility
+        const { postType, status, authorId, orgId, isPrivate, search, page = 1, limit = 10 } = filters;
+
 
         const where: Prisma.CommunityHubWhereInput = {
             deletedAt: null,
@@ -359,7 +360,7 @@ export class CommunityService {
 
 
     // Service to leave a comment on a community post
-    async commentOnPostCommunity(postId: string, comment: string, user: CurrentUserType) {
+    async commentOnPostCommunity(postId: string, comment: CreateCommunityPostCommentDto, user: CurrentUserType) {
         // Implementation for leaving a comment on a community post goes here
         const post = await this.prisma.communityHub.findUnique({ where: { id: postId } });
         if (!post) {
@@ -367,7 +368,7 @@ export class CommunityService {
         }
         const newCommentData = {
             id: crypto.randomUUID(), // Better than Date.now()
-            content: comment,
+            content: comment.content,
             authorName: user.name,
             authorId: user.id,
             email: user.email,
@@ -430,7 +431,7 @@ export class CommunityService {
 
         const acknowledgments = (post.acknowledgments as string[]) || [];
 
-   
+
         const userIndex = acknowledgments.indexOf(user.id);
         let updatedAcknowledgments;
 

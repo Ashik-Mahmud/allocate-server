@@ -10,7 +10,7 @@ export class SharedService {
         tx: Prisma.TransactionClient, // Prisma Transaction Client
         data: {
             userId: string;
-            orgId: string;
+            orgId: string | null;
             action: string;
             details?: string;
             metadata?: any;

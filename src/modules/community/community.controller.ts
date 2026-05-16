@@ -1,15 +1,17 @@
-import { Body, Controller, Delete, Get, Ip, Param, Patch, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Ip, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CommunityService } from './community.service';
 import { ResponseUtil } from 'src/utils/responses';
 import { Response } from 'express';
-import { CommunityPostFilterDto, CreatePostCommunityDto, UpdatePostCommunityDto } from './community.dto';
+import { CommunityPostFilterDto, CreateCommunityPostCommentDto, CreatePostCommunityDto, UpdatePostCommunityDto } from './community.dto';
 import { CurrentUser, CurrentUserType } from 'src/shared/decorators/user.decorator';
 import { Agent } from 'src/shared/decorators/agent.decorator';
+import { AuthGuard } from '../auth/guards/auth.guard';
 
 
 @ApiTags('Community Hub')
 @ApiBearerAuth()
+@UseGuards(AuthGuard) // Add appropriate guards for authentication and authorization
 @Controller('community')
 export class CommunityController {
 
@@ -176,7 +178,7 @@ export class CommunityController {
     async commentOnCommunityPost(
         @Res() res: Response,
         @Param('postId') postId: string,
-        @Body() comment: string,
+        @Body() comment: CreateCommunityPostCommentDto,
         @CurrentUser() user: CurrentUserType,
         @Ip() ip: string,
         @Agent() agent: string

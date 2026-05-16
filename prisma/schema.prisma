@@ -218,7 +218,7 @@ model Notification {
 
 model ActivityLog {
   id        String   @id @default(cuid())
-  org_id    String
+  org_id    String?
   user_id   String
   action    String
   ipAddress String
@@ -227,7 +227,7 @@ model ActivityLog {
   createdAt DateTime @default(now())
   details   String?
 
-  organization Organizations @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  organization Organizations? @relation(fields: [org_id], references: [id], onDelete: Cascade)
   user         User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([org_id, user_id])
@@ -277,6 +277,7 @@ model SalesInquiry {
   organization   Organizations?    @relation(fields: [org_id], references: [id])
 
   @@map("sales_inquiries")
+  @@index([org_id, business_email, status])
 }
 
 model CommunityHub {
@@ -301,6 +302,7 @@ model CommunityHub {
   author          User?                @relation(fields: [authorId], references: [id])
 
   @@map("community_hub")
+  @@index([org_id, authorId, status, postType])
 }
 
 enum CommunityHubPostType {
