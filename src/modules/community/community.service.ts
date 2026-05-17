@@ -654,15 +654,14 @@ export class CommunityService {
 
     // Service to delete a comment on a community post
     async deleteComment(commentId: string, user: CurrentUserType) {
-        const post = await this.prisma.communityHub.findFirst({
-            where: {
-                comments: {
-                    path: ['$[*].id'],
-                    array_contains: commentId
-                }
-            }
-        });
 
+
+        const posts = await this.prisma.$queryRaw<any[]>`
+    SELECT * FROM "community_hub" 
+    WHERE "comments" @> ${JSON.stringify([{ id: commentId }])}::jsonb
+    LIMIT 1;
+`;
+        const post = posts[0];
 
         if (!post) {
             throw new NotFoundException('Comment not found');
