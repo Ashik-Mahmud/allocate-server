@@ -192,26 +192,28 @@ export class CommunityService {
 
             await tx.communityHub.update({ where: { id: postId }, data: { deletedAt: new Date(), status: CommunityHubStatus.ARCHIVED } });
             // Log the deletion of the community post
-            this.sharedService.logActivity(tx, {
-                action: 'DELETE_COMMUNITY_POST',
-                details: `User ${user.name} deleted a community post titled "${post.title}"`,
-                userId: user.id,
-                orgId: user.org_id,
-                ipAddress: ip,
-                userAgent: agent,
-                metadata: {
-                    postId: post.id,
-                    postTitle: post.title,
-                    authorName: user.name,
-                    authorRole: user.role,
-                    authorId: user.id,
-                    orgId: user.org_id,
-                    isPrivate: post.isPrivate,
-                    postType: post.postType,
-                    status: post.status,
-                    entityType: 'COMMUNITY_HUB'
-                }
-            })
+            if (user?.role !== Role.ADMIN) {
+                this.sharedService.logActivity(tx, {
+                    action: 'DELETE_COMMUNITY_POST',
+                    details: `User ${user.name} deleted a community post titled "${post.title}"`,
+                    userId: user.id,
+                    orgId: user.org_id || null,
+                    ipAddress: ip,
+                    userAgent: agent,
+                    metadata: {
+                        postId: post.id,
+                        postTitle: post.title,
+                        authorName: user.name,
+                        authorRole: user.role,
+                        authorId: user.id,
+                        orgId: user.org_id || null,
+                        isPrivate: post.isPrivate,
+                        postType: post.postType,
+                        status: post.status,
+                        entityType: 'COMMUNITY_HUB'
+                    }
+                })
+            }
             return { message: 'Post deleted successfully' };
         });
         return result;
