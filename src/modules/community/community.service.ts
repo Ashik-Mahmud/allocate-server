@@ -173,7 +173,9 @@ export class CommunityService {
 
 
     // Service to delete a community post
-    async deletePostCommunity(postId: string, user: CurrentUserType, ip: string, agent: string) {
+    async deletePostCommunity(postId: string, user: CurrentUserType, ip: string, agent: string, action: { isPermanent: boolean | string } = { isPermanent: false }) {
+
+
         // Implementation for deleting a community post goes here
         // Check if the user's trial has expired before allowing deletion
         const { isExpired, isFree } = await checkCommunityTrial(this.prisma, user.org_id!)
@@ -190,7 +192,15 @@ export class CommunityService {
                 throw new ForbiddenException('You do not have permission to delete this post');
             }
 
-            await tx.communityHub.update({ where: { id: postId }, data: { deletedAt: new Date(), status: CommunityHubStatus.ARCHIVED } });
+            if (action.isPermanent && action?.isPermanent === 'true') {
+                await tx.communityHub.delete({ where: { id: postId } });
+                return { message: 'Post deleted permanently' };
+            } else {
+                await tx.communityHub.update({ where: { id: postId }, data: { deletedAt: new Date(), status: CommunityHubStatus.ARCHIVED } });
+            }
+
+
+
             // Log the deletion of the community post
             if (user?.role !== Role.ADMIN) {
                 this.sharedService.logActivity(tx, {

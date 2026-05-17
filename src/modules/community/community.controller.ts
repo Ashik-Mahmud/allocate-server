@@ -75,12 +75,13 @@ export class CommunityController {
     async deleteCommunityPost(
         @Res() res: Response,
         @Param('postId') postId: string,
+        @Query() action: { isPermanent: boolean } = { isPermanent: false },
         @CurrentUser() user: CurrentUserType,
         @Ip() ip: string,
         @Agent() agent: string
     ) {
         // Implementation for deleting a community post goes here
-        const result = await this.communityService.deletePostCommunity(postId, user, ip, agent);
+        const result = await this.communityService.deletePostCommunity(postId, user, ip, agent, action);
         return ResponseUtil.success(result, res);
     }
 
