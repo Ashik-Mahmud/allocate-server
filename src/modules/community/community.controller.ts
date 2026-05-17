@@ -123,7 +123,7 @@ export class CommunityController {
     ) {
         // Implementation for getting community posts goes here
         const result = await this.communityService.getPostCommunity(filters, user);
-        return ResponseUtil.paginated(result.items, result.total, result.page, result.limit, res);
+        return ResponseUtil.paginated(result.items, result.total, result.page, result.limit, res, result?.metadata);
     }
 
     /**
@@ -162,7 +162,7 @@ export class CommunityController {
     ) {
         // Implementation for getting community posts created by the current user goes here
         const result = await this.communityService.getMyPostCommunity(filters, user);
-        return ResponseUtil.paginated(result.items, result.total, result.page, result.limit, res);
+        return ResponseUtil.paginated(result.items, result.total, result.page, result.limit, res,);
     }
 
 
@@ -229,6 +229,24 @@ export class CommunityController {
     ) {
         // Implementation for toggling acknowledgment of a community post goes here
         const result = await this.communityService.toggleAcknowledgePostCommunity(postId, user);
+        return ResponseUtil.success(result, res);
+    }
+
+    /**
+     * Controller to get the top authors in the community hub based on published post count
+     * @return A list of top authors in the community hub based on published post count
+     * Note: This endpoint can be implemented to allow users to see the most active contributors in the community hub.
+     */
+    @Get('community-activities')
+    @ApiResponse({ status: 200, description: 'Top community authors retrieved successfully.' })
+    @ApiResponse({ status: 400, description: 'Bad Request.' })
+    @ApiOperation({ summary: 'Get Top Community Authors', description: 'Retrieve a list of top authors in the community hub based on published post count.' })
+    async getTopCommunityAuthors(
+        @Res() res: Response,
+        @CurrentUser() user: CurrentUserType,
+    ) {
+        // Implementation for getting top community authors goes here
+        const result = await this.communityService.getTopCommunityAuthors(user);
         return ResponseUtil.success(result, res);
     }
 

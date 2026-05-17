@@ -12,13 +12,26 @@ export const PostCommunitySchema = z.object({
     status: z.enum(CommunityHubStatus).optional().default(CommunityHubStatus.DRAFT),
 });
 
-
+export const UpdatePostCommunitySchema = z.object({
+    title: z.string().optional(),
+    content: z.string().optional(),
+    imageUrl: z.string().optional(),
+    visibility: z.record(z.string(), z.boolean()).optional(),
+    isPrivate: z.boolean().optional(),
+    postType: z.nativeEnum(CommunityHubPostType).optional(),
+    status: z.nativeEnum(CommunityHubStatus).optional(),
+});
 export const CommunityPostFilterSchema = z.object({
     postType: z.enum(CommunityHubPostType).optional(),
     status: z.enum(CommunityHubStatus).optional(),
     authorId: z.string().optional(),
     orgId: z.string().optional(),
-    isPrivate: z.boolean().optional(),
+    isPrivate: z
+        .preprocess((val) => String(val).toLowerCase(), // Force to lowercase string first
+            z.enum(['true', 'false'])
+        )
+        .optional()
+        .transform((val) => val === 'true' ? true : val === 'false' ? false : undefined),
     search: z.string().optional(),
     page: z.coerce.number().min(1, 'Page must be at least 1').default(1),
     limit: z.coerce.number().min(1, 'Limit must be at least 1').max(100, 'Limit cannot exceed 100').default(10),
@@ -31,8 +44,8 @@ export const CreateCommunityPostCommentSchema = z.object({
 
 
 export class UpdatePostCommunityDto extends createZodDto(
-  PostCommunitySchema.partial()
-) {}
+    UpdatePostCommunitySchema
+) { }
 export class CreatePostCommunityDto extends createZodDto(PostCommunitySchema) { }
 export class CommunityPostFilterDto extends createZodDto(CommunityPostFilterSchema) { }
 export class CreateCommunityPostCommentDto extends createZodDto(CreateCommunityPostCommentSchema) { }
