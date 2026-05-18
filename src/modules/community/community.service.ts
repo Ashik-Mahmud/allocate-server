@@ -560,14 +560,14 @@ export class CommunityService {
 
         if (user.role === Role.ADMIN) {
             // System Admin: Can view if showToAdmin is true
-            canViewPost = visibility?.showToAdmin === true;
+            canViewPost = user?.id === post.authorId ? true : visibility?.showToAdmin === true;
         } else if (user.role === Role.STAFF) {
             // Staff: Can view if showToStaff is true
-            canViewPost = visibility?.showToStaff === true;
+            canViewPost = user?.id === post.authorId ? true : visibility?.showToStaff === true;
         } else if (user.role === Role.ORG_ADMIN) {
             // Organization Admin: Can view if showToOrgAdmin is true
             // BUT: Cannot view staff-level posts (where author is STAFF)
-            canViewPost = visibility?.showToOrgAdmin === true;
+            canViewPost = user?.id === post.authorId ? true : visibility?.showToOrgAdmin === true;
         }
 
         if (!canViewPost) {
