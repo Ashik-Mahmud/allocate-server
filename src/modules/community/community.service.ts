@@ -8,6 +8,7 @@ import { SharedService } from 'src/shared/services/shared.service';
 import { email } from 'zod';
 import { checkCommunityTrial } from './community.util';
 import { CommunityRealtimeService } from './community-realtime.service';
+import { CommunityRealtimeGateway } from './community-realtime.gateway';
 
 @Injectable()
 export class CommunityService {
@@ -17,7 +18,8 @@ export class CommunityService {
         private prisma: PrismaService,
         private notificationManager: NotificationManager,
         private sharedService: SharedService,
-        private communityRealtimeService: CommunityRealtimeService
+        private communityRealtimeService: CommunityRealtimeService,
+        private communityRealtimeGateway: CommunityRealtimeGateway
     ) { }
 
     // Service to Post a in the Community Hub
@@ -129,7 +131,9 @@ export class CommunityService {
             (data?.status === CommunityHubStatus.PUBLISHED) && post?.isPrivate === false;
 
         if (!isAdmin && becamePublished) {
-            await this.communityRealtimeService.sendBroadcastNotification(post, user);
+            await this.communityRealtimeService.sendBroadcastNotification(post, user, true, oldPost?.status === CommunityHubStatus.PUBLISHED ? false : true);
+        } {
+            await this.communityRealtimeService.sendBroadcastNotification(post, user, true, false);
         }
         // Log the update of the community post
         this.sharedService.logActivity(this.prisma, {
@@ -699,12 +703,13 @@ export class CommunityService {
             updatedAcknowledgments = [...acknowledgments, user.id];
         }
 
-        return await this.prisma.communityHub.update({
+        const newPost = await this.prisma.communityHub.update({
             where: { id: postId },
             data: {
                 acknowledgments: updatedAcknowledgments
             }
         });
+        return newPost;
     }
 
 }

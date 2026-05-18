@@ -3,9 +3,11 @@ import { OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, WebSocketGa
 import { CommunityHub } from '@prisma/client';
 import { Server } from 'socket.io';
 import { AuthenticatedSocket, socketAuthMiddleware } from 'src/middleware/socket-auth.middleware';
+import { REALTIME_NAMESPACE } from 'src/shared/constant';
+import { REALTIME_EVENTS } from 'src/shared/constant/realtime-events';
 
 @WebSocketGateway({
-  namespace: '/community',
+  namespace: `/${REALTIME_NAMESPACE.COMMUNITY}`, 
   cors: {
     origin: true,
     credentials: true,
@@ -59,7 +61,7 @@ export class CommunityRealtimeGateway implements OnGatewayConnection, OnGatewayD
       return;
     }
 
-    this.server.to(this.userRoom(orgId)).emit('community:post:created', post);
+    this.server.to(this.userRoom(orgId)).emit(REALTIME_EVENTS.COMMUNITY_POST_NEW, post);
   }
 
 
@@ -68,7 +70,7 @@ export class CommunityRealtimeGateway implements OnGatewayConnection, OnGatewayD
       return;
     }
 
-    this.server.to(this.userRoom(orgId)).emit('notification:new', payload);
+    this.server.to(this.userRoom(orgId)).emit(REALTIME_EVENTS.NOTIFICATION_NEW, payload);
   }
 
   private userRoom(orgId: string): string {

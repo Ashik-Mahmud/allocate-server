@@ -8,9 +8,10 @@ import {
 import { Logger } from '@nestjs/common';
 import { Server } from 'socket.io';
 import { AuthenticatedSocket, socketAuthMiddleware } from 'src/middleware/socket-auth.middleware';
+import { REALTIME_EVENTS, REALTIME_NAMESPACE } from 'src/shared/constant';
 
 @WebSocketGateway({
-    namespace: '/notifications',
+    namespace: `/${REALTIME_NAMESPACE.NOTIFICATIONS}`,
     cors: {
         origin: true,
         credentials: true,
@@ -63,10 +64,10 @@ export class NotificationRealtimeGateway
             return;
         }
 
-        this.server.to(this.userRoom(userId)).emit('notification:new', payload);
+        this.server.to(this.userRoom(userId)).emit(REALTIME_EVENTS.NOTIFICATION_NEW, payload);
     }
 
-    @SubscribeMessage('notification:acknowledge')
+    @SubscribeMessage(REALTIME_EVENTS.NOTIFICATION_ACKNOWLEDGE)
     handleNotificationAcknowledgement(client: any, payload: { message: string, notificationId: string }) {
         this.logger.debug(`Received notification acknowledgement from user ${client.data?.userId}: ${payload.message} (ID: ${payload.notificationId})`);
     }
