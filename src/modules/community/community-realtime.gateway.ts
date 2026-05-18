@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
+import { CommunityHub } from '@prisma/client';
 import { Server } from 'socket.io';
 import { AuthenticatedSocket, socketAuthMiddleware } from 'src/middleware/socket-auth.middleware';
 
@@ -50,6 +51,24 @@ export class CommunityRealtimeGateway implements OnGatewayConnection, OnGatewayD
         `Notifications socket disconnected for organization ${client.data.orgId}`,
       );
     }
+  }
+
+
+  emitCommunityPostCreated(orgId: string, post: CommunityHub) {
+    if (!this.server) {
+      return;
+    }
+
+    this.server.to(this.userRoom(orgId)).emit('community:post:created', post);
+  }
+
+
+  emitCommunityPostCreatedNotification(orgId: string, payload: unknown) {
+    if (!this.server) {
+      return;
+    }
+
+    this.server.to(this.userRoom(orgId)).emit('notification:new', payload);
   }
 
   private userRoom(orgId: string): string {
