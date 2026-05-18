@@ -10,6 +10,7 @@ export const PostCommunitySchema = z.object({
     isPrivate: z.boolean().optional().default(false),
     postType: z.enum(CommunityHubPostType).optional().default(CommunityHubPostType.GENERAL_DISCUSSION),
     status: z.enum(CommunityHubStatus).optional().default(CommunityHubStatus.DRAFT),
+    allowComments: z.boolean().optional().default(true),
 });
 
 export const UpdatePostCommunitySchema = z.object({
@@ -20,6 +21,7 @@ export const UpdatePostCommunitySchema = z.object({
     isPrivate: z.boolean().optional(),
     postType: z.nativeEnum(CommunityHubPostType).optional(),
     status: z.nativeEnum(CommunityHubStatus).optional(),
+    allowComments: z.boolean().optional(),
 });
 export const CommunityPostFilterSchema = z.object({
     postType: z.enum(CommunityHubPostType).optional(),

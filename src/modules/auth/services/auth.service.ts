@@ -141,7 +141,11 @@ export class AuthService {
       orgId: user.org_id,
     });
     try {
-      await this.emailService.sendWelcomeEmail(user.email, user.name); // Send welcome email after registration
+      const metadata = {
+        initialCredits: GLOBAL_CONFIG.FREE_PLAN_CREDITS || 100,
+        organizationName: user?.organization?.name
+      }
+      await this.emailService.sendWelcomeEmail(user.email, user.name, metadata); // Send welcome email after registration
       await this.sendVerificationEmail(user.email, user.name); // Send verification email after registration
     } catch (error) {
       console.error('Failed to send welcome email:', error);

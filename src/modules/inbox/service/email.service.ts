@@ -47,8 +47,8 @@ export class EmailService {
         return { success: true, message: 'Email sent successfully' };
     }
 
-    async sendWelcomeEmail(to: string, name: string) {
-        const template = buildWelcomeEmailTemplate({ name, email: to });
+    async sendWelcomeEmail(to: string, name: string, metadata: { organizationName?: string; initialCredits?: number }) {
+        const template = buildWelcomeEmailTemplate({ name, email: to, metadata });
         return this.sendTemplateEmail(to, name, template);
     }
 
@@ -110,6 +110,7 @@ export class EmailService {
             name,
             verifyUrl,
             expiresInMinutes,
+            email: to,
         });
 
         return this.sendTemplateEmail(to, name, template);
@@ -224,6 +225,7 @@ export class EmailService {
                     message: options.htmlContent,
                     metadata: options.metadata,
                 });
+
             default:
                 return buildAnnouncementEmailTemplate({
                     name: options.name,

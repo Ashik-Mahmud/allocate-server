@@ -228,7 +228,7 @@ model ActivityLog {
   details   String?
 
   organization Organizations? @relation(fields: [org_id], references: [id], onDelete: Cascade)
-  user         User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user         User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([org_id, user_id])
   @@map("activity_logs")
@@ -276,8 +276,8 @@ model SalesInquiry {
   updatedAt      DateTime          @updatedAt
   organization   Organizations?    @relation(fields: [org_id], references: [id])
 
-  @@map("sales_inquiries")
   @@index([org_id, business_email, status])
+  @@map("sales_inquiries")
 }
 
 model CommunityHub {
@@ -290,6 +290,7 @@ model CommunityHub {
   authorName      String?
   authorRole      Role?
   comments        Json?
+  allowComments   Boolean              @default(true)
   acknowledgments Json?
   status          CommunityHubStatus   @default(DRAFT)
   postType        CommunityHubPostType @default(GENERAL_DISCUSSION)
@@ -301,8 +302,8 @@ model CommunityHub {
   organization    Organizations?       @relation(fields: [org_id], references: [id])
   author          User?                @relation(fields: [authorId], references: [id])
 
-  @@map("community_hub")
   @@index([org_id, authorId, status, postType])
+  @@map("community_hub")
 }
 
 enum CommunityHubPostType {

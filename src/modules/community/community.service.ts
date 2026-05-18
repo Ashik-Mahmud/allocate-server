@@ -9,6 +9,7 @@ import { email } from 'zod';
 import { checkCommunityTrial } from './community.util';
 import { CommunityRealtimeService } from './community-realtime.service';
 import { CommunityRealtimeGateway } from './community-realtime.gateway';
+import { TPostComment } from './community.interface';
 
 @Injectable()
 export class CommunityService {
@@ -25,7 +26,7 @@ export class CommunityService {
     // Service to Post a in the Community Hub
     async createPostCommunity(createPostCommunityDto: CreatePostCommunityDto, user: CurrentUserType, ip: string, agent: string) {
         // Implementation for creating a new community hub goes here
-        const { title, content, imageUrl, visibility, isPrivate, postType, status } = createPostCommunityDto;
+        const { title, content, imageUrl, visibility, isPrivate, postType, status, allowComments } = createPostCommunityDto;
 
         const { isExpired, isFree } = await checkCommunityTrial(this.prisma, user.org_id!)
         if (isFree && isExpired) {
@@ -42,6 +43,7 @@ export class CommunityService {
                     isPrivate,
                     postType,
                     status,
+                    allowComments,
                     authorId: user.id,
                     authorName: user.name,
                     authorRole: user.role as Role,
@@ -621,13 +623,19 @@ export class CommunityService {
         if (!post) {
             throw new NotFoundException('Post not found');
         }
+        if(post?.allowComments === false && user.id !== post.authorId && user.role !== Role.ADMIN) {
+            throw new ForbiddenException('Comments are disabled for this post');
+        }
         const newCommentData = {
-            id: crypto.randomUUID(), // Better than Date.now()
+            id: crypto.randomUUID(), 
             content: comment.content,
             authorName: user.name,
             authorId: user.id,
+            authorRole: user.role as Role,
+            postOwner: post.authorId,
             email: user.email,
             createdAt: new Date().toISOString(),
+
         };
         const currentComments = Array.isArray(post.comments) ? post.comments : [];
 
@@ -638,7 +646,7 @@ export class CommunityService {
             },
         });
 
-        this.communityRealtimeService.sendCommentUpdatedOnCommunity(postId, newCommentData);
+        this.communityRealtimeService.sendCommentUpdatedOnCommunity(postId, newCommentData as TPostComment);
 
         return newCommentData;
     }

@@ -13,6 +13,7 @@ interface BaseTemplateOptions {
 interface WelcomeEmailOptions extends BaseTemplateOptions {
     name: string;
     email: string;
+
 }
 
 interface StaffInviteEmailOptions extends BaseTemplateOptions {
@@ -40,6 +41,7 @@ interface VerifyEmailOptions extends BaseTemplateOptions {
     name: string;
     verifyUrl: string;
     expiresInMinutes?: number;
+    email: string;
 }
 
 interface PasswordChangedOptions extends BaseTemplateOptions {
@@ -109,19 +111,113 @@ const buildLayout = (
   </div>`;
 };
 
-export const buildWelcomeEmailTemplate = (rawOptions: WelcomeEmailOptions): EmailTemplate => {
-    const options = withDefaults(rawOptions);
-    const subject = `Welcome to ${options.appName}, ${rawOptions.name}`;
 
-    const htmlContent = buildLayout(
-        options,
-        'Welcome aboard',
-        `Hi ${escapeHtml(rawOptions.name)}, welcome to ${escapeHtml(options.appName)}.`,
-        `
-      <p style="margin:0 0 12px;font-size:15px;line-height:1.7;">Your account has been set up with email <strong>${escapeHtml(rawOptions.email)}</strong>.</p>
-      <a href="${escapeHtml(options.appUrl)}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#173b7a;color:#ffffff;text-decoration:none;font-weight:600;">Open ${escapeHtml(options.appName)}</a>
-    `,
-    );
+
+
+export const buildWelcomeEmailTemplate = (rawOptions: WelcomeEmailOptions): EmailTemplate => {
+    // Default values fallback
+    const appName = rawOptions.appName || 'Allocate';
+    const appUrl = rawOptions.appUrl || 'https://allocate.app';
+    const credits = rawOptions.metadata?.initialCredits ?? 100;
+    const orgText = rawOptions.metadata?.organizationName ? ` workspace for ${rawOptions.metadata.organizationName}` : '';
+
+    const subject = `Welcome to ${appName}, ${rawOptions.name}! ✨`;
+
+    const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Welcome to Allocate</title>
+    </head>
+    <body style="margin:0;padding:0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;background-color:#f8fafc;color:#334155;-webkit-font-smoothing:antialiased;">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="table-layout:fixed;background-color:#f8fafc;">
+            <tr>
+                <td align="center" style="padding:40px 16px;">
+                    <!-- Main Card -->
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width:560px;background-color:#ffffff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px 0 rgba(0, 0, 0, 0.05);">
+                        
+                        <!-- Header Banner -->
+                        <tr>
+                            <td align="left" style="padding:40px 40px 20px;background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
+                                <h1 style="margin:0;font-size:24px;font-weight:700;color:#ffffff;letter-spacing:-0.025em;">
+                                    ${escapeHtml(appName)}
+                                </h1>
+                                <p style="margin:8px 0 0;font-size:14px;color:#94a3b8;">Workforce & Resource Optimization</p>
+                            </td>
+                        </tr>
+
+                        <!-- Body Content -->
+                        <tr>
+                            <td style="padding:40px;">
+                                <h2 style="margin:0 0 16px;font-size:20px;font-weight:600;color:#0f172a;letter-spacing:-0.025em;">
+                                    Welcome aboard, ${escapeHtml(rawOptions.name)}! 👋
+                                </h2>
+                                <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#475569;">
+                                    Your account has been successfully initialized under the email <span style="font-family:monospace;background-color:#f1f5f9;padding:2px 6px;border-radius:4px;color:#0f172a;font-size:13px;">${escapeHtml(rawOptions.email)}</span>.${escapeHtml(orgText)}
+                                </p>
+
+                                <!-- Credit Balance Widget (Highlight Feature) -->
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:32px;background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;">
+                                    <tr>
+                                        <td style="padding:16px 20px;">
+                                            <div style="font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Available Booking Balance</div>
+                                            <div style="margin:4px 0 0;font-size:24px;font-weight:700;color:#2563eb;">
+                                                ${credits} <span style="font-size:14px;font-weight:500;color:#64748b;">Credits Allocated</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </table>
+
+                                <!-- Next Steps Checklist -->
+                                <h3 style="margin:0 0 12px;font-size:14px;font-weight:600;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;">
+                                    Quick Start Checklist
+                                </h3>
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:32px;">
+                                    <tr>
+                                        <td valign="top" style="padding:6px 0;width:24px;font-size:14px;color:#2563eb;">✦</td>
+                                        <td style="padding:6px 0;font-size:14px;color:#475569;"><strong>Complete Profile:</strong> Set your dynamic availability tags.</td>
+                                    </tr>
+                                    <tr>
+                                        <td valign="top" style="padding:6px 0;width:24px;font-size:14px;color:#2563eb;">✦</td>
+                                        <td style="padding:6px 0;font-size:14px;color:#475569;"><strong>Explore Resources:</strong> View available boardrooms, desks, or hardware assets.</td>
+                                    </tr>
+                                    <tr>
+                                        <td valign="top" style="padding:6px 0;width:24px;font-size:14px;color:#2563eb;">✦</td>
+                                        <td style="padding:6px 0;font-size:14px;color:#475569;"><strong>First Booking:</strong> Use your credits to lock down your first resource.</td>
+                                    </tr>
+                                </table>
+
+                                <!-- CTA Button -->
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                    <tr>
+                                        <td align="center" style="padding-top:8px;">
+                                            <a href="${escapeHtml(appUrl)}" style="display:inline-block;padding:14px 28px;border-radius:10px;background-color:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;box-shadow:0 4px 6px -1px rgba(37, 99, 235, 0.2);transition:background-color 0.2s;">
+                                                Go to Dashboard →
+                                            </a>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+
+                        <!-- Footer -->
+                        <tr>
+                            <td style="padding:24px 40px;background-color:#f8fafc;border-top:1px solid #e2e8f0;text-align:center;">
+                                <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.5;">
+                                    This is an automated operational email from ${escapeHtml(appName)} Systems.<br>
+                                    If you did not request this account, please contact security team.
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
+    `;
 
     return { subject, htmlContent };
 };
@@ -185,18 +281,95 @@ export const buildVerifyOtpEmailTemplate = (rawOptions: VerifyOtpEmailOptions): 
 };
 
 export const buildVerifyEmailTemplate = (rawOptions: VerifyEmailOptions): EmailTemplate => {
-    const options = withDefaults(rawOptions);
-    const subject = `Verify your ${options.appName} email`;
+    const appName = rawOptions.appName || 'Allocate';
+    const verifyUrl = rawOptions.verifyUrl;
+    const expiresInMinutes = rawOptions.expiresInMinutes ?? 60;
 
-    const htmlContent = buildLayout(
-        options,
-        'Email verification',
-        `Hi ${escapeHtml(rawOptions.name)}, please verify your email to activate your account.`,
-        `
-      <a href="${escapeHtml(rawOptions.verifyUrl)}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#173b7a;color:#ffffff;text-decoration:none;font-weight:600;">Verify email</a>
-        <p style="margin:14px 0 0;font-size:13px;color:#5c6d82;">This link expires in ${rawOptions.expiresInMinutes ?? 60} minutes.</p>
-    `,
-    );
+    const subject = `Verify your ${appName} account 🔐`;
+
+    const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Verify your Email - Allocate</title>
+    </head>
+    <body style="margin:0;padding:0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;background-color:#f8fafc;color:#334155;-webkit-font-smoothing:antialiased;">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="table-layout:fixed;background-color:#f8fafc;">
+            <tr>
+                <td align="center" style="padding:40px 16px;">
+                    <!-- Main Card -->
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width:500px;background-color:#ffffff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px 0 rgba(0, 0, 0, 0.05);">
+                        
+                        <!-- Header Banner -->
+                        <tr>
+                            <td align="left" style="padding:32px 32px 20px;background-color:#0f172a;">
+                                <h1 style="margin:0;font-size:20px;font-weight:700;color:#ffffff;letter-spacing:-0.025em;">
+                                    ${escapeHtml(appName)}
+                                </h1>
+                            </td>
+                        </tr>
+
+                        <!-- Body Content -->
+                        <tr>
+                            <td style="padding:32px;">
+                                <h2 style="margin:0 0 12px;font-size:18px;font-weight:600;color:#0f172a;letter-spacing:-0.025em;">
+                                    Verify your email address
+                                </h2>
+                                <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#475569;">
+                                    Hi ${escapeHtml(rawOptions.name)}, thank you for signing up! Please click the secure button below to verify your email address <strong style="color:#0f172a;">${escapeHtml(rawOptions.email)}</strong> and fully activate your account.
+                                </p>
+
+                                <!-- CTA Button -->
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:24px;">
+                                    <tr>
+                                        <td align="center">
+                                            <a href="${escapeHtml(verifyUrl)}" style="display:inline-block;padding:12px 28px;border-radius:10px;background-color:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;box-shadow:0 4px 6px -1px rgba(37, 99, 235, 0.2);transition:background-color 0.2s;">
+                                                Verify Email Address
+                                            </a>
+                                        </td>
+                                    </tr>
+                                </table>
+
+                                <!-- Expiration Notice Widget -->
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:24px;background-color:#fff7ed;border:1px solid #ffedd5;border-radius:8px;">
+                                    <tr>
+                                        <td style="padding:10px 14px;font-size:12px;color:#c2410c;line-height:1.4;">
+                                            ⏱️ Security Notice: This verification link is strictly confidential and will expire in <strong>${expiresInMinutes} minutes</strong>.
+                                        </td>
+                                    </tr>
+                                </table>
+
+                                <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0;" />
+
+                                <!-- Plain Text URL Fallback -->
+                                <p style="margin:0 0 8px;font-size:12px;color:#64748b;line-height:1.4;">
+                                    If the button above isn't working, copy and paste this absolute link into your web browser:
+                                </p>
+                                <p style="margin:0;font-size:12px;word-break:break-all;line-height:1.4;">
+                                    <a href="${escapeHtml(verifyUrl)}" style="color:#2563eb;text-decoration:underline;">
+                                        ${escapeHtml(verifyUrl)}
+                                    </a>
+                                </p>
+                            </td>
+                        </tr>
+
+                        <!-- Footer -->
+                        <tr>
+                            <td style="padding:20px 32px;background-color:#f8fafc;border-top:1px solid #e2e8f0;text-align:center;">
+                                <p style="margin:0;font-size:11px;color:#94a3b8;line-height:1.5;">
+                                    If you did not attempt to register an account with ${escapeHtml(appName)}, you can safely ignore or delete this email.
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
+    `;
 
     return { subject, htmlContent };
 };
