@@ -5,9 +5,10 @@ import { Server } from 'socket.io';
 import { AuthenticatedSocket, socketAuthMiddleware } from 'src/middleware/socket-auth.middleware';
 import { REALTIME_NAMESPACE } from 'src/shared/constant';
 import { REALTIME_EVENTS } from 'src/shared/constant/realtime-events';
+import { TPostComment } from './community.interface';
 
 @WebSocketGateway({
-  namespace: `/${REALTIME_NAMESPACE.COMMUNITY}`, 
+  namespace: `/${REALTIME_NAMESPACE.COMMUNITY}`,
   cors: {
     origin: true,
     credentials: true,
@@ -65,6 +66,7 @@ export class CommunityRealtimeGateway implements OnGatewayConnection, OnGatewayD
   }
 
 
+
   emitCommunityPostCreatedNotification(orgId: string, payload: unknown) {
     if (!this.server) {
       return;
@@ -73,7 +75,32 @@ export class CommunityRealtimeGateway implements OnGatewayConnection, OnGatewayD
     this.server.to(this.userRoom(orgId)).emit(REALTIME_EVENTS.NOTIFICATION_NEW, payload);
   }
 
+
+  // COMMENTING
+  @SubscribeMessage(REALTIME_EVENTS.JOIN_POST_ROOM)
+  handleJoinPostRoom(client: AuthenticatedSocket, postId: string) {
+    client.join(this.postRoom(postId));
+    this.logger.debug(`Socket ${client.id} joined room for post ${postId}`);
+  }
+
+
+  @SubscribeMessage(REALTIME_EVENTS.LEAVE_POST_ROOM)
+  handleLeavePost(client: AuthenticatedSocket, postId: string) {
+    client.leave(this.postRoom(postId));
+    this.logger.debug(`Socket ${client.id} left room for post ${postId}`);
+  }
+  emitCommunityCommentUpdated(postId: string, comment: TPostComment) {
+    if (!this.server) {
+      return;
+    }
+    this.server.to(this.postRoom(postId)).emit(REALTIME_EVENTS.COMMUNITY_COMMENT_NEW, comment);
+  }
+
+
   private userRoom(orgId: string): string {
     return `org:${orgId}`;
+  }
+  private postRoom(postId: string): string {
+    return `post:${postId}`;
   }
 }

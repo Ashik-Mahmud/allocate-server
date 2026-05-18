@@ -627,7 +627,7 @@ export class CommunityService {
             authorName: user.name,
             authorId: user.id,
             email: user.email,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
         };
         const currentComments = Array.isArray(post.comments) ? post.comments : [];
 
@@ -637,6 +637,8 @@ export class CommunityService {
                 comments: [...currentComments, newCommentData]
             },
         });
+
+        this.communityRealtimeService.sendCommentUpdatedOnCommunity(postId, newCommentData);
 
         return newCommentData;
     }
@@ -673,12 +675,17 @@ export class CommunityService {
         const updatedComments = currentComments.filter(c => c.id !== commentId);
 
 
-        await this.prisma.communityHub.update({
+        const updatedPost = await this.prisma.communityHub.update({
             where: { id: post.id },
             data: {
                 comments: updatedComments
             }
         });
+
+        if (updatedPost) {
+            this.communityRealtimeService.sendCommentUpdatedOnCommunity(post?.id, { ...commentToDelete, isDeleted: true });
+        }
+
 
         return {
             success: true,

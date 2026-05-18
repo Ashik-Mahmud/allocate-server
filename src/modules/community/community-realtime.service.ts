@@ -6,6 +6,7 @@ import { PrismaClient } from '@prisma/client/extension';
 import { CurrentUserType } from 'src/shared/decorators/user.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationRealtimeGateway } from '../inbox/service/notification-realtime.gateway';
+import { TPostComment } from './community.interface';
 
 @Injectable()
 export class CommunityRealtimeService {
@@ -35,6 +36,23 @@ export class CommunityRealtimeService {
 
 
 
+    // Send a real-time comment updated in the community post
+    sendCommentUpdatedOnCommunity(postId: string, comment: TPostComment) {
+        try {
+            this.communityRealtimeGateway.emitCommunityCommentUpdated(
+                postId,
+                comment,
+            );
+        } catch (error) {
+            this.logger.error(
+                `Failed to emit real-time comment update for post ${postId} about updated community comment "${comment?.id}":`,
+                error instanceof Error ? error.stack : undefined,
+            );
+        }
+    }
+
+
+    // Send a real-time notification to all users in the organization when a new community post is created or updated
     async sendBroadcastNotification(post: CommunityHub, user: CurrentUserType, isUpdated: boolean = false, isSendNotification: boolean = true) {
         try {
             const viewPermission: any = post?.visibility;
