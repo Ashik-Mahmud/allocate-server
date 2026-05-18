@@ -7,6 +7,7 @@ import { CommunityHubPostType, CommunityHubStatus, NotificationType, Prisma, Rol
 import { SharedService } from 'src/shared/services/shared.service';
 import { email } from 'zod';
 import { checkCommunityTrial } from './community.util';
+import { CommunityRealtimeService } from './community-realtime.service';
 
 @Injectable()
 export class CommunityService {
@@ -16,6 +17,7 @@ export class CommunityService {
         private prisma: PrismaService,
         private notificationManager: NotificationManager,
         private sharedService: SharedService,
+        private communityRealtimeService: CommunityRealtimeService
     ) { }
 
     // Service to Post a in the Community Hub
@@ -73,28 +75,9 @@ export class CommunityService {
 
 
         // Send notification about the new community post
-        if (result.status === CommunityHubStatus.PUBLISHED) {
-            this.notificationManager.createNotification({
-                type: NotificationType.CREATE_COMMUNITY_POST,
-                title: 'New Community Post Created',
-                message: `A new post titled "${result?.title}" has been ${result?.isPrivate ? 'private' : 'public'} in the Community Hub. `,
-                userId: user.id,
-                orgId: user.org_id,
-                metadata: {
-                    postId: result?.id,
-                    postTitle: result?.title,
-                    authorName: user.name,
-                    authorRole: user.role,
-                    authorId: user.id,
-                    orgId: user.org_id,
-                    isPrivate: result?.isPrivate,
-                    postType: result?.postType,
-                    status: result?.status,
-                    visibility: result?.visibility,
-                }
-            }).catch((error) => {
-                console.error(`Failed to create notification for new community post "${result?.title}":`, error);
-            });
+        if (result.status === CommunityHubStatus.PUBLISHED && !result.isPrivate) {
+            const post = result;
+            await this.communityRealtimeService.sendBroadcastNotification(post, user);
         }
         return result;
     }
@@ -109,12 +92,17 @@ export class CommunityService {
             throw new ForbiddenException('Your free trial for the Community Hub has expired. Please upgrade your plan to continue updating posts.');
         }
 
+
         const result = await this.prisma.$transaction(async (tx) => {
 
             const oldPost = await tx.communityHub?.findUnique({ where: { id: postId } });
 
             if (!oldPost) {
                 throw new Error('Post not found');
+            }
+
+            if (oldPost?.isPrivate && data?.status === CommunityHubStatus.PUBLISHED && user.role !== Role.ADMIN && data?.isPrivate === true) {
+                throw new ForbiddenException('You do not have permission to publish this post as it is currently private. Please make it public first.');
             }
 
             if (oldPost?.authorId !== user.id && user.role !== Role.ADMIN) {
@@ -129,41 +117,38 @@ export class CommunityService {
 
                 }
             });
-            const isAdmin = user?.role === Role.ADMIN;
-            const becamePublished = (oldPost?.status === CommunityHubStatus.DRAFT && post.status === CommunityHubStatus.PUBLISHED) ||
-                (data?.status === CommunityHubStatus.PUBLISHED);
 
-            if (!isAdmin && becamePublished) {
-                this.notificationManager.createNotification({
-                    type: NotificationType.PUBLISHED_COMMUNITY_POST,
-                    title: 'Post Published!',
-                    message: `The post titled "${post.title}" has been published in the Community Hub.`,
-                    userId: user.id,
-                    orgId: user.org_id,
-                    metadata: { postId: post.id }
-                });
-            }
 
-            return post;
+            return { post, oldPost };
         });
+
+        const { post, oldPost } = result;
+
+        const isAdmin = user?.role === Role.ADMIN;
+        const becamePublished = (oldPost?.status === CommunityHubStatus.DRAFT && post.status === CommunityHubStatus.PUBLISHED) ||
+            (data?.status === CommunityHubStatus.PUBLISHED) && post?.isPrivate === false;
+
+        if (!isAdmin && becamePublished) {
+            await this.communityRealtimeService.sendBroadcastNotification(post, user);
+        }
         // Log the update of the community post
         this.sharedService.logActivity(this.prisma, {
             action: 'UPDATE_COMMUNITY_POST',
-            details: `User ${user.name} updated a community post titled "${result.title}"`,
+            details: `User ${user.name} updated a community post titled "${post.title}"`,
             userId: user.id,
             orgId: user.org_id,
             ipAddress: ip,
             userAgent: agent,
             metadata: {
-                postId: result.id,
-                postTitle: result.title,
+                postId: post.id,
+                postTitle: post.title,
                 authorName: user.name,
                 authorRole: user.role,
                 authorId: user.id,
                 orgId: user.org_id,
-                isPrivate: result.isPrivate,
-                postType: result.postType,
-                status: result.status,
+                isPrivate: post.isPrivate,
+                postType: post.postType,
+                status: post.status,
                 entityType: 'COMMUNITY_HUB'
             }
         })
