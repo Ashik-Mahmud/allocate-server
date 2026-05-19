@@ -450,15 +450,17 @@ export class AuthService {
     const ipAddress = (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '';
     const userAgent: string = res.req.headers['user-agent'] || 'unknown';
 
-    await this.sharedService.logActivity(this.prisma, {
-      userId: user?.id,
-      orgId: user?.org_id || updatedUser?.org_id || '',
-      action: 'PROFILE_UPDATE',
-      details: `User ${user.email} updated profile`,
-      ipAddress: ipAddress,
-      userAgent: userAgent,
-      metadata: { org_id: user?.org_id, updatedFields: Object.keys(dto) },
-    })
+    if (user?.role !== Role.ADMIN) {
+      await this.sharedService.logActivity(this.prisma, {
+        userId: user?.id,
+        orgId: user?.org_id || updatedUser?.org_id || '',
+        action: 'PROFILE_UPDATE',
+        details: `User ${user.email} updated profile`,
+        ipAddress: ipAddress,
+        userAgent: userAgent,
+        metadata: { org_id: user?.org_id, updatedFields: Object.keys(dto) },
+      })
+    }
     return updatedUser;
   }
 
