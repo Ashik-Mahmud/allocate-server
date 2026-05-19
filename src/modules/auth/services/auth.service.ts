@@ -9,7 +9,7 @@ import { EmailService } from 'src/modules/inbox/service/email.service';
 import { v4 as uuidv4 } from 'uuid';
 import { SharedService } from 'src/shared/services/shared.service';
 import { Response } from 'express';
-import { user } from 'node_modules/@getbrevo/brevo/dist/cjs/api';
+
 @Injectable()
 export class AuthService {
   constructor(

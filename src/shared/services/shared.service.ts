@@ -13,7 +13,7 @@ export class SharedService {
             orgId: string | null;
             action: string;
             details?: string;
-            metadata?: any;
+            metadata?: Record<string, any>;
             ipAddress?: string;
             userAgent?: string;
         }
@@ -53,7 +53,7 @@ export class SharedService {
             status?: string
             transaction_id?: string
             payment_gateway?: string,
-            metadata?: any
+            metadata?: Record<string, any>
         }
     ) {
 
