@@ -7,6 +7,7 @@ import { ErrorHandler } from './middleware/error-handler.middleware';
 import { RequestLogger } from './middleware/request-logger.middleware';
 import { cleanupOpenApiDoc, ZodValidationPipe } from 'nestjs-zod';
 import * as express from 'express';
+import { env } from './shared/config/env';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     rawBody: true,
@@ -18,7 +19,7 @@ async function bootstrap() {
   (app as any).set('trust proxy', 1);
   app.use(helmet());
   app.enableCors({
-    origin: true,
+    origin: env.WEB_APP_LINK,
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
   })
@@ -56,7 +57,7 @@ async function bootstrap() {
   SwaggerModule.setup('api', app, document);
 
   const port = process.env.PORT ?? 3000;
-  await app.listen(port);
+  await app.listen(port, "0.0.0.0");
   console.log(`Application is running on: http://localhost:${port}`);
   console.log(`Swagger docs available at: http://localhost:${port}/api`);
 }
