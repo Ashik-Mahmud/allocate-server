@@ -116,10 +116,11 @@ const buildLayout = (
 
 export const buildWelcomeEmailTemplate = (rawOptions: WelcomeEmailOptions): EmailTemplate => {
     // Default values fallback
-    const appName = rawOptions.appName || 'Allocate';
-    const appUrl = rawOptions.appUrl || 'https://allocate.app';
-    const credits = rawOptions.metadata?.initialCredits ?? 100;
-    const orgText = rawOptions.metadata?.organizationName ? ` workspace for ${rawOptions.metadata.organizationName}` : '';
+    const options = withDefaults(rawOptions);
+    const appName = options.appName;
+    const appUrl = options.appUrl;
+    const credits = options.metadata?.initialCredits ?? 100;
+    const orgText = options.metadata?.organizationName ? ` workspace for ${options.metadata.organizationName}` : '';
 
     const subject = `Welcome to ${appName}, ${rawOptions.name}! ✨`;
 
