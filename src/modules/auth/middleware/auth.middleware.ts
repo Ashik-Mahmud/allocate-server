@@ -1,6 +1,6 @@
 import { Injectable, NestMiddleware, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
-import { JWTUtils, JWTPayload } from '../utils/jwt';
+import { JWTUtils } from '../utils/jwt';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 
 declare global {
@@ -17,7 +17,7 @@ declare global {
 
 @Injectable()
 export class AuthMiddleware implements NestMiddleware {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async use(req: Request, res: Response, next: NextFunction) {
     const token = JWTUtils.extractToken(req.headers.authorization);
@@ -51,6 +51,7 @@ export class AuthMiddleware implements NestMiddleware {
 
       next();
     } catch (error) {
+      console.error('Auth error:', error);
       throw new UnauthorizedException('Invalid token');
     }
   }
@@ -72,7 +73,7 @@ export function authorize(...allowedRoles: string[]) {
 
 @Injectable()
 export class OptionalAuthMiddleware implements NestMiddleware {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async use(req: Request, res: Response, next: NextFunction) {
     const token = JWTUtils.extractToken(req.headers.authorization);
@@ -97,6 +98,7 @@ export class OptionalAuthMiddleware implements NestMiddleware {
         }
       } catch (error) {
         // Ignore auth errors for optional auth
+        console.error('Optional auth error:', error);
       }
     }
 

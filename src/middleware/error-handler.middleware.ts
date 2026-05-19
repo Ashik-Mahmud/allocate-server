@@ -14,7 +14,7 @@ export class ErrorHandler implements ExceptionFilter {
     const request = ctx.getRequest();
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let message: any = 'Internal Server Error';
+    let message: unknown = 'Internal Server Error';
     let code = exception?.constructor?.name || 'Error';
 
     if (response.headersSent) {
@@ -67,7 +67,7 @@ export class ErrorHandler implements ExceptionFilter {
       console.error(`[${new Date().toISOString()}] ${request.url} - ${code}:`, exception);
 
 
-      const user = (request as any).user;
+      const user = (request as any).user as any; // Try to get user info from request, if available
 
       this.shared.logActivity(this.prisma, {
         orgId: user?.org_id || 'SYSTEM',
