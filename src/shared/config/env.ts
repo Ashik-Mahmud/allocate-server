@@ -1,8 +1,14 @@
 import { config } from 'dotenv';
 import { z } from 'zod';
-
+import * as path from 'path';
 // Load environment variables from .env file
-config();
+const environment = process.env.NODE_ENV || 'development';
+const envPath = path.resolve(process.cwd(), `.env.${environment}`);
+config({
+  path: envPath
+});
+
+console.log(`🌱 Environment loaded: .env.${environment}`);
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -17,6 +23,7 @@ const envSchema = z.object({
   SENDER_NAME: z.string(),
   STRIPE_SECRET_KEY: z.string(),
   STRIPE_WEBHOOK_SECRET: z.string(),
+
   WEB_APP_LINK: z.string().url(),
   BACKEND_URL: z.string().url(),
 
@@ -24,7 +31,7 @@ const envSchema = z.object({
   SSL_STORE_PASSWORD: z.string(),
   SSL_API_URL: z.string().url(),
 
-  
+
 });
 
 export const env = envSchema.parse(process.env);
