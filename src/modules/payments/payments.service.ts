@@ -190,6 +190,11 @@ export class PaymentsService {
                         frozen_credits: 0,
                         plan_type: planType,
                         isVerified: true,
+                        isTrialAllowed: false,
+                        hasUsedTrial: true,
+                        trialStartAt: null,
+                        trialEndsAt: null,
+
                     }
                 });
 
@@ -471,6 +476,10 @@ export class PaymentsService {
                     frozen_credits: 0,
                     plan_type: planType,
                     isVerified: true,
+                    isTrialAllowed: false,
+                    hasUsedTrial: true,
+                    trialStartAt: null,
+                    trialEndsAt: null,
                 }
             });
 
