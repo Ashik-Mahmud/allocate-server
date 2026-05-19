@@ -41,7 +41,13 @@ async function bootstrap() {
 
   // FOR SSL
   app.use(express.urlencoded({ extended: true }));
-  app.use(express.json());
+  app.use((req, res, next) => {
+    if (req.originalUrl === '/payments/webhook') {
+      next(); 
+    } else {
+      express.json()(req, res, next);
+    }
+  });
 
   // Swagger
   const config = new DocumentBuilder()
