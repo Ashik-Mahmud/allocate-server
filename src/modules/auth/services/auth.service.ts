@@ -1,8 +1,27 @@
-import { Injectable, ConflictException, UnauthorizedException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  UnauthorizedException,
+  NotFoundException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { JWTUtils, TokenPair } from '../utils/jwt';
 import { CryptoUtils } from '../utils/crypto';
-import { RegisterDto, LoginDto, ChangePasswordDto, UpdateProfileDto } from '../dto/AuthDTO';
-import { BookingStatus, PaymentStatus, PlanType, Prisma, Role, TransactionType, User } from '@prisma/client';
+import {
+  RegisterDto,
+  LoginDto,
+  ChangePasswordDto,
+  UpdateProfileDto,
+} from '../dto/AuthDTO';
+import {
+  BookingStatus,
+  PaymentStatus,
+  PlanType,
+  Prisma,
+  Role,
+  TransactionType,
+  User,
+} from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import GLOBAL_CONFIG from 'src/shared/constant/global.constant';
 import { EmailService } from 'src/modules/inbox/service/email.service';
@@ -15,11 +34,12 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private emailService: EmailService,
-    private sharedService: SharedService
-  ) { }
+    private sharedService: SharedService,
+  ) {}
 
-  async register(dto: RegisterDto): Promise<TokenPair & { user: Partial<User> & { needUpdateOrg: boolean } }> {
-
+  async register(
+    dto: RegisterDto,
+  ): Promise<TokenPair & { user: Partial<User> & { needUpdateOrg: boolean } }> {
     // Check if user already exists
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email },
@@ -65,12 +85,16 @@ export class AuthService {
             is_verified: false,
           },
           select: {
-            id: true, email: true, name: true, role: true, org_id: true, is_verified: true,
+            id: true,
+            email: true,
+            name: true,
+            role: true,
+            org_id: true,
+            is_verified: true,
             organization: { select: { needUpdateOrg: true } },
           },
         });
       } else {
-
         finalUser = await prisma.user.create({
           data: {
             ...dto,
@@ -79,7 +103,12 @@ export class AuthService {
             org_id: organization.id,
           },
           select: {
-            id: true, email: true, name: true, role: true, org_id: true, is_verified: true,
+            id: true,
+            email: true,
+            name: true,
+            role: true,
+            org_id: true,
+            is_verified: true,
             organization: { select: { needUpdateOrg: true } },
           },
         });
@@ -91,8 +120,11 @@ export class AuthService {
           org_id: organization.id,
           plan_name: PlanType.FREE,
           start_date: new Date(),
-          end_date: new Date(Date.now() + GLOBAL_CONFIG.FREE_PLAN_DURATION_DAYS * 24 * 60 * 60 * 1000), // Free plan duration
-          payment_status: PaymentStatus.COMPLETED
+          end_date: new Date(
+            Date.now() +
+              GLOBAL_CONFIG.FREE_PLAN_DURATION_DAYS * 24 * 60 * 60 * 1000,
+          ), // Free plan duration
+          payment_status: PaymentStatus.COMPLETED,
         },
       });
 
@@ -116,14 +148,24 @@ export class AuthService {
         orgId: organization.id,
         action: 'USER_REGISTERED',
         details: `User ${finalUser?.email} registered and organization ${organization.name} created`,
-        metadata: { plan_type: organization.plan_type, createdBy: finalUser?.id, creatorName: finalUser?.name, defaultCredit: GLOBAL_CONFIG.FREE_PLAN_CREDITS || 100 },
+        metadata: {
+          plan_type: organization.plan_type,
+          createdBy: finalUser?.id,
+          creatorName: finalUser?.name,
+          defaultCredit: GLOBAL_CONFIG.FREE_PLAN_CREDITS || 100,
+        },
       });
       await this.sharedService.logActivity(prisma, {
         userId: finalUser?.id,
         orgId: organization.id,
         action: 'ORGANIZATION_CREATED',
         details: `Organization ${organization.name} created with ID ${organization.id}`,
-        metadata: { plan_type: organization.plan_type, createdBy: finalUser?.id, creatorName: finalUser?.name, defaultCredit: GLOBAL_CONFIG.FREE_PLAN_CREDITS || 100 },
+        metadata: {
+          plan_type: organization.plan_type,
+          createdBy: finalUser?.id,
+          creatorName: finalUser?.name,
+          defaultCredit: GLOBAL_CONFIG.FREE_PLAN_CREDITS || 100,
+        },
       });
 
       return finalUser;
@@ -143,8 +185,8 @@ export class AuthService {
     try {
       const metadata = {
         initialCredits: GLOBAL_CONFIG.FREE_PLAN_CREDITS || 100,
-        organizationName: user?.organization?.name
-      }
+        organizationName: user?.organization?.name,
+      };
       await this.emailService.sendWelcomeEmail(user.email, user.name, metadata); // Send welcome email after registration
       await this.sendVerificationEmail(user.email, user.name); // Send verification email after registration
     } catch (error) {
@@ -152,7 +194,8 @@ export class AuthService {
     }
 
     return {
-      ...tokens, user: {
+      ...tokens,
+      user: {
         id: user.id,
         email: user.email,
         name: user.name,
@@ -160,16 +203,19 @@ export class AuthService {
         org_id: user.org_id,
         needUpdateOrg: user?.organization?.needUpdateOrg || false,
         is_verified: user.is_verified,
-      }
+      },
     };
   }
 
   // login
-  async login(dto: LoginDto, res: Response): Promise<TokenPair & { user: Partial<User> & { needUpdateOrg: boolean } }> {
+  async login(
+    dto: LoginDto,
+    res: Response,
+  ): Promise<TokenPair & { user: Partial<User> & { needUpdateOrg: boolean } }> {
     // Find user
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email, deletedAt: null },
-      include: { organization: true }
+      include: { organization: true },
     });
 
     if (!user || user.deletedAt) {
@@ -177,28 +223,35 @@ export class AuthService {
     }
 
     // Verify password
-    const isPasswordValid = await CryptoUtils.comparePassword(dto.password, user.password);
+    const isPasswordValid = await CryptoUtils.comparePassword(
+      dto.password,
+      user.password,
+    );
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials or user not found');
     }
 
-    // Check if organization exists 
+    // Check if organization exists
     if (!user?.org_id && !user?.organization && user?.role !== Role.ADMIN) {
       throw new UnauthorizedException('User organization not found');
     }
 
     // Check if organization is active
-    if (!user?.organization?.is_active && user?.role !== Role.ADMIN && user?.role !== Role.ORG_ADMIN) {
-      throw new UnauthorizedException('Your organization has been suspended. Please contact support.');
+    if (
+      !user?.organization?.is_active &&
+      user?.role !== Role.ADMIN &&
+      user?.role !== Role.ORG_ADMIN
+    ) {
+      throw new UnauthorizedException(
+        'Your organization has been suspended. Please contact support.',
+      );
     }
-
 
     // Update last login time
     await this.prisma.user.update({
       where: { id: user.id },
       data: { last_login: new Date() },
     });
-
 
     const tokens = JWTUtils.generateTokens({
       userId: user.id,
@@ -209,7 +262,11 @@ export class AuthService {
 
     // log activity
     if (user?.role !== Role.ADMIN) {
-      const ipAddress = (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '';
+      const ipAddress =
+        (res?.req?.headers['x-forwarded-for'] as string) ||
+        res?.req?.ip ||
+        res?.req?.connection?.remoteAddress ||
+        '';
       const userAgent: string = res.req.headers['user-agent'] || 'unknown';
       await this.sharedService.logActivity(this.prisma, {
         userId: user.id,
@@ -218,7 +275,10 @@ export class AuthService {
         details: `User ${user.email} logged in`,
         ipAddress: ipAddress,
         userAgent: userAgent,
-        metadata: { org_id: user?.organization?.id || user?.org_id || '', role: user.role },
+        metadata: {
+          org_id: user?.organization?.id || user?.org_id || '',
+          role: user.role,
+        },
       });
     }
     return {
@@ -284,7 +344,6 @@ export class AuthService {
 
     // TODO: Send email with reset token
 
-
     // Send email with reset token
   }
   //change password
@@ -318,7 +377,6 @@ export class AuthService {
   }
 
   async getProfile(userId: string, role: Role) {
-
     const selectOrgFieldsForStaff: Prisma.OrganizationsSelect = {
       business_email: true,
       id: true,
@@ -335,7 +393,7 @@ export class AuthService {
       needUpdateOrg: true,
       plan_type: true,
       subscription: true,
-    }
+    };
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -349,28 +407,30 @@ export class AuthService {
         org_id: true,
         last_login: true,
         personal_credits: true,
-        organization: role === Role.STAFF ? { select: selectOrgFieldsForStaff } : {
-          include: {
-            subscription: true,
-            // last payment transaction
-            creditTransactions: {
-              where: {
-                type: TransactionType.TOP_UP,
+        organization:
+          role === Role.STAFF
+            ? { select: selectOrgFieldsForStaff }
+            : {
+                include: {
+                  subscription: true,
+                  // last payment transaction
+                  creditTransactions: {
+                    where: {
+                      type: TransactionType.TOP_UP,
+                    },
+                    orderBy: {
+                      createdAt: 'desc',
+                    },
+                    take: 1,
+                  },
+                  _count: {
+                    select: {
+                      resources: true,
+                      users: true,
+                    },
+                  },
+                },
               },
-              orderBy: {
-                createdAt: 'desc',
-              },
-              take: 1,
-            },
-            _count: {
-              select: {
-                resources: true,
-                users: true,
-
-              }
-            }
-          }
-        },
         is_verified: true,
       },
     });
@@ -392,16 +452,12 @@ export class AuthService {
             start_time: {
               // show the next booking if the start time is within the next 24 hours
               gte: new Date(),
-              lte: new Date(Date.now() + 24 * 60 * 60 * 1000)
-
-            }
-          }
-        ]
+              lte: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            },
+          },
+        ],
       },
-      orderBy: [
-        { status: 'desc' },
-        { start_time: 'asc' }
-      ],
+      orderBy: [{ status: 'desc' }, { start_time: 'asc' }],
       select: {
         id: true,
         start_time: true,
@@ -415,21 +471,30 @@ export class AuthService {
             photo: true,
             hourly_rate: true,
             metadata: true,
-          }
-        }
-      }
+          },
+        },
+      },
     });
 
     return {
       ...user,
-      activeBooking: activeOrNextBooking?.status === BookingStatus.CHECKED_IN ? activeOrNextBooking : null,
-      nextBooking: activeOrNextBooking?.status === BookingStatus.CONFIRMED ? activeOrNextBooking : null,
+      activeBooking:
+        activeOrNextBooking?.status === BookingStatus.CHECKED_IN
+          ? activeOrNextBooking
+          : null,
+      nextBooking:
+        activeOrNextBooking?.status === BookingStatus.CONFIRMED
+          ? activeOrNextBooking
+          : null,
     };
   }
 
   // update profile
-  async updateProfile(dto: UpdateProfileDto, res: Response, user: User): Promise<Partial<User>> {
-
+  async updateProfile(
+    dto: UpdateProfileDto,
+    res: Response,
+    user: User,
+  ): Promise<Partial<User>> {
     if (!user.id) {
       throw new NotFoundException('User not found');
     }
@@ -445,9 +510,13 @@ export class AuthService {
         name: dto.name,
         photo: dto.photo,
       },
-    })
+    });
     // log activity
-    const ipAddress = (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '';
+    const ipAddress =
+      (res?.req?.headers['x-forwarded-for'] as string) ||
+      res?.req?.ip ||
+      res?.req?.connection?.remoteAddress ||
+      '';
     const userAgent: string = res.req.headers['user-agent'] || 'unknown';
 
     if (user?.role !== Role.ADMIN) {
@@ -459,7 +528,7 @@ export class AuthService {
         ipAddress: ipAddress,
         userAgent: userAgent,
         metadata: { org_id: user?.org_id, updatedFields: Object.keys(dto) },
-      })
+      });
     }
     return updatedUser;
   }
@@ -469,7 +538,10 @@ export class AuthService {
     // Generate verification token
     try {
       const verificationToken = uuidv4();
-      const expiryDate = new Date(Date.now() + GLOBAL_CONFIG.VERIFICATION_TOKEN_EXPIRY_MINUTES * 60 * 1000);
+      const expiryDate = new Date(
+        Date.now() +
+          GLOBAL_CONFIG.VERIFICATION_TOKEN_EXPIRY_MINUTES * 60 * 1000,
+      );
 
       // Update user with verification token
       const user = await this.prisma.user.update({
@@ -478,22 +550,32 @@ export class AuthService {
           verification_token: verificationToken,
           token_expiry: expiryDate, // Set the expiry date for the token
         },
-      })
+      });
       const verificationLink = `${process.env.WEB_APP_LINK}/verify-email?token=${verificationToken}`;
-      await this.emailService.sendVerifyEmail(email, user.name, verificationLink, GLOBAL_CONFIG.VERIFICATION_TOKEN_EXPIRY_MINUTES);
+      await this.emailService.sendVerifyEmail(
+        email,
+        user.name,
+        verificationLink,
+        GLOBAL_CONFIG.VERIFICATION_TOKEN_EXPIRY_MINUTES,
+      );
     } catch (error: any) {
-      console.log(error, 'error')
-      throw new InternalServerErrorException('Failed to send verification email');
+      console.log(error, 'error');
+      throw new InternalServerErrorException(
+        'Failed to send verification email',
+      );
     }
-
   }
 
   // verify email
   async verifyEmail(token: string, user: User): Promise<void> {
-
     const dbUser = await this.prisma.user.findUnique({
       where: { verification_token: token },
-      select: { id: true, deletedAt: true, is_verified: true, token_expiry: true },
+      select: {
+        id: true,
+        deletedAt: true,
+        is_verified: true,
+        token_expiry: true,
+      },
     });
 
     if (!dbUser || dbUser.deletedAt) {
@@ -511,7 +593,6 @@ export class AuthService {
       where: { id: dbUser.id },
       data: { is_verified: true, verification_token: null, token_expiry: null },
     });
-
   }
 
   // logout
@@ -523,12 +604,13 @@ export class AuthService {
       orgId: user.org_id || '',
       action: 'USER_LOGOUT',
       details: `User ${user.email} logged out`,
-      ipAddress: (res?.req?.headers['x-forwarded-for'] as string) || res?.req?.ip || res?.req?.connection?.remoteAddress || '',
+      ipAddress:
+        (res?.req?.headers['x-forwarded-for'] as string) ||
+        res?.req?.ip ||
+        res?.req?.connection?.remoteAddress ||
+        '',
       userAgent: res.req.headers['user-agent'] || 'unknown',
       metadata: { org_id: user?.org_id || '', role: user.role },
     });
   }
-
-
-
 }

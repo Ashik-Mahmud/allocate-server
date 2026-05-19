@@ -6,6 +6,6 @@ import { InboxModule } from '../inbox/inbox.module';
 @Module({
   imports: [InboxModule],
   providers: [SchedulerService],
-  controllers: [SchedulerController]
+  controllers: [SchedulerController],
 })
 export class SchedulerModule {}

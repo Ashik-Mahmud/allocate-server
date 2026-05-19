@@ -1,13 +1,40 @@
-import { Controller, Post, Body, Get, UseGuards, Req, Res, HttpCode, HttpStatus, Query, Patch } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiProperty, ApiBody, ApiOkResponse } from '@nestjs/swagger';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  UseGuards,
+  Req,
+  Res,
+  HttpCode,
+  HttpStatus,
+  Query,
+  Patch,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiProperty,
+  ApiBody,
+  ApiOkResponse,
+} from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { AuthService } from '../services/auth.service';
-import { RegisterDto, LoginDto, RefreshTokenDto, ChangePasswordDto, ForgotPasswordDto, UpdateProfileDto } from '../dto/AuthDTO';
+import {
+  RegisterDto,
+  LoginDto,
+  RefreshTokenDto,
+  ChangePasswordDto,
+  ForgotPasswordDto,
+  UpdateProfileDto,
+} from '../dto/AuthDTO';
 import { AuthGuard } from '../guards/auth.guard';
 import { ResponseUtil } from '../../../utils/responses';
 import { AUTH_SUCCESS_MESSAGES } from '../constant/auth.constant';
 import { ResponseMessage } from 'src/shared/decorators/response_message.decorator';
-import { ZodResponse } from "nestjs-zod"
+import { ZodResponse } from 'nestjs-zod';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { CurrentUser } from 'src/shared/decorators/user.decorator';
 import { User } from '@prisma/client';
@@ -15,19 +42,19 @@ import { User } from '@prisma/client';
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(private readonly authService: AuthService) {}
 
   // Write a minimum understandable comment for each method in this controller
 
   /**
-  * Registers a new user with the provided registration details.
-  * @param dto - The registration details of the user.
-  * @param res - The response object to send the result back to the client.
-  * @return A success response containing the token pair and user information if registration is successful.
-  */
+   * Registers a new user with the provided registration details.
+   * @param dto - The registration details of the user.
+   * @param res - The response object to send the result back to the client.
+   * @return A success response containing the token pair and user information if registration is successful.
+   */
   @UseGuards(ThrottlerGuard)
   @Throttle({
-    default: { limit: 3, ttl: 60000 }
+    default: { limit: 3, ttl: 60000 },
   })
   @Post('register')
   @ResponseMessage(AUTH_SUCCESS_MESSAGES.register)
@@ -44,7 +71,7 @@ export class AuthController {
    */
   @UseGuards(ThrottlerGuard)
   @Throttle({
-    default: { limit: 3, ttl: 60000 }
+    default: { limit: 3, ttl: 60000 },
   })
   @Post('login')
   @HttpCode(HttpStatus.OK)
@@ -81,11 +108,17 @@ export class AuthController {
    */
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  @ApiResponse({ status: 200, description: 'Password reset link sent successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset link sent successfully',
+  })
   @ApiResponse({ status: 404, description: 'User not found' })
   async forgotPassword(@Body() dto: ForgotPasswordDto, @Res() res: Response) {
     await this.authService.forgotPassword(dto.email);
-    return ResponseUtil.success({ message: 'Password reset link sent successfully' }, res);
+    return ResponseUtil.success(
+      { message: 'Password reset link sent successfully' },
+      res,
+    );
   }
 
   /**
@@ -101,9 +134,16 @@ export class AuthController {
   @ApiOperation({ summary: 'Change user password' })
   @ApiResponse({ status: 200, description: 'Password changed successfully' })
   @ApiResponse({ status: 401, description: 'Current password incorrect' })
-  async changePassword(@Req() req: Request, @Body() dto: ChangePasswordDto, @Res() res: Response) {
+  async changePassword(
+    @Req() req: Request,
+    @Body() dto: ChangePasswordDto,
+    @Res() res: Response,
+  ) {
     await this.authService.changePassword(req.user!.id, dto);
-    return ResponseUtil.success({ message: 'Password changed successfully' }, res);
+    return ResponseUtil.success(
+      { message: 'Password changed successfully' },
+      res,
+    );
   }
 
   /**
@@ -117,7 +157,11 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get user profile' })
   @ApiResponse({ status: 200, description: 'Profile retrieved successfully' })
-  async getProfile(@Req() req: Request, @Res() res: Response, @CurrentUser() user: User): Promise<any> {
+  async getProfile(
+    @Req() req: Request,
+    @Res() res: Response,
+    @CurrentUser() user: User,
+  ): Promise<any> {
     const profile = await this.authService.getProfile(req.user!.id, user?.role);
     return ResponseUtil.success(profile, res);
   }
@@ -133,8 +177,13 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update user profile' })
   @ApiResponse({ status: 200, description: 'Profile updated successfully' })
-  async updateProfile(@Req() req: Request, @Body() dto: UpdateProfileDto, @Res() res: Response, @CurrentUser() user: User) {
-    const updatedProfile = await this.authService.updateProfile( dto, res, user);
+  async updateProfile(
+    @Req() req: Request,
+    @Body() dto: UpdateProfileDto,
+    @Res() res: Response,
+    @CurrentUser() user: User,
+  ) {
+    const updatedProfile = await this.authService.updateProfile(dto, res, user);
     return ResponseUtil.success(updatedProfile, res);
   }
 
@@ -149,16 +198,21 @@ export class AuthController {
   @UseGuards(AuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Send verification email' })
-  @ApiResponse({ status: 200, description: 'Verification email sent successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Verification email sent successfully',
+  })
   async sendVerificationEmail(@CurrentUser() user: User, @Res() res: Response) {
     try {
       await this.authService.sendVerificationEmail(user.email, user.name);
-      return ResponseUtil.success({ message: `Verification email sent to ${user.email}` }, res);
-    } catch (error: any) { 
+      return ResponseUtil.success(
+        { message: `Verification email sent to ${user.email}` },
+        res,
+      );
+    } catch (error: any) {
       return ResponseUtil.error(error.message, 500, res);
     }
   }
-
 
   /**
    * Verify email address for a user.
@@ -169,10 +223,17 @@ export class AuthController {
   @ApiOperation({ summary: 'Verify email address' })
   @ApiResponse({ status: 200, description: 'Email verified successfully' })
   @ApiResponse({ status: 400, description: 'Invalid or expired token' })
-  async verifyEmail(@Query('token') token: string, @CurrentUser() user: User, @Res() res: Response) {
+  async verifyEmail(
+    @Query('token') token: string,
+    @CurrentUser() user: User,
+    @Res() res: Response,
+  ) {
     try {
       await this.authService.verifyEmail(token, user);
-      return ResponseUtil.success({ message: 'Email verified successfully' }, res);
+      return ResponseUtil.success(
+        { message: 'Email verified successfully' },
+        res,
+      );
     } catch (error: any) {
       return ResponseUtil.error(error.message, 400, res);
     }
@@ -191,7 +252,7 @@ export class AuthController {
   async logout(@Res() res: Response, @CurrentUser() user: User) {
     // In a real implementation, you might want to blacklist the token
     // For now, just return success
-     this.authService.logout(user, res);
+    this.authService.logout(user, res);
     return ResponseUtil.success({ message: 'Logged out successfully' }, res);
   }
 }

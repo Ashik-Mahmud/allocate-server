@@ -5,8 +5,8 @@ import { SharedService } from 'src/shared/services/shared.service';
 import { InboxModule } from '../inbox/inbox.module';
 
 @Module({
-  imports:[InboxModule],
+  imports: [InboxModule],
   controllers: [PaymentsController],
-  providers: [PaymentsService, SharedService]
+  providers: [PaymentsService, SharedService],
 })
 export class PaymentsModule {}

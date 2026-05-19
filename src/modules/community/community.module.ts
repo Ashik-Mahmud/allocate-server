@@ -8,7 +8,12 @@ import { CommunityRealtimeService } from './community-realtime.service';
 
 @Module({
   imports: [InboxModule],
-  providers: [CommunityService, CommunityRealtimeGateway, SharedService, CommunityRealtimeService],
-  controllers: [CommunityController]
+  providers: [
+    CommunityService,
+    CommunityRealtimeGateway,
+    SharedService,
+    CommunityRealtimeService,
+  ],
+  controllers: [CommunityController],
 })
 export class CommunityModule {}

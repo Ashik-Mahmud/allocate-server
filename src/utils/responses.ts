@@ -17,7 +17,11 @@ export interface PaginatedResponse<T> extends ApiResponse<T[]> {
 }
 
 export class ResponseUtil {
-  static success<T>(data: T, res?: Response, metadata: { [key: string]: any } = {}): ApiResponse<T> {
+  static success<T>(
+    data: T,
+    res?: Response,
+    metadata: { [key: string]: any } = {},
+  ): ApiResponse<T> {
     const response = {
       success: true,
       data,

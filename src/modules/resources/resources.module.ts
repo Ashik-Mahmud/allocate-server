@@ -9,6 +9,6 @@ import { InboxModule } from '../inbox/inbox.module';
 @Module({
   controllers: [ResourcesController],
   imports: [InboxModule],
-  providers: [ResourcesService, ResourcesRuleService, SharedService]
+  providers: [ResourcesService, ResourcesRuleService, SharedService],
 })
 export class ResourcesModule {}

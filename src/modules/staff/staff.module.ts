@@ -6,9 +6,9 @@ import { InboxModule } from '../inbox/inbox.module';
 import { SharedService } from 'src/shared/services/shared.service';
 
 @Module({
-    imports: [InboxModule],
-    controllers: [StaffController],
-    providers: [StaffService, EmailService,SharedService ],
-    exports: [],
+  imports: [InboxModule],
+  controllers: [StaffController],
+  providers: [StaffService, EmailService, SharedService],
+  exports: [],
 })
-export class StaffModule { }
+export class StaffModule {}

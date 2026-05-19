@@ -1,4 +1,9 @@
-import { Injectable, NestMiddleware, UnauthorizedException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NestMiddleware,
+  UnauthorizedException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import { JWTUtils } from '../utils/jwt';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
@@ -17,7 +22,7 @@ declare global {
 
 @Injectable()
 export class AuthMiddleware implements NestMiddleware {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   async use(req: Request, res: Response, next: NextFunction) {
     const token = JWTUtils.extractToken(req.headers.authorization);
@@ -36,7 +41,7 @@ export class AuthMiddleware implements NestMiddleware {
       // Verify user still exists and is active
       const user = await this.prisma.user.findUnique({
         where: { id: payload.userId },
-        select: { id: true, email: true, role: true, deletedAt: true, },
+        select: { id: true, email: true, role: true, deletedAt: true },
       });
 
       if (!user || user.deletedAt) {
@@ -73,7 +78,7 @@ export function authorize(...allowedRoles: string[]) {
 
 @Injectable()
 export class OptionalAuthMiddleware implements NestMiddleware {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   async use(req: Request, res: Response, next: NextFunction) {
     const token = JWTUtils.extractToken(req.headers.authorization);

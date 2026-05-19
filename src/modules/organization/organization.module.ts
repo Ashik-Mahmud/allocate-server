@@ -5,6 +5,6 @@ import { SharedService } from 'src/shared/services/shared.service';
 
 @Module({
   controllers: [OrganizationController],
-  providers: [OrganizationService, SharedService]
+  providers: [OrganizationService, SharedService],
 })
 export class OrganizationModule {}

@@ -3,7 +3,10 @@ export type RevenueTrendPoint = {
   amount: number;
 };
 
-import { getDateKeyInTimezone, getStartOfDayUtc } from 'src/shared/utils/timezone.util';
+import {
+  getDateKeyInTimezone,
+  getStartOfDayUtc,
+} from 'src/shared/utils/timezone.util';
 
 export const toDateKey = (input: Date, timezone: string = 'UTC'): string =>
   getDateKeyInTimezone(input, timezone);
@@ -27,10 +30,16 @@ export const buildRevenueTrend = (
     if (!trendMap.has(key)) {
       continue;
     }
-    trendMap.set(key, Number((trendMap.get(key) || 0) + Number(row.amount || 0)));
+    trendMap.set(
+      key,
+      Number((trendMap.get(key) || 0) + Number(row.amount || 0)),
+    );
   }
 
-  return Array.from(trendMap.entries()).map(([date, amount]) => ({ date, amount }));
+  return Array.from(trendMap.entries()).map(([date, amount]) => ({
+    date,
+    amount,
+  }));
 };
 
 export const buildPlanDistribution = (

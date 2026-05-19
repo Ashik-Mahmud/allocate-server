@@ -34,7 +34,12 @@ export const resolveUserTimezone = (input?: {
   timezone?: MaybeTimezone;
   organization?: { timezone?: MaybeTimezone } | null;
 }): string => {
-  return resolveTimezone(input?.timezone, input?.organization?.timezone, DEFAULT_TIMEZONE, 'UTC');
+  return resolveTimezone(
+    input?.timezone,
+    input?.organization?.timezone,
+    DEFAULT_TIMEZONE,
+    'UTC',
+  );
 };
 
 const getOffsetMsAtInstant = (instant: Date, timezone: string): number => {
@@ -74,7 +79,15 @@ const zonedDateTimeToUtc = (
   millisecond: number,
   timezone: string,
 ): Date => {
-  const utcGuess = Date.UTC(year, month - 1, day, hour, minute, second, millisecond);
+  const utcGuess = Date.UTC(
+    year,
+    month - 1,
+    day,
+    hour,
+    minute,
+    second,
+    millisecond,
+  );
   const offsetMs = getOffsetMsAtInstant(new Date(utcGuess), timezone);
   return new Date(utcGuess - offsetMs);
 };
@@ -147,7 +160,16 @@ export const getStartOfDayUtc = (
 
   const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
   const parts = getDatePartsInTimezone(date, resolvedTimezone);
-  return zonedDateTimeToUtc(parts.year, parts.month, parts.day, 0, 0, 0, 0, resolvedTimezone);
+  return zonedDateTimeToUtc(
+    parts.year,
+    parts.month,
+    parts.day,
+    0,
+    0,
+    0,
+    0,
+    resolvedTimezone,
+  );
 };
 
 export const getEndOfDayUtc = (
@@ -158,7 +180,16 @@ export const getEndOfDayUtc = (
 
   if (typeof dateInput === 'string' && DATE_ONLY_REGEX.test(dateInput)) {
     const [year, month, day] = dateInput.split('-').map(Number);
-    return zonedDateTimeToUtc(year, month, day, 23, 59, 59, 999, resolvedTimezone);
+    return zonedDateTimeToUtc(
+      year,
+      month,
+      day,
+      23,
+      59,
+      59,
+      999,
+      resolvedTimezone,
+    );
   }
 
   const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
@@ -188,7 +219,10 @@ export const getWeekdayInTimezone = (
   }).format(date);
 };
 
-export const getDateKeyInTimezone = (dateInput: string | Date, timezone: string): string => {
+export const getDateKeyInTimezone = (
+  dateInput: string | Date,
+  timezone: string,
+): string => {
   if (typeof dateInput === 'string' && DATE_ONLY_REGEX.test(dateInput)) {
     return dateInput;
   }
@@ -200,7 +234,10 @@ export const getDateKeyInTimezone = (dateInput: string | Date, timezone: string)
   return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
 };
 
-export const getMonthKeyInTimezone = (dateInput: string | Date, timezone: string): string => {
+export const getMonthKeyInTimezone = (
+  dateInput: string | Date,
+  timezone: string,
+): string => {
   if (typeof dateInput === 'string' && DATE_ONLY_REGEX.test(dateInput)) {
     return dateInput.slice(0, 7);
   }
@@ -212,7 +249,10 @@ export const getMonthKeyInTimezone = (dateInput: string | Date, timezone: string
   return `${parts.year}-${String(parts.month).padStart(2, '0')}`;
 };
 
-export const getWeekKeyInTimezone = (dateInput: string | Date, timezone: string): string => {
+export const getWeekKeyInTimezone = (
+  dateInput: string | Date,
+  timezone: string,
+): string => {
   const dateKey = getDateKeyInTimezone(dateInput, timezone);
   const [year, month, day] = dateKey.split('-').map(Number);
 
@@ -220,7 +260,9 @@ export const getWeekKeyInTimezone = (dateInput: string | Date, timezone: string)
   d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
 
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  const weekNo = Math.ceil(
+    ((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7,
+  );
 
   return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 };

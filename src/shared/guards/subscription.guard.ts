@@ -1,15 +1,23 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PlanType, Role } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
-import { buildSubscriptionAccessMessage, SUBSCRIPTION_PLAN_METADATA_KEY } from '../constant/subscription.constant';
+import {
+  buildSubscriptionAccessMessage,
+  SUBSCRIPTION_PLAN_METADATA_KEY,
+} from '../constant/subscription.constant';
 
 @Injectable()
 export class SubscriptionGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
     private prisma: PrismaService,
-  ) { }
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const requiredPlans = this.reflector.getAllAndOverride<PlanType[]>(
@@ -42,7 +50,9 @@ export class SubscriptionGuard implements CanActivate {
     });
 
     if (!organization || organization.is_active === false) {
-      throw new ForbiddenException('Your organization is not active. Please contact support.');
+      throw new ForbiddenException(
+        'Your organization is not active. Please contact support.',
+      );
     }
 
     const currentPlan = organization.plan_type ?? PlanType.FREE;

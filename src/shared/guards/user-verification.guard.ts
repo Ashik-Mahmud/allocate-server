@@ -21,7 +21,7 @@ export class UserVerificationGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const user = request.user as User & CurrentUserType | undefined;
+    const user = request.user as (User & CurrentUserType) | undefined;
 
     if (!user?.id) {
       throw new UnauthorizedException('User not authenticated');

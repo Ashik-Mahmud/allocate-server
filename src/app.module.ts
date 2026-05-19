@@ -62,15 +62,9 @@ import { CommunityModule } from './modules/community/community.module';
       useClass: ErrorHandler,
     },
     SharedService,
-
   ],
 })
 export class AppModule {
-
   // console log to check if the module is loaded
-  constructor() {
-
-  }
-
-
+  constructor() {}
 }

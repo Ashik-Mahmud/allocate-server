@@ -5,13 +5,15 @@ import * as path from 'path';
 const environment = process.env.NODE_ENV || 'development';
 const envPath = path.resolve(process.cwd(), `.env.${environment}`);
 config({
-  path: envPath
+  path: envPath,
 });
 
 console.log(`🌱 Environment loaded: .env.${environment}`);
 
 const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  NODE_ENV: z
+    .enum(['development', 'test', 'production'])
+    .default('development'),
   PORT: z.coerce.number().default(3000),
   DATABASE_URL: z.string(),
   JWT_SECRET: z.string(),
@@ -30,8 +32,6 @@ const envSchema = z.object({
   SSL_STORE_ID: z.string(),
   SSL_STORE_PASSWORD: z.string(),
   SSL_API_URL: z.string().url(),
-
-
 });
 
 export const env = envSchema.parse(process.env);

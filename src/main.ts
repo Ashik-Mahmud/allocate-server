@@ -12,8 +12,6 @@ async function bootstrap() {
     rawBody: true,
   });
 
-
-
   // Security
   (app as any).set('trust proxy', 1);
   app.use(helmet());
@@ -21,7 +19,7 @@ async function bootstrap() {
     origin: env.WEB_APP_LINK,
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-  })
+  });
   // Middleware
   app.use(new RequestLogger().use);
 
@@ -42,7 +40,7 @@ async function bootstrap() {
   app.use(express.urlencoded({ extended: true }));
   app.use((req, res, next) => {
     if (req.originalUrl === '/payments/webhook') {
-      next(); 
+      next();
     } else {
       express.json()(req, res, next);
     }
@@ -51,7 +49,9 @@ async function bootstrap() {
   // Swagger
   const config = new DocumentBuilder()
     .setTitle('Allocate ')
-    .setDescription('API for managing a Smart Resource-Sharing Hub for Co-working Spaces or Shared Offices API')
+    .setDescription(
+      'API for managing a Smart Resource-Sharing Hub for Co-working Spaces or Shared Offices API',
+    )
     .setVersion('1.0')
     .addTag('Auth')
     .addBearerAuth()
@@ -62,7 +62,7 @@ async function bootstrap() {
   SwaggerModule.setup('api', app, document);
 
   const port = process.env.PORT ?? 3000;
-  await app.listen(port, "0.0.0.0");
+  await app.listen(port, '0.0.0.0');
   console.log(`Application is running on: http://localhost:${port}`);
   console.log(`Swagger docs available at: http://localhost:${port}/api`);
 }

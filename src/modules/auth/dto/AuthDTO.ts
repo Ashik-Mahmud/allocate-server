@@ -13,7 +13,6 @@ export const RegisterSchema = z.object({
   name: z.string().min(1, 'Name is required').default('Client Name'),
   // optional fields
   //photo: z.string().optional(),
-
 });
 
 export const RefreshTokenSchema = z.object({
@@ -26,15 +25,15 @@ export const ChangePasswordSchema = z.object({
 });
 
 export const ForgotPasswordSchema = z.object({
-  email: emailSchema
-})
+  email: emailSchema,
+});
 
 export const UpdateProfileSchema = z.object({
   name: z.string().min(1, 'Name is required').optional(),
   photo: z.string().optional(),
-})
+});
 
-export class RegisterDto extends createZodDto(RegisterSchema) {} 
+export class RegisterDto extends createZodDto(RegisterSchema) {}
 export class LoginDto extends createZodDto(LoginSchema) {}
 export class RefreshTokenDto extends createZodDto(RefreshTokenSchema) {}
 export class ChangePasswordDto extends createZodDto(ChangePasswordSchema) {}

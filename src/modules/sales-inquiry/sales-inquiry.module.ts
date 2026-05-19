@@ -8,7 +8,7 @@ import { InboxModule } from '../inbox/inbox.module';
 
 @Module({
   imports: [PrismaModule, InboxModule],
-  providers: [SalesInquiryService, EmailService, ],
+  providers: [SalesInquiryService, EmailService],
   controllers: [SalesInquiryController],
 })
-export class SalesInquiryModule { }
+export class SalesInquiryModule {}
