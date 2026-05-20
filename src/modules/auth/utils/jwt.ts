@@ -59,7 +59,7 @@ export class JWTUtils {
       const decoded = jwt.verify(token, env.JWT_SECRET) as JWTPayload;
       return decoded;
     } catch (error) {
-      throw new Error('Invalid token');
+      throw new Error('Invalid token' + (error instanceof Error ? error.message : ''));
     }
   }
 

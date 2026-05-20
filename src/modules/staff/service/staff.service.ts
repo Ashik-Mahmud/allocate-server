@@ -1,38 +1,38 @@
 import {
-  BookingStatus,
-  NotificationType,
-  PlanType,
-  Prisma,
-  Role,
-  TransactionType,
-  User,
-} from '@prisma/client';
-import { PrismaService } from 'src/modules/prisma/prisma.service';
+    BadRequestException,
+    ConflictException,
+    ForbiddenException,
+    Injectable,
+    InternalServerErrorException,
+    NotFoundException,
+} from '@nestjs/common';
 import {
-  CreateStaffDto,
-  ManageCreditsDto,
-  ManageMultipleStaffCreditsDto,
-  UpdateStaffDto,
-} from '../dto/staff.dto';
+    BookingStatus,
+    NotificationType,
+    PlanType,
+    Prisma,
+    Role,
+    TransactionType,
+    User,
+} from '@prisma/client';
+import { Response } from 'express';
 import { CryptoUtils } from 'src/modules/auth/utils/crypto';
 import { EmailService } from 'src/modules/inbox/service/email.service';
+import { NotificationManager } from 'src/modules/inbox/service/notification-manager.service';
+import { PrismaService } from 'src/modules/prisma/prisma.service';
 import {
-  BadRequestException,
-  ConflictException,
-  ForbiddenException,
-  Injectable,
-  InternalServerErrorException,
-  NotFoundException,
-} from '@nestjs/common';
+    buildSubscriptionLimitMessage,
+    getSubscriptionLimits,
+    isSubscriptionLimitReached,
+} from 'src/shared/constant/subscription.constant';
+import { SharedService } from 'src/shared/services/shared.service';
 import { CreditLogsFilterDto, StaffFilterDto } from '../dto/staff-filter.dto';
 import {
-  buildSubscriptionLimitMessage,
-  getSubscriptionLimits,
-  isSubscriptionLimitReached,
-} from 'src/shared/constant/subscription.constant';
-import { Response } from 'express';
-import { SharedService } from 'src/shared/services/shared.service';
-import { NotificationManager } from 'src/modules/inbox/service/notification-manager.service';
+    CreateStaffDto,
+    ManageCreditsDto,
+    ManageMultipleStaffCreditsDto,
+    UpdateStaffDto,
+} from '../dto/staff.dto';
 
 // Write staff service code
 @Injectable()

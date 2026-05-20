@@ -1,12 +1,7 @@
 import {
-  CommunityHub,
-  NotificationType,
-  PlanType,
-  Prisma,
-  PrismaClient,
-  Role,
+    PlanType,
+    PrismaClient
 } from '@prisma/client';
-import { CurrentUserType } from 'src/shared/decorators/user.decorator';
 
 export async function checkCommunityTrial(prisma: PrismaClient, orgId: string) {
   if (!orgId) {

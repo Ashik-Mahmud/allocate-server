@@ -1,49 +1,49 @@
 import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-  Res,
-  UseGuards,
+    Body,
+    Controller,
+    Get,
+    Param,
+    Patch,
+    Post,
+    Query,
+    Res,
+    UseGuards,
 } from '@nestjs/common';
 import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiParam,
-  ApiQuery,
-  ApiResponse,
-  ApiTags,
+    ApiBearerAuth,
+    ApiOperation,
+    ApiParam,
+    ApiQuery,
+    ApiResponse,
+    ApiTags,
 } from '@nestjs/swagger';
+import { Bookings, PlanType, Role, User } from '@prisma/client';
+import { Response } from 'express';
 import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
-import { BookingsService } from '../services/bookings.service';
-import {
-  RolesGuard,
-  SubscriptionGuard,
-  UserVerificationGuard,
-} from 'src/shared/guards';
 import { Roles } from 'src/shared/decorators/roles.decorator';
-import { Bookings, BookingStatus, PlanType, Role, User } from '@prisma/client';
+import { SubscriptionPlans } from 'src/shared/decorators/subscription.decorator';
 import {
-  CurrentUser,
-  CurrentUserType,
+    CurrentUser,
+    CurrentUserType,
 } from 'src/shared/decorators/user.decorator';
 import {
-  CreateBookingDto,
-  RescheduleBookingDto,
-  UpdateBookingDto,
-  UpdateBookingStatusDto,
-} from '../dto/bookings.dto';
+    RolesGuard,
+    SubscriptionGuard,
+    UserVerificationGuard,
+} from 'src/shared/guards';
 import { PaginatedResponse, ResponseUtil } from 'src/utils/responses';
-import { Response } from 'express';
 import {
-  AllBookingsQueryDto,
-  BookingStatsQueryDto,
-  MyBookingsHistoryQueryDto,
+    AllBookingsQueryDto,
+    BookingStatsQueryDto,
+    MyBookingsHistoryQueryDto,
 } from '../dto/booking-filter.dto';
-import { SubscriptionPlans } from 'src/shared/decorators/subscription.decorator';
+import {
+    CreateBookingDto,
+    RescheduleBookingDto,
+    UpdateBookingDto,
+    UpdateBookingStatusDto,
+} from '../dto/bookings.dto';
+import { BookingsService } from '../services/bookings.service';
 
 @ApiTags('Bookings')
 @ApiBearerAuth()

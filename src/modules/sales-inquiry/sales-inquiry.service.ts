@@ -1,24 +1,23 @@
 import {
-  Injectable,
-  BadRequestException,
-  NotFoundException,
+    BadRequestException,
+    Injectable,
+    NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { EmailService } from '../inbox/service/email.service';
 import {
-  CreateSalesInquiryDto,
-  UpdateSalesInquiryDto,
-  SalesInquiryFiltersDto,
-  SalesInquiryStatsFiltersDto,
-} from './sales-inquiry.dto';
-import {
-  NotificationType,
-  Prisma,
-  Role,
-  SaleInquiryStatus,
+    NotificationType,
+    Prisma,
+    Role,
+    SaleInquiryStatus,
 } from '@prisma/client';
-import { CurrentUserType } from 'src/shared/decorators/user.decorator';
+import { EmailService } from '../inbox/service/email.service';
 import { InboxService } from '../inbox/service/inbox.service';
+import { PrismaService } from '../prisma/prisma.service';
+import {
+    CreateSalesInquiryDto,
+    SalesInquiryFiltersDto,
+    SalesInquiryStatsFiltersDto,
+    UpdateSalesInquiryDto,
+} from './sales-inquiry.dto';
 
 @Injectable()
 export class SalesInquiryService {

@@ -567,7 +567,7 @@ export class AuthService {
   }
 
   // verify email
-  async verifyEmail(token: string, user: User): Promise<void> {
+  async verifyEmail(token: string,): Promise<void> {
     const dbUser = await this.prisma.user.findUnique({
       where: { verification_token: token },
       select: {

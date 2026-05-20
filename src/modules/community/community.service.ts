@@ -744,7 +744,7 @@ export class CommunityService {
     };
     const currentComments = Array.isArray(post.comments) ? post.comments : [];
 
-    const updatedPost = await this.prisma.communityHub.update({
+    await this.prisma.communityHub.update({
       where: { id: postId },
       data: {
         comments: [...currentComments, newCommentData],

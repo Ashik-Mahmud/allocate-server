@@ -1,37 +1,37 @@
 import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Ip,
-  Param,
-  Patch,
-  Post,
-  Query,
-  Res,
-  UseGuards,
+    Body,
+    Controller,
+    Delete,
+    Get,
+    Ip,
+    Param,
+    Patch,
+    Post,
+    Query,
+    Res,
+    UseGuards,
 } from '@nestjs/common';
 import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
+    ApiBearerAuth,
+    ApiOperation,
+    ApiResponse,
+    ApiTags,
 } from '@nestjs/swagger';
-import { CommunityService } from './community.service';
-import { ResponseUtil } from 'src/utils/responses';
 import { Response } from 'express';
-import {
-  CommunityPostFilterDto,
-  CreateCommunityPostCommentDto,
-  CreatePostCommunityDto,
-  UpdatePostCommunityDto,
-} from './community.dto';
-import {
-  CurrentUser,
-  CurrentUserType,
-} from 'src/shared/decorators/user.decorator';
 import { Agent } from 'src/shared/decorators/agent.decorator';
+import {
+    CurrentUser,
+    CurrentUserType,
+} from 'src/shared/decorators/user.decorator';
+import { ResponseUtil } from 'src/utils/responses';
 import { AuthGuard } from '../auth/guards/auth.guard';
+import {
+    CommunityPostFilterDto,
+    CreateCommunityPostCommentDto,
+    CreatePostCommunityDto,
+    UpdatePostCommunityDto,
+} from './community.dto';
+import { CommunityService } from './community.service';
 
 @ApiTags('Community Hub')
 @ApiBearerAuth()
@@ -286,8 +286,7 @@ export class CommunityController {
     @Param('postId') postId: string,
     @Body() comment: CreateCommunityPostCommentDto,
     @CurrentUser() user: CurrentUserType,
-    @Ip() ip: string,
-    @Agent() agent: string,
+
   ) {
     // Implementation for leaving a comment on a community post goes here
     const result = await this.communityService.commentOnPostCommunity(
@@ -314,8 +313,7 @@ export class CommunityController {
     @Res() res: Response,
     @Param('commentId') commentId: string,
     @CurrentUser() user: CurrentUserType,
-    @Ip() ip: string,
-    @Agent() agent: string,
+ 
   ) {
     // Implementation for deleting a comment on a community post goes here
     const result = await this.communityService.deleteComment(commentId, user);
@@ -342,8 +340,7 @@ export class CommunityController {
     @Res() res: Response,
     @Param('postId') postId: string,
     @CurrentUser() user: CurrentUserType,
-    @Ip() ip: string,
-    @Agent() agent: string,
+
   ) {
     // Implementation for toggling acknowledgment of a community post goes here
     const result = await this.communityService.toggleAcknowledgePostCommunity(

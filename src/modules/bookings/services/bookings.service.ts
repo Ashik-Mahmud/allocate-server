@@ -1,56 +1,54 @@
 import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  InternalServerErrorException,
-  NotFoundException,
+    BadRequestException,
+    ForbiddenException,
+    Injectable,
+    InternalServerErrorException,
+    NotFoundException,
 } from '@nestjs/common';
 import {
-  Bookings,
-  BookingStatus,
-  NotificationType,
-  PlanType,
-  Prisma,
-  Role,
-  TransactionType,
-  User,
+    Bookings,
+    BookingStatus,
+    NotificationType,
+    PlanType,
+    Prisma,
+    Role,
+    TransactionType,
+    User,
 } from '@prisma/client';
+import { Response } from 'express';
+import { NotificationManager } from 'src/modules/inbox/service/notification-manager.service';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
-import {
-  CreateBookingDto,
-  RescheduleBookingDto,
-  UpdateBookingDto,
-  UpdateBookingStatusDto,
-} from '../dto/bookings.dto';
 import GLOBAL_CONFIG from 'src/shared/constant/global.constant';
 import {
-  AllBookingsQueryDto,
-  BookingStatsQueryDto,
-  MyBookingsHistoryQueryDto,
-} from '../dto/booking-filter.dto';
-import { BookingCalendarData } from '../interfaces/booking.interface';
-import { NotificationManager } from 'src/modules/inbox/service/notification-manager.service';
-import { BookingUtilService } from './bookingUtil.service';
-import { Response } from 'express';
+    getSubscriptionLimits
+} from 'src/shared/constant/subscription.constant';
+import { CurrentUserType } from 'src/shared/decorators/user.decorator';
 import { SharedService } from 'src/shared/services/shared.service';
 import {
-  getDateKeyInTimezone,
-  getEndOfDayUtc,
-  getMonthKeyInTimezone,
-  getStartOfDayUtc,
-  getWeekKeyInTimezone,
-  getWeekdayInTimezone,
-  parseDateTimeInTimezone,
-  resolveTimezone,
-  resolveUserTimezone,
-  formatInTimezone,
+    formatInTimezone,
+    getDateKeyInTimezone,
+    getEndOfDayUtc,
+    getMonthKeyInTimezone,
+    getStartOfDayUtc,
+    getWeekdayInTimezone,
+    getWeekKeyInTimezone,
+    parseDateTimeInTimezone,
+    resolveTimezone,
+    resolveUserTimezone,
 } from 'src/shared/utils/timezone.util';
-import { CurrentUserType } from 'src/shared/decorators/user.decorator';
 import {
-  buildSubscriptionLimitMessage,
-  getSubscriptionLimits,
-  isSubscriptionLimitReached,
-} from 'src/shared/constant/subscription.constant';
+    AllBookingsQueryDto,
+    BookingStatsQueryDto,
+    MyBookingsHistoryQueryDto,
+} from '../dto/booking-filter.dto';
+import {
+    CreateBookingDto,
+    RescheduleBookingDto,
+    UpdateBookingDto,
+    UpdateBookingStatusDto,
+} from '../dto/bookings.dto';
+import { BookingCalendarData } from '../interfaces/booking.interface';
+import { BookingUtilService } from './bookingUtil.service';
 
 @Injectable()
 export class BookingsService {
@@ -1133,6 +1131,7 @@ export class BookingsService {
           status = 'PARTIALLY_BOOKED';
         }
       } catch (error) {
+        console.error(error);
         status = 'OFF_DAY';
       }
 

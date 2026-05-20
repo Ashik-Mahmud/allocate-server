@@ -225,7 +225,7 @@ export class AuthController {
     @Res() res: Response,
   ) {
     try {
-      await this.authService.verifyEmail(token, user);
+      await this.authService.verifyEmail(token);
       return ResponseUtil.success(
         { message: 'Email verified successfully' },
         res,

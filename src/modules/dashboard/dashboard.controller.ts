@@ -1,25 +1,24 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
+    ApiBearerAuth,
+    ApiOperation,
+    ApiResponse,
+    ApiTags,
 } from '@nestjs/swagger';
-import { AuthGuard } from '../auth/guards/auth.guard';
-import { DashboardService } from './dashboard.service';
-import {
-  CurrentUser,
-  CurrentUserType,
-} from 'src/shared/decorators/user.decorator';
 import { PlanType, Role, User } from '@prisma/client';
-import {
-  ClientGuard,
-  RolesGuard,
-  StaffGuard,
-  SubscriptionGuard,
-} from 'src/shared/guards';
 import { Roles } from 'src/shared/decorators/roles.decorator';
 import { SubscriptionPlans } from 'src/shared/decorators/subscription.decorator';
+import {
+    CurrentUser,
+    CurrentUserType,
+} from 'src/shared/decorators/user.decorator';
+import {
+    ClientGuard,
+    RolesGuard,
+    SubscriptionGuard
+} from 'src/shared/guards';
+import { AuthGuard } from '../auth/guards/auth.guard';
+import { DashboardService } from './dashboard.service';
 
 @ApiTags('Dashboard')
 @ApiBearerAuth()
