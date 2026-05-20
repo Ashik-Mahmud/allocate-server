@@ -1,11 +1,12 @@
-import { NestFactory } from '@nestjs/core';
+/* eslint-disable @typescript-eslint/unbound-method */
 import { ValidationPipe } from '@nestjs/common';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import * as express from 'express';
 import helmet from 'helmet';
+import { cleanupOpenApiDoc, ZodValidationPipe } from 'nestjs-zod';
 import { AppModule } from './app.module';
 import { RequestLogger } from './middleware/request-logger.middleware';
-import { cleanupOpenApiDoc, ZodValidationPipe } from 'nestjs-zod';
-import * as express from 'express';
 import { env } from './shared/config/env';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -32,7 +33,7 @@ async function bootstrap() {
     }),
   );
 
-  // Global filters
+  // Global filters and pipes
   app.useGlobalPipes(new ZodValidationPipe());
   // app.useGlobalFilters(new ErrorHandler());
 
