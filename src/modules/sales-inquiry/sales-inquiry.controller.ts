@@ -94,7 +94,7 @@ export class SalesInquiryController {
   ): Promise<PaginatedResponse<Partial<SalesInquiry>>> {
     const result = await this.salesInquiryService.getAllInquiries(
       filters,
-      user,
+
     );
     return ResponseUtil.paginated(
       result?.items,

@@ -3,7 +3,6 @@ import {
   NotificationType,
   PlanType,
   Prisma,
-  PrismaClient,
   Role,
   TransactionType,
   User,
@@ -159,7 +158,7 @@ export class StaffService {
       console.error('Failed to send welcome email:', emailError);
     }
 
-    const { password: _, ...result } = staff;
+    const { password: _, ...result } = staff; 
     return result;
   }
 
@@ -847,7 +846,6 @@ export class StaffService {
   async getStaffCreditLogs(
     user: User,
     query: CreditLogsFilterDto,
-    res: Response,
   ) {
     const orgId = user?.org_id;
     const page = Number(query.page) || 1;
@@ -957,7 +955,7 @@ export class StaffService {
   }
 
   // Get staff credit logs history
-  async getStaffCreditLogsForFreeUser(user: User, res: Response) {
+  async getStaffCreditLogsForFreeUser(user: User) {
     const orgId = user?.org_id;
     if (!orgId) {
       throw new BadRequestException('User does not belong to any organization');

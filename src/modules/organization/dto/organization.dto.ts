@@ -1,9 +1,7 @@
-// Organization DTOs
-
 // Using Zod for validation
-import { set, z } from 'zod';
-import { createZodDto } from 'nestjs-zod';
 import { PlanType } from '@prisma/client';
+import { createZodDto } from 'nestjs-zod';
+import { z } from 'zod';
 
 export const CreateOrganizationSchema = z.object({
   name: z.string().min(1, 'Name is required'),

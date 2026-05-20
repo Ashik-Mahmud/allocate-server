@@ -1,5 +1,4 @@
 import { NotificationType } from '@prisma/client';
-import { meta } from 'zod/v4/core';
 
 /**
  * Notification Preferences stored in organization settings

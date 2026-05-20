@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
@@ -24,10 +23,8 @@ import {
   isSubscriptionLimitReached,
   getSubscriptionLimits,
 } from 'src/shared/constant/subscription.constant';
-import { UpdateOrganizationDto } from 'src/modules/organization/dto/organization.dto';
 import { SharedService } from 'src/shared/services/shared.service';
 import { Response } from 'express';
-import { is } from 'zod/v4/locales';
 import { NotificationManager } from 'src/modules/inbox/service/notification-manager.service';
 
 @Injectable()
@@ -271,7 +268,7 @@ export class ResourcesService {
           const allBookings = await tx.bookings.findMany({
             where: {
               resource_id: resourceId,
-              org_id: user?.org_id!,
+              org_id: user.org_id!,
               deletedAt: null,
               end_time: { gte: new Date() },
               status: { in: [BookingStatus.CONFIRMED, BookingStatus.PENDING] },
@@ -376,7 +373,7 @@ export class ResourcesService {
           // If resource is marked as available again, notify users about it
           const affectedUsers = await tx.user.findMany({
             where: {
-              org_id: user?.org_id!,
+              org_id: user.org_id!,
               deletedAt: null,
             },
             include: {
@@ -659,6 +656,7 @@ export class ResourcesService {
         totalPages: Math.ceil(total / query.limit),
       };
     } catch (error) {
+      console.error(error);
       throw new InternalServerErrorException('Failed to fetch resources');
     }
   }

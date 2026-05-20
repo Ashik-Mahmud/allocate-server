@@ -1,33 +1,33 @@
 import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-  Res,
-  UseGuards,
+    Body,
+    Controller,
+    Get,
+    Param,
+    Patch,
+    Post,
+    Query,
+    Res,
+    UseGuards,
 } from '@nestjs/common';
 import {
-  ApiTags,
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse,
-  ApiQuery,
+    ApiBearerAuth,
+    ApiOperation,
+    ApiQuery,
+    ApiResponse,
+    ApiTags,
 } from '@nestjs/swagger';
-import { OrganizationService } from '../services/organization.service';
+import { Role, User } from '@prisma/client';
+import { Response } from 'express';
 import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
-import { ClientGuard, RolesGuard } from 'src/shared/guards';
 import { Roles } from 'src/shared/decorators/roles.decorator';
+import { CurrentUser } from 'src/shared/decorators/user.decorator';
+import { RolesGuard } from 'src/shared/guards';
 import { ResponseUtil } from 'src/utils/responses';
 import {
-  CreateOrganizationDto,
-  UpdateOrganizationDto,
+    CreateOrganizationDto,
+    UpdateOrganizationDto,
 } from '../dto/organization.dto';
-import { Response } from 'express';
-import { Role, User } from '@prisma/client';
-import { CurrentUser } from 'src/shared/decorators/user.decorator';
+import { OrganizationService } from '../services/organization.service';
 
 @ApiTags('Organization')
 @ApiBearerAuth()
@@ -147,7 +147,7 @@ export class OrganizationController {
       currentUser,
       id,
       clientId,
-      res,
+  
     );
     return ResponseUtil.success(organization, res);
   }

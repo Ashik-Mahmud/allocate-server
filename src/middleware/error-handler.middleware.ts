@@ -1,10 +1,10 @@
 import {
-  ExceptionFilter,
-  Catch,
-  ArgumentsHost,
-  HttpException,
-  HttpStatus,
-  Injectable,
+    ArgumentsHost,
+    Catch,
+    ExceptionFilter,
+    HttpException,
+    HttpStatus,
+    Injectable,
 } from '@nestjs/common';
 import { ZodValidationException } from 'nestjs-zod';
 import { PrismaService } from 'src/modules/prisma/prisma.service';

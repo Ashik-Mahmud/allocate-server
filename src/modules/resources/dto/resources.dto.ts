@@ -1,8 +1,7 @@
 // Using Zod for validation
-import { z } from 'zod';
 import { createZodDto } from 'nestjs-zod';
-import { is } from 'zod/v4/locales';
 import GLOBAL_CONFIG from 'src/shared/constant/global.constant';
+import { z } from 'zod';
 
 // DTO for creating a resource
 export const CreateResourceSchema = z.object({

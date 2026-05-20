@@ -1,41 +1,41 @@
 import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
+    BadRequestException,
+    ForbiddenException,
+    Injectable,
+    NotFoundException,
 } from '@nestjs/common';
 import {
-  NotificationType,
-  Prisma,
-  Role,
-  TransactionType,
-  User,
+    NotificationType,
+    Prisma,
+    Role,
+    TransactionType,
+    User,
 } from '@prisma/client';
-import { PrismaService } from 'src/modules/prisma/prisma.service';
-import {
-  BroadcastAnnouncementDto,
-  OrganizationCreditTopUpDto,
-  OrganizationFilterDto,
-  RevenueAnalyticsFilterDto,
-  SubscriptionTransactionFilterDto,
-  UpdateOrganizationDto,
-  UpdateSystemSettingsDto,
-  UserActivityLogFilterDto,
-} from '../dto/admin.dto';
-import { SharedService } from 'src/shared/services/shared.service';
-import { EmailService } from 'src/modules/inbox/service/email.service';
 import { Response } from 'express';
-import { NotificationManager } from 'src/modules/inbox/service/notification-manager.service';
 import { CryptoUtils } from 'src/modules/auth/utils/crypto';
-import {
-  getDateKeyInTimezone,
-  getEndOfDayUtc,
-  getMonthKeyInTimezone,
-  getStartOfDayUtc,
-  getWeekKeyInTimezone,
-  resolveUserTimezone,
-} from 'src/shared/utils/timezone.util';
+import { EmailService } from 'src/modules/inbox/service/email.service';
 import { InboxService } from 'src/modules/inbox/service/inbox.service';
+import { NotificationManager } from 'src/modules/inbox/service/notification-manager.service';
+import { PrismaService } from 'src/modules/prisma/prisma.service';
+import { SharedService } from 'src/shared/services/shared.service';
+import {
+    getDateKeyInTimezone,
+    getEndOfDayUtc,
+    getMonthKeyInTimezone,
+    getStartOfDayUtc,
+    getWeekKeyInTimezone,
+    resolveUserTimezone,
+} from 'src/shared/utils/timezone.util';
+import {
+    BroadcastAnnouncementDto,
+    OrganizationCreditTopUpDto,
+    OrganizationFilterDto,
+    RevenueAnalyticsFilterDto,
+    SubscriptionTransactionFilterDto,
+    UpdateOrganizationDto,
+    UpdateSystemSettingsDto,
+    UserActivityLogFilterDto,
+} from '../dto/admin.dto';
 
 // Write admin service code
 @Injectable()
@@ -273,7 +273,7 @@ export class AdminService {
     }
 
     try {
-      const result = await this.prisma.$transaction(async (tx) => {
+      await this.prisma.$transaction(async (tx) => {
         //  Update organization details
         const updatedOrg = await tx.organizations.update({
           where: { id: orgId },
@@ -522,7 +522,8 @@ export class AdminService {
             userName: u.name,
           })
           .catch((e) =>
-            console.error(`Failed to send restore notification to ${u.email}`),
+            
+            console.error(`Failed to send restore notification to ${u.email} `, e),
           );
       });
 
@@ -809,7 +810,6 @@ export class AdminService {
   async getOrganizationSubscriptionHistory(
     user: User,
     query: SubscriptionTransactionFilterDto,
-    metadata: { ip: string; userAgent: string },
   ) {
     if (user.role !== Role.ADMIN) {
       throw new Error('Unauthorized');

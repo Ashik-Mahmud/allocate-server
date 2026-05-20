@@ -4,23 +4,15 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { PlanType, Prisma, User } from '@prisma/client';
+import { PlanType,  User } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
+
 import {
-  CreateResourceDto,
-  UpdateResourceDto,
-  ListResourcesQueryDto,
-} from '../dto/resources.dto';
-import {
-  buildSubscriptionLimitMessage,
-  isSubscriptionLimitReached,
-  getSubscriptionLimits,
+
   isFeatureAccessible,
   buildSubscriptionAccessErrorMessage,
 } from 'src/shared/constant/subscription.constant';
-import { UpdateOrganizationDto } from 'src/modules/organization/dto/organization.dto';
 import {
-  CreateResourceRuleDto,
   UpdateResourceRuleDto,
 } from '../dto/resources-rule.dto';
 import { SharedService } from 'src/shared/services/shared.service';

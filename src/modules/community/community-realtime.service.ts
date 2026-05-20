@@ -1,16 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
-  CommunityHub,
-  Notification,
-  NotificationType,
-  Role,
+    CommunityHub,
+    NotificationType,
+    Role
 } from '@prisma/client';
-import { CommunityRealtimeGateway } from './community-realtime.gateway';
-import { NotificationManager } from '../inbox/service/notification-manager.service';
-import { PrismaClient } from '@prisma/client/extension';
 import { CurrentUserType } from 'src/shared/decorators/user.decorator';
-import { PrismaService } from '../prisma/prisma.service';
+import { NotificationManager } from '../inbox/service/notification-manager.service';
 import { NotificationRealtimeGateway } from '../inbox/service/notification-realtime.gateway';
+import { PrismaService } from '../prisma/prisma.service';
+import { CommunityRealtimeGateway } from './community-realtime.gateway';
 import { TPostComment } from './community.interface';
 
 @Injectable()

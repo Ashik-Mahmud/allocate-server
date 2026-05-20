@@ -1,44 +1,44 @@
 // Write admin controller code
-import { Request, response, Response } from 'express';
-import { AdminService } from '../service/admin.service';
 import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiParam,
-  ApiQuery,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-  Res,
-  UseGuards,
+    Body,
+    Controller,
+    Delete,
+    Get,
+    Param,
+    Patch,
+    Post,
+    Query,
+    Res,
+    UseGuards,
 } from '@nestjs/common';
-import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
-import { RolesGuard } from 'src/shared/guards';
-import { Roles } from 'src/shared/decorators/roles.decorator';
-import { Role, User } from '@prisma/client';
 import {
-  AllUserFilterDto,
-  BroadcastAnnouncementDto,
-  OrganizationCreditTopUpDto,
-  OrganizationFilterDto,
-  RevenueAnalyticsFilterDto,
-  SubscriptionTransactionFilterDto,
-  UpdateOrganizationDto,
-  UpdateSystemSettingsDto,
-  UserActivityLogFilterDto,
-} from '../dto/admin.dto';
-import { CurrentUser } from 'src/shared/decorators/user.decorator';
-import { ResponseUtil } from 'src/utils/responses';
+    ApiBearerAuth,
+    ApiOperation,
+    ApiParam,
+    ApiQuery,
+    ApiResponse,
+    ApiTags,
+} from '@nestjs/swagger';
+import { Role, User } from '@prisma/client';
+import { Response } from 'express';
+import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
 import { Public } from 'src/shared/decorators/public.decorator';
+import { Roles } from 'src/shared/decorators/roles.decorator';
+import { CurrentUser } from 'src/shared/decorators/user.decorator';
+import { RolesGuard } from 'src/shared/guards';
+import { ResponseUtil } from 'src/utils/responses';
+import {
+    AllUserFilterDto,
+    BroadcastAnnouncementDto,
+    OrganizationCreditTopUpDto,
+    OrganizationFilterDto,
+    RevenueAnalyticsFilterDto,
+    SubscriptionTransactionFilterDto,
+    UpdateOrganizationDto,
+    UpdateSystemSettingsDto,
+    UserActivityLogFilterDto,
+} from '../dto/admin.dto';
+import { AdminService } from '../service/admin.service';
 
 @ApiTags('Admin')
 @ApiBearerAuth()
@@ -510,14 +510,11 @@ export class AdminController {
     @Res() response: Response,
   ) {
     // Implement logic to retrieve organization subscription transaction history here
-    const metadata = {
-      ip: response.req.ip || '',
-      userAgent: response?.req?.headers['user-agent'] || 'unknown',
-    };
+ 
     const result = await this.adminService.getOrganizationSubscriptionHistory(
       user,
       query,
-      metadata,
+      
     );
     ResponseUtil.paginated(
       result.items,

@@ -12,7 +12,6 @@ import {
 } from '@prisma/client';
 import { NotificationManager } from '../inbox/service/notification-manager.service';
 import { SUBSCRIPTION_LIMITS } from 'src/shared/constant/subscription.constant';
-import { getDateKeyInTimezone } from 'src/shared/utils/timezone.util';
 
 @Injectable()
 export class SchedulerService {
@@ -29,15 +28,12 @@ export class SchedulerService {
     this.logger.log('Checking for expired pending bookings to auto-cancel...');
     try {
       const now = new Date();
-      const cancellationThreshold = new Date(now.getTime() + 10 * 60000);
       // 1. Fetch bookings that need cancellation
       const expiredBookings = await this.prisma.bookings.findMany({
         where: {
           status: BookingStatus.PENDING,
           start_time: {
             lt: now,
-            // lte: cancellationThreshold,
-            // gte: now
           },
         },
         include: { user: { select: { id: true, email: true, name: true } } },

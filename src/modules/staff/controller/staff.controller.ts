@@ -1,5 +1,5 @@
 // Write admin controller code
-import { Request, response, Response } from 'express';
+import { Response } from 'express';
 
 import {
   ApiBearerAuth,
@@ -27,12 +27,9 @@ import {
 import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
 import {
   ClientGuard,
-  RolesGuard,
-  SubscriptionGuard,
   UserVerificationGuard,
 } from 'src/shared/guards';
-import { Roles } from 'src/shared/decorators/roles.decorator';
-import { PlanType, Role, TransactionType, User } from '@prisma/client';
+import { PlanType,  TransactionType, User } from '@prisma/client';
 import {
   CurrentUser,
   CurrentUserType,
@@ -46,7 +43,6 @@ import {
 } from '../dto/staff.dto';
 import { ResponseUtil } from 'src/utils/responses';
 import { CreditLogsFilterDto, StaffFilterDto } from '../dto/staff-filter.dto';
-import { SubscriptionPlans } from 'src/shared/decorators/subscription.decorator';
 
 @ApiTags('Staff')
 @ApiBearerAuth()
@@ -252,7 +248,7 @@ export class StaffController {
   ) {
     // Implement logic to manage/assign credits to a staff member
     // This is a placeholder implementation and should be replaced with actual logic
-    const result = await this.staffService.manageSingleStaffCredits(
+    await this.staffService.manageSingleStaffCredits(
       id,
       manageCreditsDto,
       user,
@@ -290,7 +286,7 @@ export class StaffController {
   ) {
     // Implement logic to manage/assign credits to multiple staff members
     // This is a placeholder implementation and should be replaced with actual logic
-    const result = await this.staffService.manageMultipleStaffCredits(
+     await this.staffService.manageMultipleStaffCredits(
       manageCreditsDto,
       user,
       res,
@@ -332,7 +328,7 @@ export class StaffController {
   ) {
     // Implement logic to revoke credits from a staff member
     // This is a placeholder implementation and should be replaced with actual logic
-    const result = await this.staffService.revokeStaffCredits(
+    await this.staffService.revokeStaffCredits(
       id,
       manageCreditsDto,
       user,
@@ -383,9 +379,9 @@ export class StaffController {
     // Implement logic to get the staff credit logs history
     let report;
     if (user.plan_type === PlanType.FREE) {
-      report = await this.staffService.getStaffCreditLogsForFreeUser(user, res);
+      report = await this.staffService.getStaffCreditLogsForFreeUser(user);
     } else {
-      report = await this.staffService.getStaffCreditLogs(user, query, res);
+      report = await this.staffService.getStaffCreditLogs(user, query);
     }
 
     return ResponseUtil.paginated(

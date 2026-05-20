@@ -1,12 +1,12 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PlanType, Role, User } from '@prisma/client';
-import { PrismaService } from 'src/modules/prisma/prisma.service';
-import {
-  CreateOrganizationDto,
-  UpdateOrganizationDto,
-} from '../dto/organization.dto';
 import { Response } from 'express';
+import { PrismaService } from 'src/modules/prisma/prisma.service';
 import { SharedService } from 'src/shared/services/shared.service';
+import {
+    CreateOrganizationDto,
+    UpdateOrganizationDto,
+} from '../dto/organization.dto';
 
 @Injectable()
 export class OrganizationService {
@@ -163,7 +163,7 @@ export class OrganizationService {
     currentUser: User,
     id: string,
     clientId: string,
-    response: Response,
+
   ) {
     const targetedUserId = clientId || currentUser.id;
 

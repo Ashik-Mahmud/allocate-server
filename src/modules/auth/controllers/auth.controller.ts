@@ -1,48 +1,44 @@
 import {
-  Controller,
-  Post,
-  Body,
-  Get,
-  UseGuards,
-  Req,
-  Res,
-  HttpCode,
-  HttpStatus,
-  Query,
-  Patch,
+    Body,
+    Controller,
+    Get,
+    HttpCode,
+    HttpStatus,
+    Patch,
+    Post,
+    Query,
+    Req,
+    Res,
+    UseGuards,
 } from '@nestjs/common';
 import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-  ApiProperty,
-  ApiBody,
-  ApiOkResponse,
+    ApiBearerAuth,
+    ApiOperation,
+    ApiResponse,
+    ApiTags
 } from '@nestjs/swagger';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { User } from '@prisma/client';
 import { Request, Response } from 'express';
-import { AuthService } from '../services/auth.service';
-import {
-  RegisterDto,
-  LoginDto,
-  RefreshTokenDto,
-  ChangePasswordDto,
-  ForgotPasswordDto,
-  UpdateProfileDto,
-} from '../dto/AuthDTO';
-import { AuthGuard } from '../guards/auth.guard';
+import { ResponseMessage } from 'src/shared/decorators/response_message.decorator';
+import { CurrentUser } from 'src/shared/decorators/user.decorator';
 import { ResponseUtil } from '../../../utils/responses';
 import { AUTH_SUCCESS_MESSAGES } from '../constant/auth.constant';
-import { ResponseMessage } from 'src/shared/decorators/response_message.decorator';
-import { ZodResponse } from 'nestjs-zod';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
-import { CurrentUser } from 'src/shared/decorators/user.decorator';
-import { User } from '@prisma/client';
+import {
+    ChangePasswordDto,
+    ForgotPasswordDto,
+    LoginDto,
+    RefreshTokenDto,
+    RegisterDto,
+    UpdateProfileDto,
+} from '../dto/AuthDTO';
+import { AuthGuard } from '../guards/auth.guard';
+import { AuthService } from '../services/auth.service';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   // Write a minimum understandable comment for each method in this controller
 
@@ -204,7 +200,7 @@ export class AuthController {
   })
   async sendVerificationEmail(@CurrentUser() user: User, @Res() res: Response) {
     try {
-      await this.authService.sendVerificationEmail(user.email, user.name);
+      await this.authService.sendVerificationEmail(user.email);
       return ResponseUtil.success(
         { message: `Verification email sent to ${user.email}` },
         res,
@@ -252,7 +248,7 @@ export class AuthController {
   async logout(@Res() res: Response, @CurrentUser() user: User) {
     // In a real implementation, you might want to blacklist the token
     // For now, just return success
-    this.authService.logout(user, res);
+    await this.authService.logout(user, res);
     return ResponseUtil.success({ message: 'Logged out successfully' }, res);
   }
 }

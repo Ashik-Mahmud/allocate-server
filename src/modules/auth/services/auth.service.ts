@@ -1,33 +1,33 @@
 import {
-  Injectable,
-  ConflictException,
-  UnauthorizedException,
-  NotFoundException,
-  InternalServerErrorException,
+    ConflictException,
+    Injectable,
+    InternalServerErrorException,
+    NotFoundException,
+    UnauthorizedException,
 } from '@nestjs/common';
-import { JWTUtils, TokenPair } from '../utils/jwt';
-import { CryptoUtils } from '../utils/crypto';
 import {
-  RegisterDto,
-  LoginDto,
-  ChangePasswordDto,
-  UpdateProfileDto,
-} from '../dto/AuthDTO';
-import {
-  BookingStatus,
-  PaymentStatus,
-  PlanType,
-  Prisma,
-  Role,
-  TransactionType,
-  User,
+    BookingStatus,
+    PaymentStatus,
+    PlanType,
+    Prisma,
+    Role,
+    TransactionType,
+    User,
 } from '@prisma/client';
+import { Response } from 'express';
+import { EmailService } from 'src/modules/inbox/service/email.service';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import GLOBAL_CONFIG from 'src/shared/constant/global.constant';
-import { EmailService } from 'src/modules/inbox/service/email.service';
-import { v4 as uuidv4 } from 'uuid';
 import { SharedService } from 'src/shared/services/shared.service';
-import { Response } from 'express';
+import { v4 as uuidv4 } from 'uuid';
+import {
+    ChangePasswordDto,
+    LoginDto,
+    RegisterDto,
+    UpdateProfileDto,
+} from '../dto/AuthDTO';
+import { CryptoUtils } from '../utils/crypto';
+import { JWTUtils, TokenPair } from '../utils/jwt';
 
 @Injectable()
 export class AuthService {
@@ -188,7 +188,7 @@ export class AuthService {
         organizationName: user?.organization?.name,
       };
       await this.emailService.sendWelcomeEmail(user.email, user.name, metadata); // Send welcome email after registration
-      await this.sendVerificationEmail(user.email, user.name); // Send verification email after registration
+      await this.sendVerificationEmail(user.email); // Send verification email after registration
     } catch (error) {
       console.error('Failed to send welcome email:', error);
     }
@@ -321,8 +321,8 @@ export class AuthService {
         role: payload.role,
         orgId: payload.orgId || user.org_id || '', // Fallback to org ID from token or user record
       });
-    } catch (error) {
-      throw new UnauthorizedException('Invalid refresh token');
+    } catch (error: unknown) {
+      throw new UnauthorizedException('Invalid refresh token', (error as Error).message);
     }
   }
   //forgotPassword
@@ -337,10 +337,10 @@ export class AuthService {
     }
 
     // Generate reset token
-    const resetToken = JWTUtils.generateResetToken({
-      userId: user.id,
-      email: user.email,
-    });
+    // const resetToken = JWTUtils.generateResetToken({
+    //   userId: user.id,
+    //   email: user.email,
+    // });
 
     // TODO: Send email with reset token
 
@@ -534,7 +534,7 @@ export class AuthService {
   }
 
   // send verification email
-  async sendVerificationEmail(email: string, name: string): Promise<void> {
+  async sendVerificationEmail(email: string): Promise<void> {
     // Generate verification token
     try {
       const verificationToken = uuidv4();

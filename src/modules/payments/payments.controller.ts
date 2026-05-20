@@ -1,26 +1,26 @@
 import {
-  Body,
-  Controller,
-  Headers,
-  HttpCode,
-  Post,
-  Req,
-  Res,
-  UseGuards,
+    Body,
+    Controller,
+    Headers,
+    HttpCode,
+    Post,
+    Req,
+    Res,
+    UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { PaymentProvider, Role, User } from '@prisma/client';
+import { PaymentProvider, Role } from '@prisma/client';
+import { Request, Response } from 'express';
 import { Roles } from 'src/shared/decorators/roles.decorator';
-import { RolesGuard } from 'src/shared/guards';
-import { AuthGuard } from '../auth/guards/auth.guard';
-import { PaymentsService } from './payments.service';
-import { CreateCheckoutDto } from './payments.dto';
-import e, { Request, Response } from 'express';
 import {
-  CurrentUser,
-  CurrentUserType,
+    CurrentUser,
+    CurrentUserType,
 } from 'src/shared/decorators/user.decorator';
+import { RolesGuard } from 'src/shared/guards';
 import { ResponseUtil } from 'src/utils/responses';
+import { AuthGuard } from '../auth/guards/auth.guard';
+import { CreateCheckoutDto } from './payments.dto';
+import { PaymentsService } from './payments.service';
 
 @ApiTags('Payments')
 @ApiBearerAuth()
@@ -59,7 +59,7 @@ export class PaymentsController {
       return res.status(400).send('No signature found');
     }
     // Implement webhook handling logic here
-    const result = await this.paymentsService.handleStripeWebhook(
+    await this.paymentsService.handleStripeWebhook(
       signature,
       req,
     );

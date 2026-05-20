@@ -16,7 +16,6 @@ import {
   Prisma,
   Role,
   SaleInquiryStatus,
-  User,
 } from '@prisma/client';
 import { CurrentUserType } from 'src/shared/decorators/user.decorator';
 import { InboxService } from '../inbox/service/inbox.service';
@@ -112,7 +111,6 @@ export class SalesInquiryService {
   // Get all sales inquiries with filters and pagination
   async getAllInquiries(
     filters: SalesInquiryFiltersDto,
-    user: CurrentUserType,
   ) {
     const {
       status,
@@ -283,7 +281,7 @@ export class SalesInquiryService {
     const byTeamSize: any = {};
 
     allInquiries.forEach((inquiry) => {
-      const size = inquiry?.team_size! || 'Unknown';
+      const size = inquiry.team_size! || 'Unknown';
       byTeamSize[size] = (byTeamSize[size] || 0) + 1;
     });
 

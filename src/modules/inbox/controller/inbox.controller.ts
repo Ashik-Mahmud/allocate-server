@@ -1,37 +1,34 @@
 // Write admin controller code
-import { Request, response, Response } from 'express';
-
 import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiParam,
-  ApiQuery,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-  Res,
-  UseGuards,
+    Controller,
+    Delete,
+    Get,
+    Param,
+    Patch,
+    Post,
+    Query,
+    Res,
+    UseGuards
 } from '@nestjs/common';
-import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
-import { ClientGuard, RolesGuard } from 'src/shared/guards';
-import { Roles } from 'src/shared/decorators/roles.decorator';
-import { Role, User } from '@prisma/client';
 import {
-  CurrentUser,
-  CurrentUserType,
+    ApiBearerAuth,
+    ApiOperation,
+    ApiParam,
+    ApiQuery,
+    ApiResponse,
+    ApiTags,
+} from '@nestjs/swagger';
+import { User } from '@prisma/client';
+import { Response } from 'express';
+import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
+import {
+    CurrentUser,
+    CurrentUserType,
 } from 'src/shared/decorators/user.decorator';
+import { ClientGuard } from 'src/shared/guards';
+import { ResponseUtil } from 'src/utils/responses';
 import { InboxService } from '../service/inbox.service';
 import { NotificationManager } from '../service/notification-manager.service';
-import { ResponseUtil } from 'src/utils/responses';
 
 @ApiTags('Inbox')
 @ApiBearerAuth()

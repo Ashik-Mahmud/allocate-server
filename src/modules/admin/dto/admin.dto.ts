@@ -1,21 +1,8 @@
-/* model SystemSettings {
-  id                   String   @id @default("global_config")
-  maintenance_mode     Boolean  @default(false)
-  global_alert_message Json?
-  support_email        String?
-  features_flags       Json?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-
-  @@map("system_settings")
-}
- */
 
 // Write admin system setting dto using zod schema
-import { string, z } from 'zod';
-import { createZodDto } from 'nestjs-zod';
-import { meta } from 'zod/v4/core';
 import { PlanType, Role } from '@prisma/client';
+import { createZodDto } from 'nestjs-zod';
+import { z } from 'zod';
 
 export const UpdateSystemSettingsDtoSchema = z.object({
   maintenance_mode: z.boolean().optional(),

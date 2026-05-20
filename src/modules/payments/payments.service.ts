@@ -1,33 +1,31 @@
 import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
+    BadRequestException,
+    Injectable,
+    NotFoundException,
 } from '@nestjs/common';
-import { CreateCheckoutDto } from './payments.dto';
-import { CurrentUserType } from 'src/shared/decorators/user.decorator';
 import {
-  FREE_TRIAL_DAYS,
-  SUBSCRIPTION_LIMITS,
-  SUBSCRIPTION_PRICING,
-} from 'src/shared/constant/subscription.constant';
-import {
-  NotificationType,
-  PaymentProvider,
-  PaymentStatus,
-  PlanType,
-  Role,
-  TransactionType,
+    NotificationType,
+    PaymentProvider,
+    PaymentStatus,
+    PlanType,
+    Role,
+    TransactionType,
 } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-const Stripe = require('stripe');
-const SSLCommerzPayment = require('sslcommerz-lts');
-import { env } from 'src/shared/config/env';
 import { Request } from 'express';
+import { env } from 'src/shared/config/env';
+import { sslCommerzConfig } from 'src/shared/config/ssl-commerz';
+import {
+    FREE_TRIAL_DAYS,
+    SUBSCRIPTION_LIMITS,
+    SUBSCRIPTION_PRICING,
+} from 'src/shared/constant/subscription.constant';
+import { CurrentUserType } from 'src/shared/decorators/user.decorator';
 import { SharedService } from 'src/shared/services/shared.service';
 import { NotificationManager } from '../inbox/service/notification-manager.service';
-import { fail } from 'assert';
-import { isValid } from 'zod/v3';
-import { sslCommerzConfig } from 'src/shared/config/ssl-commerz';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateCheckoutDto } from './payments.dto';
+const Stripe = require('stripe');
+const SSLCommerzPayment = require('sslcommerz-lts');
 @Injectable()
 export class PaymentsService {
   private stripe: typeof Stripe;
@@ -319,7 +317,6 @@ export class PaymentsService {
     // Implement SSLCOMMERZ session creation logic here
     const transactionId = `SSLC_${Date.now()}_${user.id.slice(-5)}`;
     const { planType, months, currency = 'USD' } = dto;
-    const userId = user.id;
 
     // 1. Get the base price for the selected plan and currency
     const pricing = SUBSCRIPTION_PRICING[planType ?? PlanType.PRO][currency];
@@ -394,7 +391,6 @@ export class PaymentsService {
     // Implement logic to handle SSLCommerz IPN events here
     const {
       tran_id,
-      status,
       val_id,
       amount,
       value_a,
@@ -427,7 +423,7 @@ export class PaymentsService {
       return { received: true, error: 'Session already processed' };
     }
 
-    const result = await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx) => {
       const organization = await tx.organizations.findFirst({
         where: { id: org_id },
         select: {
@@ -659,6 +655,7 @@ export class PaymentsService {
       }
       return parseFloat((amount / 120).toFixed(2));
     } catch (error) {
+      console.error('Currency Conversion Error:', error);
       return parseFloat((amount / 120).toFixed(2));
     }
   }

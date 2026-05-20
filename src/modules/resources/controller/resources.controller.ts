@@ -1,50 +1,49 @@
 import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-  Res,
-  UseGuards,
+    Body,
+    Controller,
+    Delete,
+    Get,
+    Param,
+    Patch,
+    Post,
+    Query,
+    Res,
+    UseGuards,
 } from '@nestjs/common';
 import {
-  ApiTags,
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse,
-  ApiQuery,
+    ApiBearerAuth,
+    ApiOperation,
+    ApiQuery,
+    ApiResponse,
+    ApiTags,
 } from '@nestjs/swagger';
+import { PlanType, Resources, Role, User } from '@prisma/client';
+import { Response } from 'express';
 import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
-import {
-  ClientGuard,
-  RolesGuard,
-  SubscriptionGuard,
-  UserVerificationGuard,
-} from 'src/shared/guards';
 import { Roles } from 'src/shared/decorators/roles.decorator';
+import { SubscriptionPlans } from 'src/shared/decorators/subscription.decorator';
+import { CurrentUser } from 'src/shared/decorators/user.decorator';
 import {
-  ApiResponse as myApiResponse,
-  PaginatedResponse,
-  ResponseUtil,
+    ClientGuard,
+    RolesGuard,
+    SubscriptionGuard,
+    UserVerificationGuard,
+} from 'src/shared/guards';
+import {
+    ApiResponse as myApiResponse,
+    PaginatedResponse,
+    ResponseUtil,
 } from 'src/utils/responses';
 import {
-  CreateResourceDto,
-  UpdateResourceDto,
-  ListResourcesQueryDto,
-} from '../dto/resources.dto';
-import { Response } from 'express';
-import { PlanType, Resources, Role, User } from '@prisma/client';
-import { CurrentUser } from 'src/shared/decorators/user.decorator';
-import { ResourcesService } from '../services/resources.service';
-import { SubscriptionPlans } from 'src/shared/decorators/subscription.decorator';
-import {
-  CreateResourceRuleDto,
-  UpdateResourceRuleDto,
+    UpdateResourceRuleDto
 } from '../dto/resources-rule.dto';
+import {
+    CreateResourceDto,
+    ListResourcesQueryDto,
+    UpdateResourceDto,
+} from '../dto/resources.dto';
 import { ResourcesRuleService } from '../services/resources-rule.service';
+import { ResourcesService } from '../services/resources.service';
 
 @ApiTags('Resources')
 @ApiBearerAuth()

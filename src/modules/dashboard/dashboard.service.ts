@@ -1,25 +1,25 @@
 import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
+    BadRequestException,
+    ForbiddenException,
+    Injectable,
 } from '@nestjs/common';
 import {
-  BookingStatus,
-  PaymentStatus,
-  PlanType,
-  Role,
-  TransactionType,
-  User,
+    BookingStatus,
+    PaymentStatus,
+    PlanType,
+    Role,
+    TransactionType,
+    User,
 } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
-import { buildPlanDistribution, buildRevenueTrend } from './dashboard.utils';
-import {
-  getDateKeyInTimezone,
-  getStartOfDayUtc,
-  getWeekKeyInTimezone,
-  resolveUserTimezone,
-} from 'src/shared/utils/timezone.util';
 import { CurrentUserType } from 'src/shared/decorators/user.decorator';
+import {
+    getDateKeyInTimezone,
+    getStartOfDayUtc,
+    getWeekKeyInTimezone,
+    resolveUserTimezone,
+} from 'src/shared/utils/timezone.util';
+import { buildPlanDistribution, buildRevenueTrend } from './dashboard.utils';
 
 @Injectable()
 export class DashboardService {
@@ -246,7 +246,6 @@ export class DashboardService {
       lowCreditUsers,
       allBookingsCount,
       upcomingBookingsCount,
-      cancelledBookingsCount,
       activeStaffThisMonth,
       bookingStatusDistribution,
       resourceUsage,
@@ -322,14 +321,7 @@ export class DashboardService {
           status: BookingStatus.PENDING,
         },
       }),
-      // cancelled bookings
-      this.prisma.bookings.count({
-        where: {
-          org_id: orgId,
-          deletedAt: null,
-          status: BookingStatus.CANCELLED,
-        },
-      }),
+     
       // active staff this month
       this.prisma.bookings.groupBy({
         by: ['user_id'],
@@ -815,7 +807,6 @@ export class DashboardService {
       newSignups7,
       newSignups30,
       expiringSubscriptions,
-      activeOrgIdsByActivity,
       errorLogs,
       failedTransactions,
     ] = await Promise.all([
@@ -916,12 +907,7 @@ export class DashboardService {
         },
         orderBy: { end_date: 'asc' },
       }),
-      // activeOrgIdsByActivity
-      this.prisma.activityLog.findMany({
-        where: { createdAt: { gte: thirtyDaysAgo } },
-        select: { org_id: true },
-        distinct: ['org_id'],
-      }),
+  
       // errorLogs
       this.prisma.activityLog.findMany({
         where: {

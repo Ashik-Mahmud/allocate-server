@@ -1,30 +1,27 @@
 import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
+    ForbiddenException,
+    Injectable,
+    NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { NotificationManager } from '../inbox/service/notification-manager.service';
 import {
-  CommunityPostFilterDto,
-  CreateCommunityPostCommentDto,
-  CreatePostCommunityDto,
-  UpdatePostCommunityDto,
-} from './community.dto';
-import { CurrentUserType } from 'src/shared/decorators/user.decorator';
-import {
-  CommunityHubPostType,
-  CommunityHubStatus,
-  NotificationType,
-  Prisma,
-  Role,
+    CommunityHubStatus,
+    Prisma,
+    Role
 } from '@prisma/client';
+import { CurrentUserType } from 'src/shared/decorators/user.decorator';
 import { SharedService } from 'src/shared/services/shared.service';
-import { email } from 'zod';
-import { checkCommunityTrial } from './community.util';
-import { CommunityRealtimeService } from './community-realtime.service';
+import { NotificationManager } from '../inbox/service/notification-manager.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { CommunityRealtimeGateway } from './community-realtime.gateway';
+import { CommunityRealtimeService } from './community-realtime.service';
+import {
+    CommunityPostFilterDto,
+    CreateCommunityPostCommentDto,
+    CreatePostCommunityDto,
+    UpdatePostCommunityDto,
+} from './community.dto';
 import { TPostComment } from './community.interface';
+import { checkCommunityTrial } from './community.util';
 
 @Injectable()
 export class CommunityService {
