@@ -9,7 +9,7 @@ import { Role } from '@prisma/client';
 /**
  * ClientGuard - Restricts access to ORG_ADMIN role only
  * Used for client-specific actions like organization management
- * 
+ *
  * @decorator @UseGuards(ClientGuard)
  * @note Requires AuthGuard to be applied first
  */
@@ -24,7 +24,9 @@ export class ClientGuard implements CanActivate {
     }
 
     if (user.role !== Role.ORG_ADMIN) {
-      throw new ForbiddenException('This action is only available for ORG_ADMIN users');
+      throw new ForbiddenException(
+        'This action is only available for ORG_ADMIN users',
+      );
     }
 
     return true;

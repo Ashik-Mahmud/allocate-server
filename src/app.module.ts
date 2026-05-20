@@ -3,7 +3,6 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
-import { ca } from 'zod/v4/locales';
 import { APP_FILTER, APP_PIPE } from '@nestjs/core';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { ThrottlerModule } from '@nestjs/throttler';
@@ -63,15 +62,9 @@ import { CommunityModule } from './modules/community/community.module';
       useClass: ErrorHandler,
     },
     SharedService,
-
   ],
 })
 export class AppModule {
-
   // console log to check if the module is loaded
-  constructor() {
-
-  }
-
-
+  constructor() {}
 }

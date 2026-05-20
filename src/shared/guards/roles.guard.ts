@@ -10,14 +10,14 @@ import { Role } from '@prisma/client';
 /**
  * RolesGuard - Flexible role-based access control using @Roles decorator
  * Allows multiple roles and admin override
- * 
+ *
  * @usage @UseGuards(RolesGuard) @Roles('ORG_ADMIN', 'STAFF')
  * @note Requires AuthGuard to be applied first
  * @note ADMIN role automatically has access to all endpoints
  */
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private reflector: Reflector) { }
+  constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
     const requiredRoles = this.reflector.get<Role[]>(

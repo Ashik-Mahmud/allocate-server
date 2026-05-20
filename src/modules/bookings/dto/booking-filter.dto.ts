@@ -1,34 +1,37 @@
-
 // Using Zod for validation
+import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
-import { createZodDto } from "nestjs-zod"
-import { start } from 'repl';
 
 // DTO for listing/searching resources with pagination
 export const MyBookingsHistoryQuerySchema = z.object({
-    page: z.coerce.number().min(1, 'Page must be at least 1').default(1),
-    limit: z.coerce.number().min(1, 'Limit must be at least 1').max(100, 'Limit cannot exceed 100').default(10),
-    search: z.string().optional(),
-    status: z.enum(['PENDING', 'CONFIRMED', 'REJECTED', 'CANCELLED', 'COMPLETED']).optional(),
+  page: z.coerce.number().min(1, 'Page must be at least 1').default(1),
+  limit: z.coerce
+    .number()
+    .min(1, 'Limit must be at least 1')
+    .max(100, 'Limit cannot exceed 100')
+    .default(10),
+  search: z.string().optional(),
+  status: z
+    .enum(['PENDING', 'CONFIRMED', 'REJECTED', 'CANCELLED', 'COMPLETED'])
+    .optional(),
 });
-
 
 export const AllBookingsQuerySchema = MyBookingsHistoryQuerySchema.extend({
-    userId: z.string().optional(),
-    resourceId: z.string().optional(),
-    dateRange: z.string().optional(), // e.g. "2024-01-01 to 2024-01-07"
+  userId: z.string().optional(),
+  resourceId: z.string().optional(),
+  dateRange: z.string().optional(), // e.g. "2024-01-01 to 2024-01-07"
 });
-
 
 export const BookingStatsQuerySchema = z.object({
-    startDate: z.string().optional(), // e.g. "2024-01-01"
-    endDate: z.string().optional(),   // e.g. "2024-01-31"
-    groupBy: z.enum(['day', 'week', 'month']).default('day'),
+  startDate: z.string().optional(), // e.g. "2024-01-01"
+  endDate: z.string().optional(), // e.g. "2024-01-31"
+  groupBy: z.enum(['day', 'week', 'month']).default('day'),
 });
 
-
-
-
-export class MyBookingsHistoryQueryDto extends createZodDto(MyBookingsHistoryQuerySchema) { }
-export class AllBookingsQueryDto extends createZodDto(AllBookingsQuerySchema) { }
-export class BookingStatsQueryDto extends createZodDto(BookingStatsQuerySchema) { }
+export class MyBookingsHistoryQueryDto extends createZodDto(
+  MyBookingsHistoryQuerySchema,
+) {}
+export class AllBookingsQueryDto extends createZodDto(AllBookingsQuerySchema) {}
+export class BookingStatsQueryDto extends createZodDto(
+  BookingStatsQuerySchema,
+) {}

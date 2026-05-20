@@ -1,23 +1,26 @@
-import { Injectable, NestMiddleware, UnauthorizedException, ForbiddenException } from '@nestjs/common';
-import { Request, Response, NextFunction } from 'express';
-import { JWTUtils, JWTPayload } from '../utils/jwt';
+import {
+    ForbiddenException,
+    Injectable,
+    NestMiddleware,
+    UnauthorizedException,
+} from '@nestjs/common';
+import { NextFunction, Request, Response } from 'express';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
+import { JWTUtils } from '../utils/jwt';
 
-declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        id: string;
-        email: string;
-        role: string;
-      };
-    }
+declare module 'express' {
+  interface Request {
+    user?: {
+      id: string;
+      email: string;
+      role: string;
+    };
   }
 }
 
 @Injectable()
 export class AuthMiddleware implements NestMiddleware {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async use(req: Request, res: Response, next: NextFunction) {
     const token = JWTUtils.extractToken(req.headers.authorization);
@@ -36,7 +39,7 @@ export class AuthMiddleware implements NestMiddleware {
       // Verify user still exists and is active
       const user = await this.prisma.user.findUnique({
         where: { id: payload.userId },
-        select: { id: true, email: true, role: true, deletedAt: true, },
+        select: { id: true, email: true, role: true, deletedAt: true },
       });
 
       if (!user || user.deletedAt) {
@@ -51,6 +54,7 @@ export class AuthMiddleware implements NestMiddleware {
 
       next();
     } catch (error) {
+      console.error('Auth error:', error);
       throw new UnauthorizedException('Invalid token');
     }
   }
@@ -72,7 +76,7 @@ export function authorize(...allowedRoles: string[]) {
 
 @Injectable()
 export class OptionalAuthMiddleware implements NestMiddleware {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async use(req: Request, res: Response, next: NextFunction) {
     const token = JWTUtils.extractToken(req.headers.authorization);
@@ -97,6 +101,7 @@ export class OptionalAuthMiddleware implements NestMiddleware {
         }
       } catch (error) {
         // Ignore auth errors for optional auth
+        console.error('Optional auth error:', error);
       }
     }
 

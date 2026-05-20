@@ -27,9 +27,17 @@ export class JWTUtils {
 
     const accessOptions = { expiresIn: env.JWT_ACCESS_EXPIRES_IN };
     const refreshOptions = { expiresIn: env.JWT_REFRESH_EXPIRES_IN };
-    const accessToken = jwt.sign(accessPayload, env.JWT_SECRET as string, accessOptions as any);
+    const accessToken = jwt.sign(
+      accessPayload,
+      env.JWT_SECRET,
+      accessOptions as any,
+    );
 
-    const refreshToken = jwt.sign(refreshPayload, env.JWT_SECRET as string, refreshOptions as any);
+    const refreshToken = jwt.sign(
+      refreshPayload,
+      env.JWT_SECRET,
+      refreshOptions as any,
+    );
 
     return { accessToken, refreshToken };
   }
@@ -38,7 +46,11 @@ export class JWTUtils {
   static generateResetToken(payload: Omit<JWTPayloadReset, 'type'>): string {
     const resetPayload: JWTPayloadReset = { ...payload, type: 'reset' };
     const resetOptions = { expiresIn: env.RESET_PASSWORD_TOKEN_ENPIRES_IN };
-    const resetToken = jwt.sign(resetPayload, env.JWT_SECRET as string, resetOptions as any);
+    const resetToken = jwt.sign(
+      resetPayload,
+      env.JWT_SECRET,
+      resetOptions as any,
+    );
     return resetToken;
   }
 
@@ -47,10 +59,9 @@ export class JWTUtils {
       const decoded = jwt.verify(token, env.JWT_SECRET) as JWTPayload;
       return decoded;
     } catch (error) {
-      throw new Error('Invalid token');
+      throw new Error('Invalid token' + (error instanceof Error ? error.message : ''));
     }
   }
-
 
   static extractToken(authHeader: string | undefined): string | null {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

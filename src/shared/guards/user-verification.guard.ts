@@ -6,6 +6,8 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
+import { CurrentUserType } from '../decorators/user.decorator';
+import { User } from '@prisma/client';
 
 /**
  * UserVerificationGuard - Ensures authenticated user has verified account.
@@ -19,7 +21,7 @@ export class UserVerificationGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const user = request.user;
+    const user = request.user as (User & CurrentUserType) | undefined;
 
     if (!user?.id) {
       throw new UnauthorizedException('User not authenticated');

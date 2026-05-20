@@ -1,6 +1,6 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { env } from 'src/shared/config/env';
 
@@ -17,7 +17,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
     await this.$connect();
   }
 
-  async enableShutdownHooks(app: any) {
+  async enableShutdownHooks() {
     // Prisma 7 doesn't support $on('beforeExit') in the same way
     // This method is kept for compatibility
   }

@@ -1,91 +1,99 @@
 export interface EmailTemplate {
-    subject: string;
-    htmlContent: string;
+  subject: string;
+  htmlContent: string;
 }
 
 interface BaseTemplateOptions {
-    appName?: string;
-    appUrl?: string;
-    supportEmail?: string;
-    metadata?: Record<string, any>;
+  appName?: string;
+  appUrl?: string;
+  supportEmail?: string;
+  metadata?: Record<string, any>;
 }
 
 interface WelcomeEmailOptions extends BaseTemplateOptions {
-    name: string;
-    email: string;
-
+  name: string;
+  email: string;
 }
 
 interface StaffInviteEmailOptions extends BaseTemplateOptions {
-    staffName: string;
-    staffEmail: string;
-    tempPassword: string;
-    webAppLink: string;
-    organizationName?: string;
-    invitedBy?: string;
+  staffName: string;
+  staffEmail: string;
+  tempPassword: string;
+  webAppLink: string;
+  organizationName?: string;
+  invitedBy?: string;
 }
 
 interface ForgotPasswordEmailOptions extends BaseTemplateOptions {
-    name: string;
-    resetUrl: string;
-    expiresInMinutes?: number;
+  name: string;
+  resetUrl: string;
+  expiresInMinutes?: number;
 }
 
 interface VerifyOtpEmailOptions extends BaseTemplateOptions {
-    name: string;
-    otp: string;
-    expiresInMinutes?: number;
+  name: string;
+  otp: string;
+  expiresInMinutes?: number;
 }
 
 interface VerifyEmailOptions extends BaseTemplateOptions {
-    name: string;
-    verifyUrl: string;
-    expiresInMinutes?: number;
-    email: string;
+  name: string;
+  verifyUrl: string;
+  expiresInMinutes?: number;
+  email: string;
 }
 
 interface PasswordChangedOptions extends BaseTemplateOptions {
-    name: string;
-    changedAt?: string;
+  name: string;
+  changedAt?: string;
 }
 
 interface AccountLockedOptions extends BaseTemplateOptions {
-    name: string;
-    unlockAt?: string;
+  name: string;
+  unlockAt?: string;
 }
 
 interface AnnouncementOptions extends BaseTemplateOptions {
-    heading?: string;
-    name: string;
-    title: string;
-    message: string;
-    ctaLabel?: string;
-    ctaUrl?: string;
+  heading?: string;
+  name: string;
+  title: string;
+  message: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
 }
 
 const defaultTemplateOptions: Required<BaseTemplateOptions> = {
-    appName: 'Allocate',
-    appUrl: process.env.WEB_APP_LINK || '#',
-    supportEmail: process.env.SUPPORT_EMAIL || process.env.SENDER_EMAIL || 'support@example.com',
-    metadata: {},
+  appName: 'Allocate',
+  appUrl: process.env.WEB_APP_LINK || '#',
+  supportEmail:
+    process.env.SUPPORT_EMAIL ||
+    process.env.SENDER_EMAIL ||
+    'support@example.com',
+  metadata: {},
 };
 
-const withDefaults = <T extends BaseTemplateOptions>(options: T): Required<BaseTemplateOptions> & T => ({
-    ...defaultTemplateOptions,
-    ...options,
+const withDefaults = <T extends BaseTemplateOptions>(
+  options: T,
+): Required<BaseTemplateOptions> & T => ({
+  ...defaultTemplateOptions,
+  ...options,
 });
 
 // Simple HTML escaping to prevent injection in email templates
 const escapeHtml = (value: string): string =>
-    value?.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;');
+  value
+    ?.replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/'/g, '&#39;');
 
 const buildLayout = (
-    options: Required<BaseTemplateOptions>,
-    heading: string,
-    intro: string,
-    bodyHtml: string,
+  options: Required<BaseTemplateOptions>,
+  heading: string,
+  intro: string,
+  bodyHtml: string,
 ): string => {
-    return `
+  return `
   <div style="margin:0;padding:24px;background:#f4f7fb;font-family:Arial,Helvetica,sans-serif;color:#13202f;">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e7edf6;">
       <tr>
@@ -111,20 +119,21 @@ const buildLayout = (
   </div>`;
 };
 
+export const buildWelcomeEmailTemplate = (
+  rawOptions: WelcomeEmailOptions,
+): EmailTemplate => {
+  // Default values fallback
+  const options = withDefaults(rawOptions);
+  const appName = options.appName;
+  const appUrl = options.appUrl;
+  const credits = options.metadata?.initialCredits ?? 100;
+  const orgText = options.metadata?.organizationName
+    ? ` workspace for ${options.metadata.organizationName}`
+    : '';
 
+  const subject = `Welcome to ${appName}, ${rawOptions.name}! ✨`;
 
-
-export const buildWelcomeEmailTemplate = (rawOptions: WelcomeEmailOptions): EmailTemplate => {
-    // Default values fallback
-    const options = withDefaults(rawOptions);
-    const appName = options.appName;
-    const appUrl = options.appUrl;
-    const credits = options.metadata?.initialCredits ?? 100;
-    const orgText = options.metadata?.organizationName ? ` workspace for ${options.metadata.organizationName}` : '';
-
-    const subject = `Welcome to ${appName}, ${rawOptions.name}! ✨`;
-
-    const htmlContent = `
+  const htmlContent = `
     <!DOCTYPE html>
     <html>
     <head>
@@ -220,18 +229,20 @@ export const buildWelcomeEmailTemplate = (rawOptions: WelcomeEmailOptions): Emai
     </html>
     `;
 
-    return { subject, htmlContent };
+  return { subject, htmlContent };
 };
 
-export const buildStaffInviteEmailTemplate = (rawOptions: StaffInviteEmailOptions): EmailTemplate => {
-    const options = withDefaults(rawOptions);
-    const subject = `You are invited to join ${rawOptions.organizationName || options.appName}`;
+export const buildStaffInviteEmailTemplate = (
+  rawOptions: StaffInviteEmailOptions,
+): EmailTemplate => {
+  const options = withDefaults(rawOptions);
+  const subject = `You are invited to join ${rawOptions.organizationName || options.appName}`;
 
-    const htmlContent = buildLayout(
-        options,
-        'Staff invitation',
-        `Hi ${escapeHtml(rawOptions.staffName)}, you have been invited to join ${escapeHtml(rawOptions.organizationName || options.appName)}.`,
-        `
+  const htmlContent = buildLayout(
+    options,
+    'Staff invitation',
+    `Hi ${escapeHtml(rawOptions.staffName)}, you have been invited to join ${escapeHtml(rawOptions.organizationName || options.appName)}.`,
+    `
       <p style="margin:0 0 8px;font-size:15px;line-height:1.7;">Use the credentials below to sign in:</p>
       <p style="margin:0 0 2px;font-size:14px;"><strong>Email:</strong> ${escapeHtml(rawOptions.staffEmail)}</p>
       <p style="margin:0 0 16px;font-size:14px;"><strong>Temporary password:</strong> ${escapeHtml(rawOptions.tempPassword)}</p>
@@ -239,56 +250,62 @@ export const buildStaffInviteEmailTemplate = (rawOptions: StaffInviteEmailOption
       <a href="${escapeHtml(rawOptions.webAppLink)}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#173b7a;color:#ffffff;text-decoration:none;font-weight:600;">Open workspace</a>
       <p style="margin:14px 0 0;font-size:13px;color:#5c6d82;">For security, change your password after first login.</p>
     `,
-    );
+  );
 
-    return { subject, htmlContent };
+  return { subject, htmlContent };
 };
 
-export const buildForgotPasswordEmailTemplate = (rawOptions: ForgotPasswordEmailOptions): EmailTemplate => {
-    const options = withDefaults(rawOptions);
-    const expiresInMinutes = rawOptions.expiresInMinutes ?? 15;
-    const subject = `Reset your ${options.appName} password`;
+export const buildForgotPasswordEmailTemplate = (
+  rawOptions: ForgotPasswordEmailOptions,
+): EmailTemplate => {
+  const options = withDefaults(rawOptions);
+  const expiresInMinutes = rawOptions.expiresInMinutes ?? 15;
+  const subject = `Reset your ${options.appName} password`;
 
-    const htmlContent = buildLayout(
-        options,
-        'Password reset request',
-        `Hi ${escapeHtml(rawOptions.name)}, we received a request to reset your password.`,
-        `
+  const htmlContent = buildLayout(
+    options,
+    'Password reset request',
+    `Hi ${escapeHtml(rawOptions.name)}, we received a request to reset your password.`,
+    `
       <a href="${escapeHtml(rawOptions.resetUrl)}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#173b7a;color:#ffffff;text-decoration:none;font-weight:600;">Reset password</a>
       <p style="margin:14px 0 0;font-size:13px;color:#5c6d82;">This link expires in ${expiresInMinutes} minutes.</p>
       <p style="margin:8px 0 0;font-size:13px;color:#5c6d82;">If you did not request this, you can safely ignore this email.</p>
     `,
-    );
+  );
 
-    return { subject, htmlContent };
+  return { subject, htmlContent };
 };
 
-export const buildVerifyOtpEmailTemplate = (rawOptions: VerifyOtpEmailOptions): EmailTemplate => {
-    const options = withDefaults(rawOptions);
-    const expiresInMinutes = rawOptions.expiresInMinutes ?? 5;
-    const subject = `${options.appName} verification code`;
+export const buildVerifyOtpEmailTemplate = (
+  rawOptions: VerifyOtpEmailOptions,
+): EmailTemplate => {
+  const options = withDefaults(rawOptions);
+  const expiresInMinutes = rawOptions.expiresInMinutes ?? 5;
+  const subject = `${options.appName} verification code`;
 
-    const htmlContent = buildLayout(
-        options,
-        'Verify your action',
-        `Hi ${escapeHtml(rawOptions.name)}, use this one-time code to continue:`,
-        `
+  const htmlContent = buildLayout(
+    options,
+    'Verify your action',
+    `Hi ${escapeHtml(rawOptions.name)}, use this one-time code to continue:`,
+    `
       <p style="margin:10px 0 12px;font-size:30px;font-weight:700;letter-spacing:8px;color:#173b7a;">${escapeHtml(rawOptions.otp)}</p>
       <p style="margin:0;font-size:13px;color:#5c6d82;">This code expires in ${expiresInMinutes} minutes.</p>
     `,
-    );
+  );
 
-    return { subject, htmlContent };
+  return { subject, htmlContent };
 };
 
-export const buildVerifyEmailTemplate = (rawOptions: VerifyEmailOptions): EmailTemplate => {
-    const appName = rawOptions.appName || 'Allocate';
-    const verifyUrl = rawOptions.verifyUrl;
-    const expiresInMinutes = rawOptions.expiresInMinutes ?? 60;
+export const buildVerifyEmailTemplate = (
+  rawOptions: VerifyEmailOptions,
+): EmailTemplate => {
+  const appName = rawOptions.appName || 'Allocate';
+  const verifyUrl = rawOptions.verifyUrl;
+  const expiresInMinutes = rawOptions.expiresInMinutes ?? 60;
 
-    const subject = `Verify your ${appName} account 🔐`;
+  const subject = `Verify your ${appName} account 🔐`;
 
-    const htmlContent = `
+  const htmlContent = `
     <!DOCTYPE html>
     <html>
     <head>
@@ -372,89 +389,97 @@ export const buildVerifyEmailTemplate = (rawOptions: VerifyEmailOptions): EmailT
     </html>
     `;
 
-    return { subject, htmlContent };
+  return { subject, htmlContent };
 };
 
-export const buildPasswordChangedEmailTemplate = (rawOptions: PasswordChangedOptions): EmailTemplate => {
-    const options = withDefaults(rawOptions);
-    const changedAt = rawOptions.changedAt || new Date().toISOString();
-    const subject = `${options.appName} password changed`;
+export const buildPasswordChangedEmailTemplate = (
+  rawOptions: PasswordChangedOptions,
+): EmailTemplate => {
+  const options = withDefaults(rawOptions);
+  const changedAt = rawOptions.changedAt || new Date().toISOString();
+  const subject = `${options.appName} password changed`;
 
-    const htmlContent = buildLayout(
-        options,
-        'Password updated',
-        `Hi ${escapeHtml(rawOptions.name)}, your password was changed successfully.`,
-        `
+  const htmlContent = buildLayout(
+    options,
+    'Password updated',
+    `Hi ${escapeHtml(rawOptions.name)}, your password was changed successfully.`,
+    `
       <p style="margin:0 0 10px;font-size:14px;">Changed at: ${escapeHtml(changedAt)}</p>
       <p style="margin:0;font-size:13px;color:#5c6d82;">If you did not perform this action, contact support immediately.</p>
     `,
-    );
+  );
 
-    return { subject, htmlContent };
+  return { subject, htmlContent };
 };
 
-export const buildAccountLockedEmailTemplate = (rawOptions: AccountLockedOptions): EmailTemplate => {
-    const options = withDefaults(rawOptions);
-    const subject = `${options.appName} account security alert`;
+export const buildAccountLockedEmailTemplate = (
+  rawOptions: AccountLockedOptions,
+): EmailTemplate => {
+  const options = withDefaults(rawOptions);
+  const subject = `${options.appName} account security alert`;
 
-    const htmlContent = buildLayout(
-        options,
-        'Account temporarily locked',
-        `Hi ${escapeHtml(rawOptions.name)}, your account has been temporarily locked due to multiple failed login attempts.`,
-        `
+  const htmlContent = buildLayout(
+    options,
+    'Account temporarily locked',
+    `Hi ${escapeHtml(rawOptions.name)}, your account has been temporarily locked due to multiple failed login attempts.`,
+    `
       <p style="margin:0 0 10px;font-size:14px;">${rawOptions.unlockAt ? `Expected unlock time: ${escapeHtml(rawOptions.unlockAt)}` : 'Please wait a few minutes before trying again.'}</p>
       <p style="margin:0;font-size:13px;color:#5c6d82;">If this was not you, reset your password right away.</p>
     `,
-    );
+  );
 
-    return { subject, htmlContent };
+  return { subject, htmlContent };
 };
 
+export const buildAnnouncementEmailTemplate = (
+  rawOptions: AnnouncementOptions,
+): EmailTemplate => {
+  const options = withDefaults(rawOptions);
+  const subject = rawOptions.title;
 
-
-export const buildAnnouncementEmailTemplate = (rawOptions: AnnouncementOptions): EmailTemplate => {
-    const options = withDefaults(rawOptions);
-    const subject = rawOptions.title;
-
-    const htmlContent = buildLayout(
-        options,
-        rawOptions.heading || 'New announcement',
-        `Hi ${escapeHtml(rawOptions.name)}, here is an update for you:`,
-        `
+  const htmlContent = buildLayout(
+    options,
+    rawOptions.heading || 'New announcement',
+    `Hi ${escapeHtml(rawOptions.name)}, here is an update for you:`,
+    `
       <h2 style="margin:0 0 10px;font-size:20px;color:#13202f;">${escapeHtml(rawOptions.title)}</h2>
       <p style="margin:0 0 14px;font-size:14px;line-height:1.7;">${escapeHtml(rawOptions.message)}</p>
       ${rawOptions.ctaUrl ? `<a href="${escapeHtml(rawOptions.ctaUrl)}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#173b7a;color:#ffffff;text-decoration:none;font-weight:600;">${escapeHtml(rawOptions.ctaLabel || 'View update')}</a>` : ''}
     `,
-    );
+  );
 
-    return { subject, htmlContent };
+  return { subject, htmlContent };
 };
 
+export const buildUpgradePlanEmailTemplate = (
+  rawOptions: AnnouncementOptions,
+): EmailTemplate => {
+  const options = withDefaults(rawOptions);
+  const subject = `Boost your workflow with Pro Features! ✨`;
+  const billingUrl = `${options.appUrl}/dashboard/billing`;
+  const frozenCredits = options.metadata?.frozenCredits ?? 0;
 
-
-export const buildUpgradePlanEmailTemplate = (rawOptions: AnnouncementOptions): EmailTemplate => {
-    const options = withDefaults(rawOptions);
-    const subject = `Boost your workflow with Pro Features! ✨`;
-    const billingUrl = `${options.appUrl}/dashboard/billing`;
-    const frozenCredits = options.metadata?.frozenCredits ?? 0;
-
-    const htmlContent = buildLayout(
-        options,
-        'Upgrade to Pro Plan',
-        `Elevate ${options?.metadata?.orgName} with Pro Features`,
-        `
+  const htmlContent = buildLayout(
+    options,
+    'Upgrade to Pro Plan',
+    `Elevate ${options?.metadata?.orgName} with Pro Features`,
+    `
     <div style="text-align: center; padding: 10px 0;">
         <h1 style="color: #1a1a1a; font-size: 26px; margin-bottom: 10px;">Scale Your Organization Faster</h1>
         <p style="color: #666666; font-size: 16px;">Hi ${options.name}, move beyond the limits and unlock the full potential of <strong>${options?.metadata?.orgName}</strong>.</p>
     </div>
 
-    ${frozenCredits > 0 ? `
+    ${
+      frozenCredits > 0
+        ? `
     <div style="background-color: #fff4e5; border: 1px dashed #ff9800; border-radius: 12px; padding: 15px; margin: 20px 0; text-align: center;">
         <span style="font-size: 18px;">❄️</span> 
         <strong style="color: #e65100;">You have ${frozenCredits} credits frozen!</strong><br/>
         <span style="font-size: 14px; color: #666;">Upgrade to Pro now to instantly unlock and use your remaining credits.</span>
     </div>
-    ` : ''}
+    `
+        : ''
+    }
 
     <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; margin: 25px 0;">
         <div style="background-color: #173b7a; color: #ffffff; padding: 15px; text-align: center; font-weight: bold;">
@@ -512,28 +537,30 @@ export const buildUpgradePlanEmailTemplate = (rawOptions: AnnouncementOptions): 
     <div style="border-top: 1px solid #eeeeee; padding-top: 20px; color: #777; font-size: 13px; line-height: 1.5;">
         <p>Questions? Reply to this email or contact our Priority Support team (available for Pro users).</p>
     </div>
-    `
-    );
+    `,
+  );
 
-    return { subject, htmlContent };
+  return { subject, htmlContent };
 };
 
 // reset credits email template
-export const buildCreditResetEmailTemplate = (rawOptions: AnnouncementOptions): EmailTemplate => {
-    const options = withDefaults(rawOptions);
-    const subject = `Your ${options?.metadata?.orgName} credits have been refilled! 🚀`;
-    const billingUrl = `${options.appUrl}/dashboard/billing`;
+export const buildCreditResetEmailTemplate = (
+  rawOptions: AnnouncementOptions,
+): EmailTemplate => {
+  const options = withDefaults(rawOptions);
+  const subject = `Your ${options?.metadata?.orgName} credits have been refilled! 🚀`;
+  const billingUrl = `${options.appUrl}/dashboard/billing`;
 
-    // Metadata থেকে ডাটা নেওয়া
-    const orgName = options?.metadata?.orgName || 'Your Organization';
-    const newLimit = options?.metadata?.newCreditLimit || 100;
-    const frozenCredits = options?.metadata?.frozenCredits || 0;
+  // Metadata থেকে ডাটা নেওয়া
+  const orgName = options?.metadata?.orgName || 'Your Organization';
+  const newLimit = options?.metadata?.newCreditLimit || 100;
+  const frozenCredits = options?.metadata?.frozenCredits || 0;
 
-    const htmlContent = buildLayout(
-        options,
-        'Monthly Credits Refilled',
-        `New month, new opportunities for ${orgName}!`,
-        `
+  const htmlContent = buildLayout(
+    options,
+    'Monthly Credits Refilled',
+    `New month, new opportunities for ${orgName}!`,
+    `
     <div style="text-align: center; padding: 10px 0;">
         <h1 style="color: #1a1a1a; font-size: 24px; margin-bottom: 10px;">Your Credits are Ready!</h1>
         <p style="color: #666666; font-size: 16px;">Hi ${options.name}, we've just refilled your monthly credits. You're all set to manage your bookings and resources.</p>
@@ -552,7 +579,9 @@ export const buildCreditResetEmailTemplate = (rawOptions: AnnouncementOptions): 
         </div>
     </div>
 
-    ${frozenCredits > 0 ? `
+    ${
+      frozenCredits > 0
+        ? `
     <div style="background-color: #fff4e5; border-left: 4px solid #ff9800; padding: 15px; margin: 20px 0; text-align: left;">
         <strong style="color: #e65100; font-size: 15px;">❄️ Important: You have ${frozenCredits} credits frozen</strong>
         <p style="margin: 5px 0 0; font-size: 13px; color: #666; line-height: 1.4;">
@@ -560,7 +589,9 @@ export const buildCreditResetEmailTemplate = (rawOptions: AnnouncementOptions): 
             <strong>Upgrade to Pro</strong> to unlock them and increase your monthly limit to 1,000!
         </p>
     </div>
-    ` : ''}
+    `
+        : ''
+    }
 
     <div style="margin: 25px 0; text-align: center;">
         <p style="color: #666666; font-size: 15px; line-height: 1.6; margin-bottom: 20px;">
@@ -583,25 +614,27 @@ export const buildCreditResetEmailTemplate = (rawOptions: AnnouncementOptions): 
     <div style="border-top: 1px solid #eeeeee; padding-top: 20px; color: #999; font-size: 12px; text-align: center;">
         <p>This is an automated notification regarding your monthly credit reset policy.</p>
     </div>
-    `
-    );
+    `,
+  );
 
-    return { subject, htmlContent };
+  return { subject, htmlContent };
 };
 
 // Weekly report email template
-export const buildWeeklyReportEmailTemplate = (rawOptions: AnnouncementOptions): EmailTemplate => {
-    const options = withDefaults(rawOptions);
-    const metadata = options.metadata || {};
-    const reportData = metadata.stats || {};
-    const orgName = metadata.orgName || 'Your Organization';
-    const subject = `Weekly Activity Report: ${orgName} 📊`;
+export const buildWeeklyReportEmailTemplate = (
+  rawOptions: AnnouncementOptions,
+): EmailTemplate => {
+  const options = withDefaults(rawOptions);
+  const metadata = options.metadata || {};
+  const reportData = metadata.stats || {};
+  const orgName = metadata.orgName || 'Your Organization';
+  const subject = `Weekly Activity Report: ${orgName} 📊`;
 
-    const htmlContent = buildLayout(
-        options,
-        'Weekly Activity Summary',
-        `Hi ${escapeHtml(rawOptions.name)}, here is a summary of your organization's performance for the last 7 days.`,
-        `
+  const htmlContent = buildLayout(
+    options,
+    'Weekly Activity Summary',
+    `Hi ${escapeHtml(rawOptions.name)}, here is a summary of your organization's performance for the last 7 days.`,
+    `
         <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; color: #334155;">
             
             <!-- Date Badge -->
@@ -669,25 +702,27 @@ export const buildWeeklyReportEmailTemplate = (rawOptions: AnnouncementOptions):
                 </div>
             </div>
         </div>
-        `
-    );
+        `,
+  );
 
-    return { subject, htmlContent };
+  return { subject, htmlContent };
 };
 
 // Sales Inquery Thank You Template
-export const buildSalesInquiryThankYouTemplate = (rawOptions: AnnouncementOptions): EmailTemplate => {
-    const options = withDefaults(rawOptions);
-    const subject = "Inquiry Received: We'll be in touch shortly";
-    const userName = rawOptions.name || 'there';
+export const buildSalesInquiryThankYouTemplate = (
+  rawOptions: AnnouncementOptions,
+): EmailTemplate => {
+  const options = withDefaults(rawOptions);
+  const subject = "Inquiry Received: We'll be in touch shortly";
+  const userName = rawOptions.name || 'there';
 
-    const appUrl = options.appUrl || '#';
+  const appUrl = options.appUrl || '#';
 
-    const htmlContent = buildLayout(
-        options,
-        'Thank You for Reaching Out',
-        `Hi ${escapeHtml(userName)},`,
-        `
+  const htmlContent = buildLayout(
+    options,
+    'Thank You for Reaching Out',
+    `Hi ${escapeHtml(userName)},`,
+    `
       <!-- Intro -->
       <p style="margin:0 0 20px; font-size:16px; line-height:1.6; color:#334155;">
         We’ve successfully received your inquiry. Thank you for considering us as a potential partner for your business needs. 
@@ -729,21 +764,23 @@ export const buildSalesInquiryThankYouTemplate = (rawOptions: AnnouncementOption
         This is an automated confirmation of receipt.
       </p>
     `,
-    );
-    return { subject, htmlContent };
+  );
+  return { subject, htmlContent };
 };
 
 // Sales Inquery Follow Up Template
-export const buildSalesInqueryFollowUpTemplate = (rawOptions: AnnouncementOptions): EmailTemplate => {
-    const options = withDefaults(rawOptions);
-    const inquiry = options.metadata?.inquiry; // Accessing the object passed in your service
-    const subject = `🔥 New Sales Lead: ${inquiry?.organization.name || 'Inquiry Received'}`;
+export const buildSalesInqueryFollowUpTemplate = (
+  rawOptions: AnnouncementOptions,
+): EmailTemplate => {
+  const options = withDefaults(rawOptions);
+  const inquiry = options.metadata?.inquiry; // Accessing the object passed in your service
+  const subject = `🔥 New Sales Lead: ${inquiry?.organization.name || 'Inquiry Received'}`;
 
-    const htmlContent = buildLayout(
-        options,
-        'New Sales Inquiry', // Heading
-        `A new business inquiry has been submitted. Details are below:`, // Sub-heading
-        `
+  const htmlContent = buildLayout(
+    options,
+    'New Sales Inquiry', // Heading
+    `A new business inquiry has been submitted. Details are below:`, // Sub-heading
+    `
       <!-- Data Table -->
       <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin-bottom: 25px;">
         <table style="width: 100%; border-collapse: collapse; font-size: 14px; color: #334155;">
@@ -767,14 +804,18 @@ export const buildSalesInqueryFollowUpTemplate = (rawOptions: AnnouncementOption
             <td style="padding: 12px 16px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-weight: 600;">Country</td>
             <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">${escapeHtml(inquiry?.country || 'N/A')}</td>
           </tr>
-          ${inquiry?.organization ? `
+          ${
+            inquiry?.organization
+              ? `
           <tr>
             <td style="padding: 12px 16px; background: #f0f4ff; border-bottom: 1px solid #e2e8f0; font-weight: 600;">Existing Org</td>
             <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; background: #f0f4ff;">
                 <strong>${escapeHtml(inquiry.organization.name)}</strong><br/>
                 <span style="font-size: 12px; color: #64748b;">ID: ${inquiry.organization.id}</span>
             </td>
-          </tr>` : ''}
+          </tr>`
+              : ''
+          }
         </table>
       </div>
 
@@ -794,30 +835,32 @@ export const buildSalesInqueryFollowUpTemplate = (rawOptions: AnnouncementOption
         </a>
       </div>
     `,
-    );
+  );
 
-    return { subject, htmlContent };
+  return { subject, htmlContent };
 };
 
 // Subscription activated email template
-export const buildSubscriptionRenewedTemplate = (rawOptions: AnnouncementOptions): EmailTemplate => {
-    const options = withDefaults(rawOptions);
-    const metadata = options.metadata || {};
+export const buildSubscriptionRenewedTemplate = (
+  rawOptions: AnnouncementOptions,
+): EmailTemplate => {
+  const options = withDefaults(rawOptions);
+  const metadata = options.metadata || {};
 
-    // Extract metadata with fallbacks
-    const plan = metadata.planType || 'Pro Plan';
-    const amount = metadata.amount ? `$${metadata.amount}` : 'N/A';
-    const expiry = metadata.expireDate || 'N/A';
-    const credits = metadata.creditsToAdd || 0;
-    const orgName = metadata.orgName || 'Your Organization';
+  // Extract metadata with fallbacks
+  const plan = metadata.planType || 'Pro Plan';
+  const amount = metadata.amount ? `$${metadata.amount}` : 'N/A';
+  const expiry = metadata.expireDate || 'N/A';
+  const credits = metadata.creditsToAdd || 0;
+  const orgName = metadata.orgName || 'Your Organization';
 
-    const subject = `Subscription Activated: ${plan} 🎉`;
+  const subject = `Subscription Activated: ${plan} 🎉`;
 
-    const htmlContent = buildLayout(
-        options,
-        'Subscription Activated',
-        `Hi ${escapeHtml(rawOptions.name)}, your subscription for <strong>${escapeHtml(orgName)}</strong> has been successfully processed!`,
-        `
+  const htmlContent = buildLayout(
+    options,
+    'Subscription Activated',
+    `Hi ${escapeHtml(rawOptions.name)}, your subscription for <strong>${escapeHtml(orgName)}</strong> has been successfully processed!`,
+    `
         <div style="background-color: #f8fafc; border-radius: 12px; padding: 24px; margin: 20px 0; border: 1px solid #e2e8f0;">
             <h3 style="margin: 0 0 16px; font-size: 18px; color: #1e293b; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px;">Order Summary</h3>
             
@@ -861,8 +904,8 @@ export const buildSubscriptionRenewedTemplate = (rawOptions: AnnouncementOptions
                 <strong>Pro Tip:</strong> You can view and download your full invoice from the Billing section of your dashboard.
             </p>
         </div>
-        `
-    );
+        `,
+  );
 
-    return { subject, htmlContent };
+  return { subject, htmlContent };
 };

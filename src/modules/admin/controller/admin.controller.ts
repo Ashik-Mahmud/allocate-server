@@ -1,321 +1,610 @@
-
 // Write admin controller code
-import { Request, response, Response } from 'express';
-import { AdminService } from '../service/admin.service';
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
-import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
-import { RolesGuard } from 'src/shared/guards';
-import { Roles } from 'src/shared/decorators/roles.decorator';
+import {
+    Body,
+    Controller,
+    Delete,
+    Get,
+    Param,
+    Patch,
+    Post,
+    Query,
+    Res,
+    UseGuards,
+} from '@nestjs/common';
+import {
+    ApiBearerAuth,
+    ApiOperation,
+    ApiParam,
+    ApiQuery,
+    ApiResponse,
+    ApiTags,
+} from '@nestjs/swagger';
 import { Role, User } from '@prisma/client';
-import { AllUserFilterDto, BroadcastAnnouncementDto, OrganizationCreditTopUpDto, OrganizationFilterDto, RevenueAnalyticsFilterDto, SubscriptionTransactionFilterDto, UpdateOrganizationDto, UpdateSystemSettingsDto, UserActivityLogFilterDto } from '../dto/admin.dto';
-import { CurrentUser } from 'src/shared/decorators/user.decorator';
-import { ResponseUtil } from 'src/utils/responses';
+import { Response } from 'express';
+import { AuthGuard } from 'src/modules/auth/guards/auth.guard';
 import { Public } from 'src/shared/decorators/public.decorator';
+import { Roles } from 'src/shared/decorators/roles.decorator';
+import { CurrentUser } from 'src/shared/decorators/user.decorator';
+import { RolesGuard } from 'src/shared/guards';
+import { ResponseUtil } from 'src/utils/responses';
+import {
+    AllUserFilterDto,
+    BroadcastAnnouncementDto,
+    OrganizationCreditTopUpDto,
+    OrganizationFilterDto,
+    RevenueAnalyticsFilterDto,
+    SubscriptionTransactionFilterDto,
+    UpdateOrganizationDto,
+    UpdateSystemSettingsDto,
+    UserActivityLogFilterDto,
+} from '../dto/admin.dto';
+import { AdminService } from '../service/admin.service';
 
 @ApiTags('Admin')
 @ApiBearerAuth()
 // Only allow users with the 'admin' role to access these endpoints
 @Controller('admin')
 export class AdminController {
+  constructor(private adminService: AdminService) {
+    this.adminService = adminService;
+  }
 
-    constructor(private adminService: AdminService) {
-        this.adminService = adminService;
-    }
+  /**
+   * Add endpoint to manage system settings
+   * @param request - The incoming request object
+   * @param response - The outgoing response object
+   */
 
-    /**
-     * Add endpoint to manage system settings
-     * @param request - The incoming request object
-     * @param response - The outgoing response object
-     */
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Patch('/system-settings')
+  @ApiResponse({
+    status: 200,
+    description: 'System settings updated successfully.',
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiOperation({ summary: 'Update system settings' })
+  async updateSystemSettings(
+    @CurrentUser() user: User,
+    @Body() updateSystemSettingsDto: UpdateSystemSettingsDto,
+    @Res() response: Response,
+  ) {
+    // Implement logic to update system settings here
+    // You can use this.adminService to call service methods for business logic
+    const updatedSettings = await this.adminService.updateSystemSettings(
+      user,
+      updateSystemSettingsDto,
+    );
+    ResponseUtil.success(updatedSettings, response);
+  }
 
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.ADMIN)
-    @Patch('/system-settings')
-    @ApiResponse({ status: 200, description: 'System settings updated successfully.' })
-    @ApiResponse({ status: 403, description: 'Forbidden.' })
-    @ApiOperation({ summary: 'Update system settings' })
-    async updateSystemSettings(@CurrentUser() user: User, @Body() updateSystemSettingsDto: UpdateSystemSettingsDto, @Res() response: Response) {
-        // Implement logic to update system settings here
-        // You can use this.adminService to call service methods for business logic
-        const updatedSettings = await this.adminService.updateSystemSettings(user, updateSystemSettingsDto);
-        ResponseUtil.success(updatedSettings, response);
-    }
+  /**
+   * Get system settings endpoint for admin dashboard
+   * @param request - The incoming request object
+   * @param response - The outgoing response object
+   */
 
-    /**
-     * Get system settings endpoint for admin dashboard
-     * @param request - The incoming request object
-     * @param response - The outgoing response object
-     */
+  @UseGuards(AuthGuard)
+  @Public()
+  @Get('/system-settings')
+  @ApiResponse({
+    status: 200,
+    description: 'System settings retrieved successfully.',
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiOperation({ summary: 'Get system settings' })
+  async getSystemSettings(
+    @CurrentUser() user: User,
+    @Res() response: Response,
+  ) {
+    // Implement logic to retrieve system settings here
+    // You can use this.adminService to call service methods for business logic
+    const settings = await this.adminService.getSystemSettings(user);
+    ResponseUtil.success(settings, response);
+  }
 
-    @UseGuards(AuthGuard)
-    @Public()
-    @Get('/system-settings')
-    @ApiResponse({ status: 200, description: 'System settings retrieved successfully.' })
-    @ApiResponse({ status: 403, description: 'Forbidden.' })
-    @ApiOperation({ summary: 'Get system settings' })
-    async getSystemSettings(@CurrentUser() user: User, @Res() response: Response) {
-        // Implement logic to retrieve system settings here
-        // You can use this.adminService to call service methods for business logic
-        const settings = await this.adminService.getSystemSettings(user);
-        ResponseUtil.success(settings, response);
-    }
+  /**
+   * Add endpoint to broadcast announcement to all organizations/users
+   * @param request - The incoming request object
+   * @param response - The outgoing response object
+   */
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Post('announcements')
+  @ApiResponse({
+    status: 200,
+    description: 'Announcement broadcasted successfully.',
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiOperation({ summary: 'Broadcast announcement' })
+  async broadcastAnnouncement(
+    @CurrentUser() user: User,
+    @Body() broadcastAnnouncementDto: BroadcastAnnouncementDto,
+    @Res() response: Response,
+  ) {
+    // Implement logic to broadcast announcement to all organizations/users here
+    // You can use this.adminService to call service methods for business logic
+    const result = await this.adminService.broadcastAnnouncement(
+      user,
+      broadcastAnnouncementDto,
+    );
 
-    /**
-     * Add endpoint to broadcast announcement to all organizations/users
-     * @param request - The incoming request object
-     * @param response - The outgoing response object
-     */
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.ADMIN)
-    @Post('announcements')
-    @ApiResponse({ status: 200, description: 'Announcement broadcasted successfully.' })
-    @ApiResponse({ status: 403, description: 'Forbidden.' })
-    @ApiOperation({ summary: 'Broadcast announcement' })
-    async broadcastAnnouncement(@CurrentUser() user: User, @Body() broadcastAnnouncementDto: BroadcastAnnouncementDto, @Res() response: Response) {
-        // Implement logic to broadcast announcement to all organizations/users here
-        // You can use this.adminService to call service methods for business logic
-        const result = await this.adminService.broadcastAnnouncement(user, broadcastAnnouncementDto);
+    ResponseUtil.success(result, response);
+  }
 
-        ResponseUtil.success(result, response);
-    }
+  /**
+   *  Get all organizations with their verification status for admin dashboard
+   * @param request - The incoming request object
+   * @param response - The outgoing response object
+   */
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get('organizations')
+  @ApiResponse({
+    status: 200,
+    description: 'Organizations retrieved successfully.',
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiQuery({
+    name: 'verified',
+    description: 'Filter by verification status',
+    required: false,
+    type: Boolean,
+  })
+  @ApiQuery({
+    name: 'search',
+    description: 'Search by organization name or email',
+    required: false,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'page',
+    description: 'Page number for pagination',
+    required: false,
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'limit',
+    description: 'Number of items per page for pagination',
+    required: false,
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'organizationId',
+    description: 'Filter by organization ID',
+    required: false,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'name',
+    description: 'Filter by organization name',
+    required: false,
+    type: String,
+  })
+  @ApiOperation({ summary: 'Get all organizations with verification status' })
+  async getAllOrganizations(
+    @CurrentUser() user: User,
+    @Query() query: OrganizationFilterDto,
+    @Res() response: Response,
+  ) {
+    // Implement logic to retrieve all organizations with their verification status here
+    // You can use this.adminService to call service methods for business logic
+    const result = await this.adminService.getAllOrganizations(user, query);
+    ResponseUtil.paginated(
+      result.items,
+      result.total,
+      result.page,
+      result.limit,
+      response,
+    );
+  }
 
+  /**
+   * Get single organization details by ID for admin dashboard
+   * @param request - The incoming request object
+   * @param response - The outgoing response object
+   */
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get('/organizations/:orgId')
+  @ApiParam({
+    name: 'orgId',
+    description: 'ID of the organization to retrieve',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Organization details retrieved successfully.',
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiOperation({ summary: 'Get organization details by ID' })
+  async getOrganizationDetails(
+    @CurrentUser() user: User,
+    @Param('orgId') orgId: string,
+    @Res() response: Response,
+  ) {
+    // Implement logic to retrieve organization details by ID here
+    // You can use this.adminService to call service methods for business logic
+    const result = await this.adminService.getOrganizationDetails(user, orgId);
+    ResponseUtil.success(result, response);
+  }
 
-    /**
-     *  Get all organizations with their verification status for admin dashboard
-     * @param request - The incoming request object
-     * @param response - The outgoing response object
-     */
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.ADMIN)
-    @Get('organizations')
-    @ApiResponse({ status: 200, description: 'Organizations retrieved successfully.' })
-    @ApiResponse({ status: 403, description: 'Forbidden.' })
-    @ApiQuery({ name: 'verified', description: 'Filter by verification status', required: false, type: Boolean })
-    @ApiQuery({ name: 'search', description: 'Search by organization name or email', required: false, type: String })
-    @ApiQuery({ name: 'page', description: 'Page number for pagination', required: false, type: Number })
-    @ApiQuery({ name: 'limit', description: 'Number of items per page for pagination', required: false, type: Number })
-    @ApiQuery({ name: 'organizationId', description: 'Filter by organization ID', required: false, type: String })
-    @ApiQuery({ name: 'name', description: 'Filter by organization name', required: false, type: String })
-    @ApiOperation({ summary: 'Get all organizations with verification status' })
-    async getAllOrganizations(@CurrentUser() user: User, @Query() query: OrganizationFilterDto, @Res() response: Response) {
-        // Implement logic to retrieve all organizations with their verification status here
-        // You can use this.adminService to call service methods for business logic
-        const result = await this.adminService.getAllOrganizations(user, query);
-        ResponseUtil.paginated(result.items, result.total, result.page, result.limit, response);
-    }
+  /**
+   * Add endpoint to change organization verification status
+   * @param request - The incoming request object
+   * @param response - The outgoing response object
+   * This endpoint allows the admin to verify or unverify an organization
+   */
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Patch('/organizations/:orgId')
+  @ApiParam({ name: 'orgId', description: 'ID of the organization to update' })
+  @ApiResponse({
+    status: 200,
+    description: 'Organization updated successfully.',
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiOperation({ summary: 'Update organization details' })
+  async updateOrganization(
+    @CurrentUser() user: User,
+    @Param('orgId') orgId: string,
+    @Body() body: UpdateOrganizationDto,
+    @Res() response: Response,
+  ) {
+    // Implement logic to update organization verification status here
+    // You can use this.adminService to call service methods for business logic
+    const result = await this.adminService.updateOrganization(
+      user,
+      orgId,
+      body,
+      response,
+    );
+    ResponseUtil.success(result, response);
+  }
 
-    /**
-     * Get single organization details by ID for admin dashboard
-     * @param request - The incoming request object
-     * @param response - The outgoing response object
-     */
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.ADMIN)
-    @Get('/organizations/:orgId')
-    @ApiParam({ name: 'orgId', description: 'ID of the organization to retrieve' })
-    @ApiResponse({ status: 200, description: 'Organization details retrieved successfully.' })
-    @ApiResponse({ status: 403, description: 'Forbidden.' })
-    @ApiOperation({ summary: 'Get organization details by ID' })
-    async getOrganizationDetails(@CurrentUser() user: User, @Param('orgId') orgId: string, @Res() response: Response) {
-        // Implement logic to retrieve organization details by ID here
-        // You can use this.adminService to call service methods for business logic
-        const result = await this.adminService.getOrganizationDetails(user, orgId);
-        ResponseUtil.success(result, response);
-    }
+  /**
+   *  Add endpoint to delete an organization
+   * @param request - The incoming request object
+   * @param response - The outgoing response object
+   * This endpoint allows the admin to delete an organization
+   */
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Delete('/organizations/:orgId/delete')
+  @ApiParam({ name: 'orgId', description: 'ID of the organization to delete' })
+  @ApiResponse({
+    status: 200,
+    description: 'Organization deleted successfully.',
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiOperation({ summary: 'Delete an organization' })
+  async deleteOrganization(
+    @CurrentUser() user: User,
+    @Param('orgId') orgId: string,
+    @Res() response: Response,
+  ) {
+    // Implement logic to delete an organization here
+    // You can use this.adminService to call service methods for business logic
+    const result = await this.adminService.deleteOrganization(
+      user,
+      orgId,
+      response,
+    );
+    ResponseUtil.success(result, response);
+  }
 
-    /**
-     * Add endpoint to change organization verification status
-     * @param request - The incoming request object
-     * @param response - The outgoing response object
-     * This endpoint allows the admin to verify or unverify an organization
-     */
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.ADMIN)
-    @Patch('/organizations/:orgId')
-    @ApiParam({ name: 'orgId', description: 'ID of the organization to update' })
-    @ApiResponse({ status: 200, description: 'Organization updated successfully.' })
-    @ApiResponse({ status: 403, description: 'Forbidden.' })
-    @ApiOperation({ summary: 'Update organization details' })
-    async updateOrganization(@CurrentUser() user: User, @Param('orgId') orgId: string, @Body() body: UpdateOrganizationDto, @Res() response: Response) {
-        // Implement logic to update organization verification status here
-        // You can use this.adminService to call service methods for business logic
-        const result = await this.adminService.updateOrganization(user, orgId, body, response);
-        ResponseUtil.success(result, response);
-    }
+  /**
+   * Add endpoint to restore a deleted organization
+   * @param request - The incoming request object
+   * @param response - The outgoing response object
+   */
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Patch('/organizations/:orgId/restore')
+  @ApiParam({ name: 'orgId', description: 'ID of the organization to restore' })
+  @ApiResponse({
+    status: 200,
+    description: 'Organization restored successfully.',
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiOperation({ summary: 'Restore a deleted organization' })
+  async restoreOrganization(
+    @CurrentUser() user: User,
+    @Param('orgId') orgId: string,
+    @Res() response: Response,
+  ) {
+    // Implement logic to restore a deleted organization here
+    // You can use this.adminService to call service methods for business logic
+    const result = await this.adminService.restoreOrganization(
+      user,
+      orgId,
+      response,
+    );
+    ResponseUtil.success(result, response);
+  }
 
-    /**
-     *  Add endpoint to delete an organization
-     * @param request - The incoming request object
-     * @param response - The outgoing response object
-     * This endpoint allows the admin to delete an organization
-     */
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.ADMIN)
-    @Delete('/organizations/:orgId/delete')
-    @ApiParam({ name: 'orgId', description: 'ID of the organization to delete' })
-    @ApiResponse({ status: 200, description: 'Organization deleted successfully.' })
-    @ApiResponse({ status: 403, description: 'Forbidden.' })
-    @ApiOperation({ summary: 'Delete an organization' })
-    async deleteOrganization(@CurrentUser() user: User, @Param('orgId') orgId: string, @Res() response: Response) {
-        // Implement logic to delete an organization here
-        // You can use this.adminService to call service methods for business logic
-        const result = await this.adminService.deleteOrganization(user, orgId, response);
-        ResponseUtil.success(result, response);
-    }
+  /**
+   * Add endpoint to top up organization credits for admin dashboard
+   * @param request - The incoming request object
+   * @param response - The outgoing response object
+   */
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Post('/organizations/:orgId/credits')
+  @ApiParam({
+    name: 'orgId',
+    description: 'ID of the organization to top up credits',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Organization credits topped up successfully.',
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiOperation({ summary: 'Top up organization credits' })
+  async topUpOrganizationCredits(
+    @CurrentUser() user: User,
+    @Param('orgId') orgId: string,
+    @Body() body: OrganizationCreditTopUpDto,
+    @Res() response: Response,
+  ) {
+    // Implement logic to top up organization credits here
+    // You can use this.adminService to call service methods for business logic
+    const result = await this.adminService.topUpOrganizationCredits(
+      user,
+      orgId,
+      body,
+      response,
+    );
+    ResponseUtil.success(result, response);
+  }
 
-    /**
-     * Add endpoint to restore a deleted organization
-     * @param request - The incoming request object
-     * @param response - The outgoing response object
-     */
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.ADMIN)
-    @Patch('/organizations/:orgId/restore')
-    @ApiParam({ name: 'orgId', description: 'ID of the organization to restore' })
-    @ApiResponse({ status: 200, description: 'Organization restored successfully.' })
-    @ApiResponse({ status: 403, description: 'Forbidden.' })
-    @ApiOperation({ summary: 'Restore a deleted organization' })
-    async restoreOrganization(@CurrentUser() user: User, @Param('orgId') orgId: string, @Res() response: Response) {
-        // Implement logic to restore a deleted organization here
-        // You can use this.adminService to call service methods for business logic
-        const result = await this.adminService.restoreOrganization(user, orgId, response);
-        ResponseUtil.success(result, response);
-    }
+  /**
+   *  Get all users for admin dashboard
+   * @param request - The incoming request object
+   * @param response - The outgoing response object
+   */
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get('/users')
+  @ApiResponse({ status: 200, description: 'Users retrieved successfully.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiQuery({
+    name: 'organizationId',
+    description: 'Filter by organization ID',
+    required: false,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'name',
+    description: 'Filter by user name',
+    required: false,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'email',
+    description: 'Filter by user email',
+    required: false,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'role',
+    description: 'Filter by user role',
+    required: false,
+    type: String,
+    enum: ['STAFF', 'ADMIN'],
+  })
+  @ApiQuery({
+    name: 'page',
+    description: 'Page number for pagination',
+    required: false,
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'limit',
+    description: 'Number of items per page for pagination',
+    required: false,
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'search',
+    description: 'Search by user name or email',
+    required: false,
+    type: String,
+  })
+  @ApiOperation({ summary: 'Get all users' })
+  async getAllUsers(
+    @CurrentUser() user: User,
+    @Query() query: AllUserFilterDto,
+    @Res() response: Response,
+  ) {
+    // Implement logic to retrieve all users here
+    // You can use this.adminService to call service methods for business logic
+    const result = await this.adminService.getAllUsers(user, query);
+    ResponseUtil.paginated(
+      result.items,
+      result.total,
+      result.page,
+      result.limit,
+      response,
+    );
+  }
 
-    /**
-     * Add endpoint to top up organization credits for admin dashboard
-     * @param request - The incoming request object
-     * @param response - The outgoing response object
-     */
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.ADMIN)
-    @Post('/organizations/:orgId/credits')
-    @ApiParam({ name: 'orgId', description: 'ID of the organization to top up credits' })
-    @ApiResponse({ status: 200, description: 'Organization credits topped up successfully.' })
-    @ApiResponse({ status: 403, description: 'Forbidden.' })
-    @ApiOperation({ summary: 'Top up organization credits' })
-    async topUpOrganizationCredits(@CurrentUser() user: User, @Param('orgId') orgId: string, @Body() body: OrganizationCreditTopUpDto, @Res() response: Response) {
-        // Implement logic to top up organization credits here
-        // You can use this.adminService to call service methods for business logic
-        const result = await this.adminService.topUpOrganizationCredits(user, orgId, body, response);
-        ResponseUtil.success(result, response);
-    }
+  /**
+   * User reset password endpoint for admin dashboard
+   * @param request - The incoming request object
+   * @param response - The outgoing response object
+   * This endpoint allows the admin to reset a user's password
+   */
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Patch('/users/:userId/reset-password')
+  @ApiParam({ name: 'userId', description: 'ID of the user to reset password' })
+  @ApiResponse({
+    status: 200,
+    description: 'User password reset successfully.',
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiOperation({ summary: 'Reset user password' })
+  async resetUserPassword(
+    @CurrentUser() user: User,
+    @Param('userId') userId: string,
+    @Res() response: Response,
+  ) {
+    // Implement logic to reset user password here
+    const result = await this.adminService.resetUserPassword(
+      user,
+      userId,
+      response,
+    );
+    ResponseUtil.success(result, response);
+  }
 
-    /**
-     *  Get all users for admin dashboard
-     * @param request - The incoming request object
-     * @param response - The outgoing response object
-     */
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.ADMIN)
-    @Get('/users')
-    @ApiResponse({ status: 200, description: 'Users retrieved successfully.' })
-    @ApiResponse({ status: 403, description: 'Forbidden.' })
-    @ApiQuery({ name: 'organizationId', description: 'Filter by organization ID', required: false, type: String })
-    @ApiQuery({ name: 'name', description: 'Filter by user name', required: false, type: String })
-    @ApiQuery({ name: 'email', description: 'Filter by user email', required: false, type: String })
-    @ApiQuery({ name: 'role', description: 'Filter by user role', required: false, type: String, enum: ['STAFF', 'ADMIN'] })
-    @ApiQuery({ name: 'page', description: 'Page number for pagination', required: false, type: Number })
-    @ApiQuery({ name: 'limit', description: 'Number of items per page for pagination', required: false, type: Number })
-    @ApiQuery({ name: 'search', description: 'Search by user name or email', required: false, type: String })
-    @ApiOperation({ summary: 'Get all users' })
-    async getAllUsers(@CurrentUser() user: User, @Query() query: AllUserFilterDto, @Res() response: Response) {
-        // Implement logic to retrieve all users here
-        // You can use this.adminService to call service methods for business logic
-        const result = await this.adminService.getAllUsers(user, query);
-        ResponseUtil.paginated(result.items, result.total, result.page, result.limit, response);
-    }
+  /**
+   *  Get all subscription transaction history  for admin dashboard
+   * @param request - The incoming request object
+   * @param response - The outgoing response object
+   */
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get('/subscriptions/transactions')
+  @ApiResponse({
+    status: 200,
+    description: 'Subscription history retrieved successfully.',
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiQuery({
+    name: 'organizationId',
+    description: 'Filter by organization ID',
+    required: false,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'startDate',
+    description: 'Filter by start date (ISO format)',
+    required: false,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'endDate',
+    description: 'Filter by end date (ISO format)',
+    required: false,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'page',
+    description: 'Page number for pagination',
+    required: false,
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'limit',
+    description: 'Number of items per page for pagination',
+    required: false,
+    type: Number,
+  })
+  @ApiOperation({
+    summary: 'Get organization subscription transaction history',
+  })
+  async getOrganizationSubscriptionHistory(
+    @CurrentUser() user: User,
+    @Query() query: SubscriptionTransactionFilterDto,
+    @Res() response: Response,
+  ) {
+    // Implement logic to retrieve organization subscription transaction history here
+ 
+    const result = await this.adminService.getOrganizationSubscriptionHistory(
+      user,
+      query,
+      
+    );
+    ResponseUtil.paginated(
+      result.items,
+      result.total,
+      result.page,
+      result.limit,
+      response,
+      result.metadata,
+    );
+  }
 
-    /**
-     * User reset password endpoint for admin dashboard
-     * @param request - The incoming request object
-     * @param response - The outgoing response object
-     * This endpoint allows the admin to reset a user's password
-     */
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.ADMIN)
-    @Patch('/users/:userId/reset-password')
-    @ApiParam({ name: 'userId', description: 'ID of the user to reset password' })
-    @ApiResponse({ status: 200, description: 'User password reset successfully.' })
-    @ApiResponse({ status: 403, description: 'Forbidden.' })
-    @ApiOperation({ summary: 'Reset user password' })
-    async resetUserPassword(@CurrentUser() user: User, @Param('userId') userId: string, @Res() response: Response) {
-        // Implement logic to reset user password here
-        const result = await this.adminService.resetUserPassword(user, userId, response);
-        ResponseUtil.success(result, response);
-    }
+  /**
+   * Get revenue analytics for admin dashboard
+   * @param request - The incoming request object
+   * @param response - The outgoing response object
+   */
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get('/analytics/revenue')
+  @ApiResponse({
+    status: 200,
+    description: 'Revenue analytics retrieved successfully.',
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiQuery({
+    name: 'startDate',
+    description: 'Filter by start date (ISO format)',
+    required: false,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'endDate',
+    description: 'Filter by end date (ISO format)',
+    required: false,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'groupBy',
+    description:
+      'Group revenue analytics by time period (e.g. day, week, month)',
+    required: false,
+    type: String,
+  })
+  @ApiQuery({
+    name: 'organizationId',
+    description: 'Filter by organization ID',
+    required: false,
+    type: String,
+  })
+  @ApiOperation({ summary: 'Get revenue analytics' })
+  async getRevenueAnalytics(
+    @CurrentUser() user: User,
+    @Query() query: RevenueAnalyticsFilterDto,
+    @Res() response: Response,
+  ) {
+    // Implement logic to retrieve revenue analytics here
+    // You can use this.adminService to call service methods for business logic
+    const result = await this.adminService.getRevenueAnalytics(user, query);
+    ResponseUtil.success(result, response);
+  }
 
-
-    /**
-     *  Get all subscription transaction history  for admin dashboard
-     * @param request - The incoming request object
-     * @param response - The outgoing response object
-     */
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.ADMIN)
-    @Get('/subscriptions/transactions')
-    @ApiResponse({ status: 200, description: 'Subscription history retrieved successfully.' })
-    @ApiResponse({ status: 403, description: 'Forbidden.' })
-    @ApiQuery({ name: 'organizationId', description: 'Filter by organization ID', required: false, type: String })
-    @ApiQuery({ name: 'startDate', description: 'Filter by start date (ISO format)', required: false, type: String })
-    @ApiQuery({ name: 'endDate', description: 'Filter by end date (ISO format)', required: false, type: String })
-    @ApiQuery({ name: 'page', description: 'Page number for pagination', required: false, type: Number })
-    @ApiQuery({ name: 'limit', description: 'Number of items per page for pagination', required: false, type: Number })
-    @ApiOperation({ summary: 'Get organization subscription transaction history' })
-    async getOrganizationSubscriptionHistory(@CurrentUser() user: User, @Query() query: SubscriptionTransactionFilterDto, @Res() response: Response) {
-        // Implement logic to retrieve organization subscription transaction history here
-        const metadata = {
-            ip: response.req.ip || '',
-            userAgent: response?.req?.headers['user-agent'] || 'unknown',
-        }
-        const result = await this.adminService.getOrganizationSubscriptionHistory(user, query, metadata);
-        ResponseUtil.paginated(result.items, result.total, result.page, result.limit, response, result.metadata);
-
-    }
-
-
-    /**
-     * Get revenue analytics for admin dashboard
-     * @param request - The incoming request object
-     * @param response - The outgoing response object
-     */
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.ADMIN)
-    @Get('/analytics/revenue')
-    @ApiResponse({ status: 200, description: 'Revenue analytics retrieved successfully.' })
-    @ApiResponse({ status: 403, description: 'Forbidden.' })
-    @ApiQuery({ name: 'startDate', description: 'Filter by start date (ISO format)', required: false, type: String })
-    @ApiQuery({ name: 'endDate', description: 'Filter by end date (ISO format)', required: false, type: String })
-    @ApiQuery({ name: 'groupBy', description: 'Group revenue analytics by time period (e.g. day, week, month)', required: false, type: String })
-    @ApiQuery({ name: 'organizationId', description: 'Filter by organization ID', required: false, type: String })
-    @ApiOperation({ summary: 'Get revenue analytics' })
-    async getRevenueAnalytics(@CurrentUser() user: User, @Query() query: RevenueAnalyticsFilterDto, @Res() response: Response) {
-        // Implement logic to retrieve revenue analytics here
-        // You can use this.adminService to call service methods for business logic
-        const result = await this.adminService.getRevenueAnalytics(user, query);
-        ResponseUtil.success(result, response);
-    }
-
-    /**
-     * Get user activity logs for admin dashboard
-     * @param request - The incoming request object
-     * @param response - The outgoing response object
-     * This endpoint allows the admin to retrieve user activity logs
-     */
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.ADMIN)
-    @Get('/users/activity-logs')
-    @ApiResponse({ status: 200, description: 'User activity logs retrieved successfully.' })
-    @ApiResponse({ status: 403, description: 'Forbidden.' })
-    @ApiOperation({ summary: 'Get user activity logs' })
-    async getUserActivityLogs(@CurrentUser() user: User,  @Query() query: UserActivityLogFilterDto, @Res() response: Response) {
-        // Implement logic to retrieve user activity logs here
-        // You can use this.adminService to call service methods for business logic
-        const result = await this.adminService.getUserActivityLogs(user,  query);
-        ResponseUtil.paginated(result.items, result.total, result.page, result.limit, response);
-    }
-
-
-
+  /**
+   * Get user activity logs for admin dashboard
+   * @param request - The incoming request object
+   * @param response - The outgoing response object
+   * This endpoint allows the admin to retrieve user activity logs
+   */
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get('/users/activity-logs')
+  @ApiResponse({
+    status: 200,
+    description: 'User activity logs retrieved successfully.',
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiOperation({ summary: 'Get user activity logs' })
+  async getUserActivityLogs(
+    @CurrentUser() user: User,
+    @Query() query: UserActivityLogFilterDto,
+    @Res() response: Response,
+  ) {
+    // Implement logic to retrieve user activity logs here
+    // You can use this.adminService to call service methods for business logic
+    const result = await this.adminService.getUserActivityLogs(user, query);
+    ResponseUtil.paginated(
+      result.items,
+      result.total,
+      result.page,
+      result.limit,
+      response,
+    );
+  }
 }

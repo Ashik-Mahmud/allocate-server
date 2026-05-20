@@ -1,8 +1,17 @@
 import { Logger } from '@nestjs/common';
-import { OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
+import {
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+  SubscribeMessage,
+  WebSocketGateway,
+  WebSocketServer,
+} from '@nestjs/websockets';
 import { CommunityHub } from '@prisma/client';
 import { Server } from 'socket.io';
-import { AuthenticatedSocket, socketAuthMiddleware } from 'src/middleware/socket-auth.middleware';
+import {
+  AuthenticatedSocket,
+  socketAuthMiddleware,
+} from 'src/middleware/socket-auth.middleware';
 import { REALTIME_NAMESPACE } from 'src/shared/constant';
 import { REALTIME_EVENTS } from 'src/shared/constant/realtime-events';
 import { TPostComment } from './community.interface';
@@ -14,10 +23,10 @@ import { TPostComment } from './community.interface';
     credentials: true,
   },
   transports: ['websocket', 'polling'],
-
 })
-export class CommunityRealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect {
-
+export class CommunityRealtimeGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   private readonly logger = new Logger(CommunityRealtimeGateway.name);
 
   @WebSocketServer()
@@ -28,12 +37,14 @@ export class CommunityRealtimeGateway implements OnGatewayConnection, OnGatewayD
   }
 
   /**
- * Called after server is initialized
- * Register the shared auth middleware here
- */
+   * Called after server is initialized
+   * Register the shared auth middleware here
+   */
   afterInit(server: Server) {
     server.use(socketAuthMiddleware);
-    this.logger.log('Socket auth middleware registered for notifications gateway');
+    this.logger.log(
+      'Socket auth middleware registered for notifications gateway',
+    );
   }
 
   async handleConnection(client: AuthenticatedSocket) {
@@ -56,25 +67,25 @@ export class CommunityRealtimeGateway implements OnGatewayConnection, OnGatewayD
     }
   }
 
-
   emitCommunityPostCreated(orgId: string, post: CommunityHub) {
     if (!this.server) {
       return;
     }
 
-    this.server.to(this.userRoom(orgId)).emit(REALTIME_EVENTS.COMMUNITY_POST_NEW, post);
+    this.server
+      .to(this.userRoom(orgId))
+      .emit(REALTIME_EVENTS.COMMUNITY_POST_NEW, post);
   }
-
-
 
   emitCommunityPostCreatedNotification(orgId: string, payload: unknown) {
     if (!this.server) {
       return;
     }
 
-    this.server.to(this.userRoom(orgId)).emit(REALTIME_EVENTS.NOTIFICATION_NEW, payload);
+    this.server
+      .to(this.userRoom(orgId))
+      .emit(REALTIME_EVENTS.NOTIFICATION_NEW, payload);
   }
-
 
   // COMMENTING
   @SubscribeMessage(REALTIME_EVENTS.JOIN_POST_ROOM)
@@ -82,7 +93,6 @@ export class CommunityRealtimeGateway implements OnGatewayConnection, OnGatewayD
     client.join(this.postRoom(postId));
     this.logger.debug(`Socket ${client.id} joined room for post ${postId}`);
   }
-
 
   @SubscribeMessage(REALTIME_EVENTS.LEAVE_POST_ROOM)
   handleLeavePost(client: AuthenticatedSocket, postId: string) {
@@ -93,9 +103,10 @@ export class CommunityRealtimeGateway implements OnGatewayConnection, OnGatewayD
     if (!this.server) {
       return;
     }
-    this.server.to(this.postRoom(postId)).emit(REALTIME_EVENTS.COMMUNITY_COMMENT_NEW, comment);
+    this.server
+      .to(this.postRoom(postId))
+      .emit(REALTIME_EVENTS.COMMUNITY_COMMENT_NEW, comment);
   }
-
 
   private userRoom(orgId: string): string {
     return `org:${orgId}`;

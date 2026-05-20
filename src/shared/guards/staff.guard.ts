@@ -9,7 +9,7 @@ import { Role } from '@prisma/client';
 /**
  * StaffGuard - Restricts access to STAFF role only
  * Used for staff-specific operations and management tasks
- * 
+ *
  * @decorator @UseGuards(StaffGuard)
  * @note Requires AuthGuard to be applied first
  */
@@ -24,7 +24,9 @@ export class StaffGuard implements CanActivate {
     }
 
     if (user.role !== Role.STAFF) {
-      throw new ForbiddenException('This action is only available for staff members');
+      throw new ForbiddenException(
+        'This action is only available for staff members',
+      );
     }
 
     return true;

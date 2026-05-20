@@ -1,28 +1,6 @@
-/* model User {
-  id               String         @id @default(cuid())
-  email            String         @unique
-  password         String
-  name             String
-  photo            String?
-  personal_credits Int?
-  role             Role           @default(ORG_ADMIN)
-  last_login       DateTime?
-  deletedAt        DateTime?
-  createdAt        DateTime?      @default(now())
-  updatedAt        DateTime?      @updatedAt
-  org_id           String?
-  organization     Organizations? @relation(fields: [org_id], references: [id], onDelete: Cascade)
-  notifications    Notification[]
-  bookings         Bookings[]     @relation("BookingUser")
-  createdBookings  Bookings[]     @relation("BookingCreator")
-
-  @@index([email, org_id])
-  @@map("users")
-} */
-
-// Write staff dto code using zod 
-import { email, z } from 'zod';
-import { createZodDto } from "nestjs-zod"
+// Write staff dto code using zod
+import { createZodDto } from 'nestjs-zod';
+import { z } from 'zod';
 
 export const CreateStaffSchema = z.object({
   email: z.string().email(),
@@ -40,20 +18,23 @@ export const UpdateStaffSchema = z.object({
   org_id: z.string().optional(),
 });
 
-
 export const ManageCreditsSchema = z.object({
   credits: z.number().int().nonnegative(),
 });
 
 export const ManageMultipleStaffCreditsSchema = z.object({
   // an array with object with staff_id and credits
-  staffCredits: z.array(z.object({
-    staff_id: z.string(),
-    credits: z.number().int().nonnegative(),
-  })),
+  staffCredits: z.array(
+    z.object({
+      staff_id: z.string(),
+      credits: z.number().int().nonnegative(),
+    }),
+  ),
 });
 
-export class CreateStaffDto extends createZodDto(CreateStaffSchema) { }
-export class UpdateStaffDto extends createZodDto(UpdateStaffSchema) { }
-export class ManageCreditsDto extends createZodDto(ManageCreditsSchema) { }
-export class ManageMultipleStaffCreditsDto extends createZodDto(ManageMultipleStaffCreditsSchema) { }
+export class CreateStaffDto extends createZodDto(CreateStaffSchema) {}
+export class UpdateStaffDto extends createZodDto(UpdateStaffSchema) {}
+export class ManageCreditsDto extends createZodDto(ManageCreditsSchema) {}
+export class ManageMultipleStaffCreditsDto extends createZodDto(
+  ManageMultipleStaffCreditsSchema,
+) {}

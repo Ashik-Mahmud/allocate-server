@@ -8,15 +8,21 @@ import { NotificationRealtimeGateway } from './service/notification-realtime.gat
 import { NotificationRealtimeService } from './service/notification-realtime.service';
 
 @Module({
-    controllers: [InboxController],
-    providers: [
-        InboxService,
-        EmailService,
-        NotificationManager,
-        SharedService,
-        NotificationRealtimeGateway,
-        NotificationRealtimeService,
-    ],
-    exports: [EmailService, NotificationManager, InboxService, NotificationRealtimeService,NotificationRealtimeGateway],
+  controllers: [InboxController],
+  providers: [
+    InboxService,
+    EmailService,
+    NotificationManager,
+    SharedService,
+    NotificationRealtimeGateway,
+    NotificationRealtimeService,
+  ],
+  exports: [
+    EmailService,
+    NotificationManager,
+    InboxService,
+    NotificationRealtimeService,
+    NotificationRealtimeGateway,
+  ],
 })
 export class InboxModule {}
