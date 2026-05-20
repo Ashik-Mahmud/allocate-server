@@ -65,14 +65,14 @@ export class ErrorHandler implements ExceptionFilter {
       message = exception.message; // This will now say "bcrypt is not found"
     }
     // CRITICAL: Log the full error to your terminal so you can see the line numbers
-    if (status === HttpStatus.INTERNAL_SERVER_ERROR) {
+    if (status === (HttpStatus.INTERNAL_SERVER_ERROR as number)) {
       console.error('--- SERVER ERROR ---');
       console.error(exception);
       console.error('--------------------');
     }
 
     //  Activity Logging (Critical errors only)
-    if (status === HttpStatus.INTERNAL_SERVER_ERROR || status === HttpStatus.TOO_MANY_REQUESTS) {
+    if (status === (HttpStatus.INTERNAL_SERVER_ERROR as number) || status === (HttpStatus.TOO_MANY_REQUESTS as number)) {
       console.error(
         `[${new Date().toISOString()}] ${request.url} - ${code}:`,
         exception,
@@ -91,7 +91,7 @@ export class ErrorHandler implements ExceptionFilter {
             path: request.url,
             method: request.method,
             exceptionName: code,
-            stack: status === HttpStatus.INTERNAL_SERVER_ERROR ? exception.stack : undefined, // Only log stack trace for 500 errors
+            stack: status === (HttpStatus.INTERNAL_SERVER_ERROR as number)  ? exception.stack : undefined, // Only log stack trace for 500 errors
             ip: request.ip || request.headers['x-forwarded-for'],
             userAgent: request.headers['user-agent'],
           },
