@@ -22,7 +22,7 @@ export class ErrorHandler implements ExceptionFilter {
     const response = ctx.getResponse();
     const request = ctx.getRequest();
 
-    let status: number = HttpStatus.INTERNAL_SERVER_ERROR;
+    let status: HttpStatus = HttpStatus.INTERNAL_SERVER_ERROR;
     let message: unknown = 'Internal Server Error';
     const code = exception?.constructor?.name || 'Error';
 
