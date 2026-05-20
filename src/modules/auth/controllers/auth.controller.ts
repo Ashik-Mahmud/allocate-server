@@ -23,7 +23,6 @@ import { Request, Response } from 'express';
 import { ResponseMessage } from 'src/shared/decorators/response_message.decorator';
 import { CurrentUser } from 'src/shared/decorators/user.decorator';
 import { ResponseUtil } from '../../../utils/responses';
-import { AUTH_SUCCESS_MESSAGES } from '../constant/auth.constant';
 import {
     ChangePasswordDto,
     ForgotPasswordDto,
@@ -53,7 +52,7 @@ export class AuthController {
     default: { limit: 3, ttl: 60000 },
   })
   @Post('register')
-  @ResponseMessage(AUTH_SUCCESS_MESSAGES.register)
+  @ResponseMessage("User registered successfully")
   async register(@Body() dto: RegisterDto, res: Response) {
     const result = await this.authService.register(dto);
     return ResponseUtil.success(result, res);
