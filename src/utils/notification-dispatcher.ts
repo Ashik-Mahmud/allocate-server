@@ -201,6 +201,7 @@ export class NotificationDispatcher {
       //   to: payload.phoneNumber,
       //   message: payload.smsContent || payload.message,
       // });
+      await new Promise((resolve) => setTimeout(resolve, 100)); // Simulate async operation
 
       console.log(`[SMS Pending] Would send to user: ${payload.userId}`);
       return { sent: false, error: 'SMS service not yet implemented' };
@@ -228,6 +229,7 @@ export class NotificationDispatcher {
       //   body: payload.pushBody || payload.message,
       //   data: payload.metadata,
       // });
+      await new Promise((resolve) => setTimeout(resolve, 100)); // Simulate async operation
 
       console.log(`[Push Pending] Would send to user: ${payload.userId}`);
       return { sent: false, error: 'Push service not yet implemented' };

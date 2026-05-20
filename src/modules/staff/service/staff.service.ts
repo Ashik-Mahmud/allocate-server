@@ -42,7 +42,7 @@ export class StaffService {
     private emailService: EmailService,
     private sharedService: SharedService,
     private NotificationManager: NotificationManager,
-  ) {}
+  ) { }
 
   // Create a new staff member
   async createStaff(createStaffDto: CreateStaffDto, user: User, res: Response) {
@@ -157,8 +157,8 @@ export class StaffService {
     } catch (emailError) {
       console.error('Failed to send welcome email:', emailError);
     }
-
-    const { password: _, ...result } = staff; 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password: _, ...result } = staff;
     return result;
   }
 
@@ -178,11 +178,11 @@ export class StaffService {
       },
       ...(search
         ? {
-            OR: [
-              { name: { contains: search, mode: 'insensitive' } },
-              { email: { contains: search, mode: 'insensitive' } },
-            ],
-          }
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+          ],
+        }
         : {}),
       ...(email ? { email: { contains: email, mode: 'insensitive' } } : {}),
     };
@@ -862,13 +862,13 @@ export class StaffService {
       ...(type ? { type: type } : {}),
       ...(search
         ? {
-            OR: [
-              { description: { contains: search, mode: 'insensitive' } },
-              { referenceId: { contains: search, mode: 'insensitive' } },
-              { user: { name: { contains: search, mode: 'insensitive' } } },
-              { user: { email: { contains: search, mode: 'insensitive' } } },
-            ],
-          }
+          OR: [
+            { description: { contains: search, mode: 'insensitive' } },
+            { referenceId: { contains: search, mode: 'insensitive' } },
+            { user: { name: { contains: search, mode: 'insensitive' } } },
+            { user: { email: { contains: search, mode: 'insensitive' } } },
+          ],
+        }
         : {}),
     };
 

@@ -668,7 +668,7 @@ export class DashboardService {
         take: 4,
       }),
       //find the most used resource by the user in the organization
-      await this.prisma.resources.findMany({
+       this.prisma.resources.findMany({
         where: {
           org_id: orgId,
           deletedAt: null,

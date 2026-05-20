@@ -1,31 +1,31 @@
 import {
-  ForbiddenException,
-  Injectable,
-  InternalServerErrorException,
-  NotFoundException,
+    ForbiddenException,
+    Injectable,
+    InternalServerErrorException,
+    NotFoundException,
 } from '@nestjs/common';
 import {
-  BookingStatus,
-  NotificationType,
-  PlanType,
-  Prisma,
-  TransactionType,
-  User,
+    BookingStatus,
+    NotificationType,
+    PlanType,
+    Prisma,
+    TransactionType,
+    User,
 } from '@prisma/client';
-import { PrismaService } from 'src/modules/prisma/prisma.service';
-import {
-  CreateResourceDto,
-  UpdateResourceDto,
-  ListResourcesQueryDto,
-} from '../dto/resources.dto';
-import {
-  buildSubscriptionLimitMessage,
-  isSubscriptionLimitReached,
-  getSubscriptionLimits,
-} from 'src/shared/constant/subscription.constant';
-import { SharedService } from 'src/shared/services/shared.service';
 import { Response } from 'express';
 import { NotificationManager } from 'src/modules/inbox/service/notification-manager.service';
+import { PrismaService } from 'src/modules/prisma/prisma.service';
+import {
+    buildSubscriptionLimitMessage,
+    getSubscriptionLimits,
+    isSubscriptionLimitReached,
+} from 'src/shared/constant/subscription.constant';
+import { SharedService } from 'src/shared/services/shared.service';
+import {
+    CreateResourceDto,
+    ListResourcesQueryDto,
+    UpdateResourceDto,
+} from '../dto/resources.dto';
 
 @Injectable()
 export class ResourcesService {
@@ -784,8 +784,8 @@ export class ResourcesService {
         },
         totalPages: Math.ceil(total / query.limit),
       };
-    } catch (error) {
-      throw new InternalServerErrorException('Failed to fetch resources');
+    } catch (error: any) {
+      throw new InternalServerErrorException('Failed to fetch resources', error.message);
     }
   }
   // Service method to get a single resource by ID

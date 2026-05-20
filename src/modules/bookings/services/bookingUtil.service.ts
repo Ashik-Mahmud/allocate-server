@@ -1,20 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import {
-  Bookings,
-  BookingStatus,
-  NotificationType,
-  Prisma,
-  Role,
-  TransactionType,
-  User,
+    BookingStatus,
+    NotificationType,
+    Prisma,
+    Role,
+    TransactionType,
+    User
 } from '@prisma/client';
 import { NotificationManager } from 'src/modules/inbox/service/notification-manager.service';
-import { getBookingMessage } from '../constant/BookingMessages';
 import { SharedService } from 'src/shared/services/shared.service';
 import {
-  formatInTimezone,
-  resolveUserTimezone,
+    formatInTimezone,
+    resolveUserTimezone,
 } from 'src/shared/utils/timezone.util';
+import { getBookingMessage } from '../constant/BookingMessages';
 
 type BookingUtilServiceOthersOptions = {
   cancelReason?: string;
@@ -62,7 +61,7 @@ export class BookingUtilService {
   ) {}
 
   async handlePostBookingActions(
-    booking: Bookings | any,
+    booking: any,
     tx: Prisma.TransactionClient,
     currentUser: User,
     options?: BookingUtilServiceOthersOptions,
@@ -294,7 +293,7 @@ export class BookingUtilService {
 
   private resolveTemplate(
     template: string,
-    booking: Bookings | any,
+    booking:  any,
     currentUser: User,
     options?: BookingUtilServiceOthersOptions,
   ): string {
