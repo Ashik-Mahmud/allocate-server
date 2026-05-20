@@ -2,7 +2,7 @@ name: Allocate Backend CI/CD
 
 on:
   push:
-    branches: ['**']
+    branches: ["**"]
   pull_request:
     branches: [main]
 
@@ -27,6 +27,8 @@ jobs:
 
       - name: Generate Prisma Client
         run: pnpm prisma generate
+        env:
+          DATABASE_URL: "postgresql://postgres:Aa123456@localhost:5432/allocate_db"
 
       - name: Run Linter
         run: pnpm run lint
@@ -34,13 +36,17 @@ jobs:
       - name: Run Production Build Test
         run: pnpm run build
 
-
   continuous-deployment:
-    needs: continuous-integration 
+    needs: continuous-integration
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
 
     steps:
+      - name: Run Prisma Database Migration
+        run: pnpm prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
       - name: Trigger Render Automated Deployment
         run: |
           curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
