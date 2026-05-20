@@ -2,7 +2,7 @@ name: Allocate Backend CI/CD
 
 on:
   push:
-    branches: ['*']
+    branches: ['**']
   pull_request:
     branches: [main]
 
