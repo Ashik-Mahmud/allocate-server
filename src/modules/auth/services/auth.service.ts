@@ -1,5 +1,6 @@
 import {
     ConflictException,
+    HttpException,
     Injectable,
     InternalServerErrorException,
     NotFoundException,
@@ -359,8 +360,8 @@ export class AuthService {
 
       // Verify current password
       const isCurrentPasswordValid = await CryptoUtils.comparePassword(
-        dto.currentPassword,
-        user.password,
+        dto?.currentPassword,
+        user?.password,
       );
 
       if (!isCurrentPasswordValid) {
@@ -368,7 +369,7 @@ export class AuthService {
       }
 
       // Hash new password
-      const hashedNewPassword = await CryptoUtils.hashPassword(dto.newPassword);
+      const hashedNewPassword = await CryptoUtils.hashPassword(dto?.newPassword);
 
       // Update password
       await this.prisma.user.update({
@@ -377,6 +378,10 @@ export class AuthService {
       });
     } catch (error) {
       console.error('Error changing password:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
       throw new InternalServerErrorException('Failed to change password');
     }
   }
