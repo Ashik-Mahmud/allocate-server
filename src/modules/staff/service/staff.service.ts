@@ -405,6 +405,7 @@ export class StaffService {
     const deletedStaff = await this.prisma.user.update({
       where: { id, org_id: user.org_id },
       data: {
+        org_id: null,
         deletedAt: new Date(),
         email: `${staff.email}-deleted-${Date.now()}`, // To prevent email conflicts in the future
       },
