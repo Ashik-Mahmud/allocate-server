@@ -7,11 +7,10 @@ on:
     branches: [main]
 
 jobs:
-  build-and-deploy:
+  continuous-integration:
     runs-on: ubuntu-latest
 
     steps:
-  
       - name: Checkout Code
         uses: actions/checkout@v4
 
@@ -37,13 +36,13 @@ jobs:
       - name: Run Production Build Test
         run: pnpm run build
 
-      - name: Run Prisma Database Migration
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: pnpm run prisma:deploy 
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  continuous-deployment:
+    needs: continuous-integration
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
 
       - name: Trigger Render Automated Deployment
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
