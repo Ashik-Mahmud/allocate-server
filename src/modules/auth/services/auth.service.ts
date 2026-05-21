@@ -35,7 +35,7 @@ export class AuthService {
     private prisma: PrismaService,
     private emailService: EmailService,
     private sharedService: SharedService,
-  ) {}
+  ) { }
 
   async register(
     dto: RegisterDto,
@@ -122,7 +122,7 @@ export class AuthService {
           start_date: new Date(),
           end_date: new Date(
             Date.now() +
-              GLOBAL_CONFIG.FREE_PLAN_DURATION_DAYS * 24 * 60 * 60 * 1000,
+            GLOBAL_CONFIG.FREE_PLAN_DURATION_DAYS * 24 * 60 * 60 * 1000,
           ), // Free plan duration
           payment_status: PaymentStatus.COMPLETED,
         },
@@ -348,32 +348,37 @@ export class AuthService {
   }
   //change password
   async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
 
-    if (!user) {
-      throw new NotFoundException('User not found');
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      // Verify current password
+      const isCurrentPasswordValid = await CryptoUtils.comparePassword(
+        dto.currentPassword,
+        user.password,
+      );
+
+      if (!isCurrentPasswordValid) {
+        throw new UnauthorizedException('Current password is incorrect');
+      }
+
+      // Hash new password
+      const hashedNewPassword = await CryptoUtils.hashPassword(dto.newPassword);
+
+      // Update password
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { password: hashedNewPassword },
+      });
+    } catch (error) {
+      console.error('Error changing password:', error);
+      throw new InternalServerErrorException('Failed to change password');
     }
-
-    // Verify current password
-    const isCurrentPasswordValid = await CryptoUtils.comparePassword(
-      dto.currentPassword,
-      user.password,
-    );
-
-    if (!isCurrentPasswordValid) {
-      throw new UnauthorizedException('Current password is incorrect');
-    }
-
-    // Hash new password
-    const hashedNewPassword = await CryptoUtils.hashPassword(dto.newPassword);
-
-    // Update password
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { password: hashedNewPassword },
-    });
   }
 
   async getProfile(userId: string, role: Role) {
@@ -411,26 +416,26 @@ export class AuthService {
           role === Role.STAFF
             ? { select: selectOrgFieldsForStaff }
             : {
-                include: {
-                  subscription: true,
-                  // last payment transaction
-                  creditTransactions: {
-                    where: {
-                      type: TransactionType.TOP_UP,
-                    },
-                    orderBy: {
-                      createdAt: 'desc',
-                    },
-                    take: 1,
+              include: {
+                subscription: true,
+                // last payment transaction
+                creditTransactions: {
+                  where: {
+                    type: TransactionType.TOP_UP,
                   },
-                  _count: {
-                    select: {
-                      resources: true,
-                      users: true,
-                    },
+                  orderBy: {
+                    createdAt: 'desc',
+                  },
+                  take: 1,
+                },
+                _count: {
+                  select: {
+                    resources: true,
+                    users: true,
                   },
                 },
               },
+            },
         is_verified: true,
       },
     });
@@ -540,7 +545,7 @@ export class AuthService {
       const verificationToken = uuidv4();
       const expiryDate = new Date(
         Date.now() +
-          GLOBAL_CONFIG.VERIFICATION_TOKEN_EXPIRY_MINUTES * 60 * 1000,
+        GLOBAL_CONFIG.VERIFICATION_TOKEN_EXPIRY_MINUTES * 60 * 1000,
       );
 
       // Update user with verification token
