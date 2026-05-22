@@ -682,12 +682,17 @@ export class PaymentsService {
             where: {
               role: Role.ORG_ADMIN,
             },
-            select: { email: true, id: true, name: true },
+            select: { email: true, id: true, name: true, is_verified: true },
           },
         },
       });
 
+
       if (!organization) throw new NotFoundException('Organization not found');
+      if (organization.users?.[0]?.is_verified === false) {
+        throw new BadRequestException('Please verify your email to activate trial');
+      }
+      
       if (!organization.isTrialAllowed)
         throw new BadRequestException('Trial activation is not allowed');
       if (organization.hasUsedTrial)
